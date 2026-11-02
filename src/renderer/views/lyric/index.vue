@@ -50,6 +50,15 @@
         <!-- <div class="control-button" @click="handleTop">
           <i class="ri-pushpin-line" :class="{ active: lyricSetting.isTop }"></i>
         </div> -->
+        <!-- 罗马音开关按钮（仅当歌词有罗马音时显示） -->
+        <div
+          v-if="hasRomanization"
+          class="control-button"
+          :title="showRomanization ? '隐藏罗马音' : '显示罗马音'"
+          @click="lyricSetting.showRomanization = !lyricSetting.showRomanization"
+        >
+          <span class="text-xs font-bold leading-none" :class="{ active: showRomanization }">A</span>
+        </div>
         <!-- 翻译开关按钮（仅当歌词有翻译时显示） -->
         <div
           v-if="hasTranslation"
@@ -133,6 +142,14 @@
                   {{ line.text || '' }}
                 </span>
               </div>
+              <!-- ★ 罗马音行：加入 showRomanization 控制 -->
+              <div
+                v-if="showRomanization && line.romaText"
+                class="lyric-translation italic opacity-85"
+                :style="{ fontSize: `${fontSize * 0.58}px` }"
+              >
+                {{ line.romaText }}
+              </div>
               <!-- ★ 翻译行：加入 showTranslation 控制 -->
               <div
                 v-if="showTranslation && line.trText"
@@ -174,6 +191,13 @@
               </span>
             </div>
             <div
+              v-if="showRomanization && staticData.lrcArray[currentIndex]?.romaText"
+              class="lyric-translation italic opacity-85"
+              :style="{ fontSize: `${fontSize * 0.58}px` }"
+            >
+              {{ staticData.lrcArray[currentIndex]?.romaText }}
+            </div>
+            <div
               v-if="showTranslation && staticData.lrcArray[currentIndex]?.trText"
               class="lyric-translation"
               :style="{ fontSize: `${fontSize * 0.6}px` }"
@@ -209,6 +233,13 @@
               <span v-else class="lyric-text-inner" :style="getLyricStyle(line.index)">
                 {{ line.text || '' }}
               </span>
+            </div>
+            <div
+              v-if="showRomanization && line.romaText"
+              class="lyric-translation italic opacity-85"
+              :style="{ fontSize: `${fontSize * 0.58}px` }"
+            >
+              {{ line.romaText }}
             </div>
             <div
               v-if="showTranslation && line.trText"
@@ -256,6 +287,7 @@ const staticData = ref<{
   lrcArray: Array<{
     text: string;
     trText: string;
+    romaText?: string;
     words?: Array<{ text: string; startTime: number; duration: number; space?: boolean }>;
     hasWordByWord?: boolean;
     startTime?: number;
@@ -274,6 +306,7 @@ const staticData = ref<{
 // 动态数据
 const dynamicData = ref({
   nowTime: 0,
+  correctionTime: 0,
   startCurrentTime: 0,
   nextTime: 0,
   isPlay: true
@@ -300,6 +333,7 @@ const loadLyricSettings = () => {
         isLock: parsed.isLock ?? false,
         highlightColor: validatedHighlightColor,
         showTranslation: parsed.showTranslation ?? true,
+        showRomanization: parsed.showRomanization ?? true,
         displayMode: (['scroll', 'single', 'double'].includes(parsed.displayMode)
           ? parsed.displayMode
           : 'scroll') as 'scroll' | 'single' | 'double'
@@ -316,14 +350,16 @@ const loadLyricSettings = () => {
     isLock: false,
     highlightColor: undefined as string | undefined,
     showTranslation: true,
+    showRomanization: true,
     displayMode: 'scroll' as 'scroll' | 'single' | 'double'
   };
 };
 
 const lyricSetting = ref(loadLyricSettings());
 
-// 是否有翻译（控制翻译按钮是否显示）
+// 是否有翻译/罗马音（控制按钮是否显示）
 const hasTranslation = computed(() => staticData.value.lrcArray.some((line) => line.trText));
+const hasRomanization = computed(() => staticData.value.lrcArray.some((line) => line.romaText));
 
 // 双行模式：当前组索引（每 2 行为一组）
 const currentGroupIndex = computed(() => Math.floor(currentIndex.value / 2));
@@ -340,9 +376,10 @@ const currentGroupLines = computed(() => {
 // 双行模式过渡动画状态
 const isGroupTransitioning = ref(false);
 
-// displayMode 和 showTranslation 的快捷 computed，template 中更简洁
+// displayMode 和 showTranslation / showRomanization 的快捷 computed，template 中更简洁
 const displayMode = computed(() => lyricSetting.value.displayMode);
 const showTranslation = computed(() => lyricSetting.value.showTranslation);
+const showRomanization = computed(() => lyricSetting.value.showRomanization);
 
 let hideControlsTimer: number | null = null;
 let removeMousePresenceListener: (() => void) | null = null;
@@ -506,14 +543,15 @@ const wrapperStyle = computed(() => {
   const containerCenter = containerHeight.value / 2;
 
   // 计算每行的实际高度
-  const getLineHeight = (line: { text: string; trText: string }) => {
-    const baseHeight = lineHeight.value;
-    if (showTranslation.value && line.trText) {
-      // 新增 showTranslation.value 判断
-      const extraHeight = Math.round(fontSize.value * 0.6 * 1.4);
-      return baseHeight + extraHeight;
+  const getLineHeight = (line: { text: string; trText: string; romaText?: string }) => {
+    let totalHeight = lineHeight.value;
+    if (showRomanization.value && line.romaText) {
+      totalHeight += Math.round(fontSize.value * 0.58 * 1.4);
     }
-    return baseHeight;
+    if (showTranslation.value && line.trText) {
+      totalHeight += Math.round(fontSize.value * 0.6 * 1.4);
+    }
+    return totalHeight;
   };
 
   // 计算当前行之前所有行的累积高度
@@ -555,14 +593,19 @@ const wrapperStyle = computed(() => {
   };
 });
 
-// 新增：根据是否有翻译文本动态计算每行的样式
-const getDynamicLineStyle = (line: { text: string; trText: string }, withTranslation = true) => {
-  const defaultHeight = lineHeight.value;
-  if (withTranslation && line.trText) {
-    const extraHeight = Math.round(fontSize.value * 0.6 * 1.4);
-    return { height: `${defaultHeight + extraHeight}px` };
+// 新增：根据是否有翻译/罗马音文本动态计算每行的样式
+const getDynamicLineStyle = (
+  line: { text: string; trText: string; romaText?: string },
+  withTranslation = true
+) => {
+  let totalHeight = lineHeight.value;
+  if (showRomanization.value && line.romaText) {
+    totalHeight += Math.round(fontSize.value * 0.58 * 1.4);
   }
-  return { height: `${defaultHeight}px` };
+  if (withTranslation && line.trText) {
+    totalHeight += Math.round(fontSize.value * 0.6 * 1.4);
+  }
+  return { height: `${totalHeight}px` };
 };
 
 // 更新容器高度和行高
@@ -732,9 +775,13 @@ const updateProgress = () => {
     return;
   }
 
-  // 计算实际时间，添加偏移量
+  // 计算实际时间，添加偏移量与手动校准时间
   const timeDiff = (performance.now() - lastUpdateTime.value) / 1000;
-  actualTime.value = dynamicData.value.nowTime + timeDiff + TIME_OFFSET / 1000;
+  actualTime.value =
+    dynamicData.value.nowTime +
+    (dynamicData.value.correctionTime || 0) +
+    timeDiff +
+    TIME_OFFSET / 1000;
 
   // 继续动画
   animationFrameId.value = requestAnimationFrame(updateProgress);
@@ -749,8 +796,9 @@ watch(
     // 更新最后更新时间
     lastUpdateTime.value = performance.now();
 
-    // 更新实际时间，包含偏移量
-    actualTime.value = newData.nowTime + TIME_OFFSET / 1000;
+    // 更新实际时间，包含偏移量与手动校准时间
+    actualTime.value =
+      newData.nowTime + (newData.correctionTime || 0) + TIME_OFFSET / 1000;
 
     // 如果正在播放且没有动画，启动动画
     if (newData.isPlay && !animationFrameId.value) {
@@ -778,11 +826,12 @@ watch(
 const handleDataUpdate = (parsedData: {
   type?: string;
   nowTime: number;
+  correctionTime?: number;
   startCurrentTime: number;
   nextTime: number;
   isPlay: boolean;
   nowIndex: number;
-  lrcArray?: Array<{ text: string; trText: string }>;
+  lrcArray?: Array<{ text: string; trText: string; romaText?: string }>;
   lrcTimeArray?: number[];
   allTime?: number;
   playMusic?: SongResult;
@@ -799,6 +848,10 @@ const handleDataUpdate = (parsedData: {
     dynamicData.value = {
       ...dynamicData.value,
       nowTime: parsedData.nowTime || dynamicData.value.nowTime,
+      correctionTime:
+        typeof parsedData.correctionTime === 'number'
+          ? parsedData.correctionTime
+          : dynamicData.value.correctionTime,
       isPlay: typeof parsedData.isPlay === 'boolean' ? parsedData.isPlay : dynamicData.value.isPlay
     };
 
@@ -821,6 +874,7 @@ const handleDataUpdate = (parsedData: {
   // 更新动态数据
   dynamicData.value = {
     nowTime: parsedData.nowTime || 0,
+    correctionTime: parsedData.correctionTime || 0,
     startCurrentTime: parsedData.startCurrentTime || 0,
     nextTime: parsedData.nextTime || 0,
     isPlay: parsedData.isPlay

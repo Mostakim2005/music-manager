@@ -9,7 +9,18 @@ import { playbackRequestManager } from '@/services/playbackRequestManager';
 import { useSettingsStore } from '@/store';
 import type { ILyric, ILyricText, IWordData, SongResult } from '@/types/music';
 import { isElectron } from '@/utils';
+import {
+  cacheLyric,
+  cacheTrackDetail,
+  cacheTrackSource,
+  getAudioSourceBlobURL,
+  getLyricFromCache,
+  getTrackSource
+} from '@/utils/db';
+import { alignSubLyrics, copyLyric, lyricParser, parseLyric } from '@/utils/lyrics';
 import { parseLyrics as parseYrcLyrics } from '@/utils/yrcParser';
+
+export { copyLyric, lyricParser, parseLyric };
 
 const { message } = createDiscreteApi(['message']);
 
@@ -108,6 +119,14 @@ export const getSongUrl = async (
   try {
     ensureRequestValid();
 
+    // 1. Check Dexie IndexedDB audio blob cache for instant sub-ms local playback
+    if (!isDownloaded && numericId) {
+      const cachedBlobRecord = await getTrackSource(numericId);
+      if (cachedBlobRecord?.source?.byteLength) {
+        return getAudioSourceBlobURL(cachedBlobRecord.source);
+      }
+    }
+
     if (songData.playMusicUrl) {
       if (isDownloaded) return songData.playMusicUrl;
       return await resolveCachedPlaybackUrl(songData.playMusicUrl, songData);
@@ -129,7 +148,17 @@ export const getSongUrl = async (
     if (isDownloaded) {
       return { url: result.media.url, type: result.media.format, br: result.media.br } as any;
     }
-    return await resolveCachedPlaybackUrl(result.media.url, songData);
+    const finalUrl = await resolveCachedPlaybackUrl(result.media.url, songData);
+    if (finalUrl && /^https?:\/\//i.test(finalUrl)) {
+      void cacheTrackSource(
+        songData,
+        finalUrl,
+        result.media.br || 320000,
+        result.providerName || 'netease'
+      );
+    }
+    cacheTrackDetail(songData);
+    return finalUrl;
   } catch (error) {
     if ((error as Error).message === 'Request cancelled') {
       throw error;
@@ -207,8 +236,16 @@ export const loadLrc = async (id: string | number): Promise<ILyric> => {
     }
 
     if (!lyricData) {
+      lyricData = await getLyricFromCache(numericId);
+    }
+
+    if (!lyricData) {
       const { data } = await getMusicLrc(numericId);
       lyricData = data;
+
+      if (lyricData) {
+        cacheLyric(numericId, lyricData);
+      }
 
       if (isElectron && lyricData) {
         void window.electron.ipcRenderer
@@ -218,7 +255,23 @@ export const loadLrc = async (id: string | number): Promise<ILyric> => {
     }
 
     const data = lyricData ?? {};
+    const parsedFromYesPlay = lyricParser(data);
     const { lyrics, times } = parseLyrics(data?.yrc?.lyric || data?.lrc?.lyric);
+
+    // Fallback to YesPlayMusic parseLyric if yrcParser returned empty on multi-timestamp lines
+    if (lyrics.length === 0 && parsedFromYesPlay.lyric.length > 0) {
+      for (const item of parsedFromYesPlay.lyric) {
+        lyrics.push({
+          text: item.content,
+          trText: '',
+          romaText: '',
+          hasWordByWord: false,
+          startTime: Math.round(item.time * 1000),
+          duration: 0
+        });
+        times.push(item.time);
+      }
+    }
 
     // 检查是否有逐字歌词
     let hasWordByWord = false;
@@ -229,52 +282,47 @@ export const loadLrc = async (id: string | number): Promise<ILyric> => {
       }
     }
 
-    if (data.tlyric && data.tlyric.lyric) {
-      const { lyrics: tLyrics } = parseLyrics(data.tlyric.lyric);
+    const primaryTexts = lyrics.map((item) => item.text);
 
-      // 按索引顺序一一对应翻译歌词
-      if (tLyrics.length === lyrics.length) {
-        // 数量相同，直接按索引对应
-        lyrics.forEach((item, index) => {
-          item.trText = item.text && tLyrics[index] ? tLyrics[index].text : '';
-        });
-      } else {
-        // 数量不同，构建时间戳映射并尝试匹配
-        const tLyricMap = new Map<number, string>();
-        tLyrics.forEach((lyric) => {
-          if (lyric.text && lyric.startTime !== undefined) {
-            const timeInSeconds = lyric.startTime / 1000;
-            tLyricMap.set(timeInSeconds, lyric.text);
-          }
-        });
-
-        // 为每句歌词查找最接近的翻译
-        lyrics.forEach((item, index) => {
-          if (!item.text) {
-            item.trText = '';
-            return;
-          }
-
-          const currentTime = times[index];
-          let closestTime = -1;
-          let minDiff = 2.0; // 最大允许差异2秒
-
-          // 查找最接近的时间戳
-          for (const [tTime] of tLyricMap.entries()) {
-            const diff = Math.abs(tTime - currentTime);
-            if (diff < minDiff) {
-              minDiff = diff;
-              closestTime = tTime;
-            }
-          }
-
-          item.trText = closestTime !== -1 ? tLyricMap.get(closestTime) || '' : '';
-        });
-      }
+    // 1. Align translated lyrics (tlyric / ytlrc)
+    const rawTlyricStr = data?.tlyric?.lyric || data?.ytlrc?.lyric || '';
+    if (rawTlyricStr) {
+      const { lyrics: yrcTLyrics } = parseLyrics(rawTlyricStr);
+      const tSubList =
+        parsedFromYesPlay.tlyric.length > 0
+          ? parsedFromYesPlay.tlyric
+          : yrcTLyrics.map((l) => ({
+              time: (l.startTime ?? 0) / 1000,
+              content: l.text
+            }));
+      const alignedTr = alignSubLyrics(times, primaryTexts, tSubList);
+      lyrics.forEach((item, index) => {
+        item.trText = alignedTr[index] || '';
+      });
     } else {
-      // 没有翻译歌词，清空 trText
       lyrics.forEach((item) => {
         item.trText = '';
+      });
+    }
+
+    // 2. Align Romanized lyrics (romalrc / yromalrc) for non-Latin phonetic subtitles
+    const rawRomaStr = data?.romalrc?.lyric || data?.yromalrc?.lyric || '';
+    if (rawRomaStr) {
+      const { lyrics: yrcRomaLyrics } = parseLyrics(rawRomaStr);
+      const romaSubList =
+        parsedFromYesPlay.romalyric.length > 0
+          ? parsedFromYesPlay.romalyric
+          : yrcRomaLyrics.map((l) => ({
+              time: (l.startTime ?? 0) / 1000,
+              content: l.text
+            }));
+      const alignedRoma = alignSubLyrics(times, primaryTexts, romaSubList);
+      lyrics.forEach((item, index) => {
+        item.romaText = alignedRoma[index] || '';
+      });
+    } else {
+      lyrics.forEach((item) => {
+        item.romaText = '';
       });
     }
 

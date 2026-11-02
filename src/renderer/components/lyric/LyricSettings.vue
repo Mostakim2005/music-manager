@@ -57,6 +57,10 @@
           <input type="checkbox" v-model="config.showTranslation" class="toggle-switch" />
         </div>
         <div class="setting-item">
+          <span>显示罗马音 / 音译 (Romanization)</span>
+          <input type="checkbox" v-model="config.showRomanization" class="toggle-switch" />
+        </div>
+        <div class="setting-item">
           <span>{{ t('settings.lyricSettings.hideLyrics') }}</span>
           <input type="checkbox" v-model="config.hideLyrics" class="toggle-switch" />
         </div>

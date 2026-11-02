@@ -2,6 +2,9 @@ import type { AudioOutputDevice } from '@/types/audio';
 import type { SongResult } from '@/types/music';
 import { getImgUrl, isElectron } from '@/utils';
 
+/** Smooth play/pause volume fade duration in milliseconds (ported from YesPlayMusic Player.js) */
+export const PLAY_PAUSE_FADE_DURATION = 200;
+
 class AudioService {
   private audio: HTMLAudioElement;
   private currentTrack: SongResult | null = null;
@@ -10,12 +13,22 @@ class AudioService {
   private sourceNode: MediaElementAudioSourceNode | null = null;
   private filters: BiquadFilterNode[] = [];
   private gainNode: GainNode | null = null;
+  private analyserNode: AnalyserNode | null = null;
   private bypass = false;
 
   private playbackRate = 1.0;
   private volume = 1;
   private currentSinkId: string = 'default';
   private _isLoading = false;
+
+  // Smooth fade & Smart Transitions state
+  private fadeTimer: ReturnType<typeof setTimeout> | null = null;
+  private fadeInterval: ReturnType<typeof setInterval> | null = null;
+  private crossfadeEnabled = true;
+  private crossfadeDuration = 3; // seconds (1-10s)
+  private skipSilenceEnabled = false;
+  private replayGainEnabled = true;
+  private crossfadeActive = false;
 
   private operationLock = false;
   private operationLockTimer: ReturnType<typeof setTimeout> | null = null;
@@ -63,6 +76,21 @@ class AudioService {
     const volume = Number(localStorage.getItem('volume') ?? 1);
     this.volume = Number.isFinite(volume) ? Math.max(0, Math.min(1, volume)) : 1;
 
+    try {
+      const cfEnabled = localStorage.getItem('smartCrossfadeEnabled');
+      if (cfEnabled !== null) this.crossfadeEnabled = JSON.parse(cfEnabled) === true;
+      const cfDuration = Number(localStorage.getItem('smartCrossfadeDuration'));
+      if (Number.isFinite(cfDuration) && cfDuration >= 1 && cfDuration <= 10) {
+        this.crossfadeDuration = cfDuration;
+      }
+      const skipSil = localStorage.getItem('skipSilenceEnabled');
+      if (skipSil !== null) this.skipSilenceEnabled = JSON.parse(skipSil) === true;
+      const rgEnabled = localStorage.getItem('replayGainEnabled');
+      if (rgEnabled !== null) this.replayGainEnabled = JSON.parse(rgEnabled) === true;
+    } catch {
+      // ignore storage errors in test/restricted environments
+    }
+
     this.forceResetOperationLock();
     window.addEventListener('beforeunload', () => this.forceResetOperationLock());
   }
@@ -94,7 +122,7 @@ class AudioService {
     });
 
     this.audio.addEventListener('timeupdate', () => {
-      // Consumers can listen to this if needed; mainly for MediaSession sync
+      this.handleSmartTransitionTick();
     });
 
     this.audio.addEventListener('waiting', () => {
@@ -258,6 +286,9 @@ class AudioService {
       this.context = new AudioContext();
       this.sourceNode = this.context.createMediaElementSource(this.audio);
       this.gainNode = this.context.createGain();
+      this.analyserNode = this.context.createAnalyser();
+      this.analyserNode.fftSize = 128;
+      this.analyserNode.smoothingTimeConstant = 0.8;
 
       // Create 10-band filter chain
       const savedSettings = this.loadEQSettings();
@@ -313,13 +344,27 @@ class AudioService {
       } catch {
         /* already disconnected */
       }
+      try {
+        this.analyserNode?.disconnect();
+      } catch {
+        /* already disconnected */
+      }
+
+      const connectGainToDestination = () => {
+        if (this.analyserNode && this.context) {
+          this.gainNode!.connect(this.analyserNode);
+          this.analyserNode.connect(this.context.destination);
+        } else if (this.context) {
+          this.gainNode!.connect(this.context.destination);
+        }
+      };
 
       if (this.bypass) {
-        // EQ disabled: source -> gain -> destination
+        // EQ disabled: source -> gain -> analyser -> destination
         this.sourceNode.connect(this.gainNode);
-        this.gainNode.connect(this.context.destination);
+        connectGainToDestination();
       } else {
-        // EQ enabled: source -> filters[0] -> ... -> filters[9] -> gain -> destination
+        // EQ enabled: source -> filters[0] -> ... -> filters[9] -> gain -> analyser -> destination
         this.sourceNode.connect(this.filters[0]);
         this.filters.forEach((filter, index) => {
           if (index < this.filters.length - 1) {
@@ -327,7 +372,7 @@ class AudioService {
           }
         });
         this.filters[this.filters.length - 1].connect(this.gainNode);
-        this.gainNode.connect(this.context.destination);
+        connectGainToDestination();
       }
     } catch (error) {
       console.error('Error applying EQ state, attempting fallback:', error);
@@ -493,7 +538,8 @@ class AudioService {
         removeListeners();
         try {
           this._isLoading = false;
-          this.applyVolume(this.volume);
+          this.cancelFadeTimer();
+          this.crossfadeActive = false;
           this.audio.playbackRate = this.playbackRate;
           if (seekTime !== undefined) {
             this.seek(seekTime);
@@ -503,8 +549,13 @@ class AudioService {
             await this.context.resume();
           }
           if (settled) return;
-          if (isPlay) await this.audio.play();
-          else this.audio.pause();
+          if (isPlay) {
+            await this.audio.play();
+            this.fadeInVolume(PLAY_PAUSE_FADE_DURATION);
+          } else {
+            this.applyVolume(this.volume);
+            this.audio.pause();
+          }
           if (settled) return;
 
           settled = true;
@@ -582,18 +633,134 @@ class AudioService {
     });
   }
 
-  public pause() {
+  private cancelFadeTimer() {
+    if (this.fadeTimer) {
+      clearTimeout(this.fadeTimer);
+      this.fadeTimer = null;
+    }
+    if (this.fadeInterval) {
+      clearInterval(this.fadeInterval);
+      this.fadeInterval = null;
+    }
+  }
+
+  /**
+   * Compute effective target volume including ReplayGain loudness normalization if enabled.
+   */
+  private getEffectiveVolume(baseVolume: number = this.volume): number {
+    const clamped = Math.max(0, Math.min(1, baseVolume));
+    if (!this.replayGainEnabled || !this.currentTrack) {
+      return clamped;
+    }
+    const rawGain =
+      (this.currentTrack as any)?.gain ??
+      (this.currentTrack as any)?.song?.bMusic?.volumeDelta ??
+      0;
+    const gainDb = Number(rawGain);
+    if (!Number.isFinite(gainDb) || gainDb === 0) {
+      return clamped;
+    }
+    // Convert dB to linear multiplier clamped to [0.35, 1.5]
+    const multiplier = Math.max(0.35, Math.min(1.5, Math.pow(10, gainDb / 20)));
+    return Math.max(0, Math.min(1, clamped * multiplier));
+  }
+
+  /**
+   * Smoothly ramp volume from 0 to target volume over durationMs (default PLAY_PAUSE_FADE_DURATION = 200ms).
+   */
+  public fadeInVolume(durationMs: number = PLAY_PAUSE_FADE_DURATION) {
+    this.cancelFadeTimer();
+    const targetVolume = this.getEffectiveVolume(this.volume);
+    if (durationMs <= 0 || targetVolume <= 0) {
+      this.applyVolume(this.volume);
+      return;
+    }
+
+    if (this.gainNode && this.context) {
+      const now = this.context.currentTime;
+      this.gainNode.gain.cancelScheduledValues(now);
+      this.gainNode.gain.setValueAtTime(0, now);
+      this.gainNode.gain.linearRampToValueAtTime(targetVolume, now + durationMs / 1000);
+    } else if (typeof this.audio.volume === 'number') {
+      const steps = 10;
+      const stepTime = Math.max(10, Math.floor(durationMs / steps));
+      let currentStep = 0;
+      this.audio.volume = 0;
+      this.fadeInterval = setInterval(() => {
+        currentStep++;
+        if (currentStep >= steps) {
+          this.audio.volume = targetVolume;
+          this.cancelFadeTimer();
+        } else {
+          this.audio.volume = targetVolume * (currentStep / steps);
+        }
+      }, stepTime);
+    }
+  }
+
+  /**
+   * Pause playback with a smooth 200ms linear gain ramp-down to eliminate abrupt audio cuts and pops.
+   */
+  public pause(withFade: boolean = true) {
     this.pendingLoadCleanup?.();
     this.forceResetOperationLock();
     this._isLoading = false;
+    this.cancelFadeTimer();
+
     try {
-      this.audio.pause();
+      // If audio is already paused, ended, or immediate pause is requested, pause right away
+      if (!withFade || this.audio.paused || this.audio.ended) {
+        this.audio.pause();
+        return;
+      }
+
+      const durationMs = PLAY_PAUSE_FADE_DURATION;
+      if (this.gainNode && this.context) {
+        const now = this.context.currentTime;
+        const currentGain = this.gainNode.gain.value;
+        this.gainNode.gain.cancelScheduledValues(now);
+        this.gainNode.gain.setValueAtTime(currentGain, now);
+        this.gainNode.gain.linearRampToValueAtTime(0, now + durationMs / 1000);
+      } else if (typeof this.audio.volume === 'number') {
+        const startVol = this.audio.volume;
+        const steps = 10;
+        const stepTime = Math.max(10, Math.floor(durationMs / steps));
+        let currentStep = 0;
+        this.fadeInterval = setInterval(() => {
+          currentStep++;
+          if (currentStep >= steps) {
+            this.audio.volume = 0;
+            if (this.fadeInterval) {
+              clearInterval(this.fadeInterval);
+              this.fadeInterval = null;
+            }
+          } else {
+            this.audio.volume = Math.max(0, startVol * (1 - currentStep / steps));
+          }
+        }, stepTime);
+      }
+
+      this.fadeTimer = setTimeout(() => {
+        this.fadeTimer = null;
+        if (this.fadeInterval) {
+          clearInterval(this.fadeInterval);
+          this.fadeInterval = null;
+        }
+        try {
+          this.audio.pause();
+          this.applyVolume(this.volume);
+        } catch (err) {
+          console.error('暂停音频失败:', err);
+        }
+      }, durationMs);
     } catch (error) {
       console.error('暂停音频失败:', error);
     }
   }
 
   public stop() {
+    this.cancelFadeTimer();
+    this.crossfadeActive = false;
     this.forceResetOperationLock();
     // 移除尚未结算的加载监听器，避免 stop 后旧的 canplay/error 仍触发过期回调
     if (this.pendingLoadCleanup) {
@@ -639,13 +806,14 @@ class AudioService {
     if (!Number.isFinite(volume)) return;
     const normalizedVolume = Math.max(0, Math.min(1, volume));
     this.volume = normalizedVolume;
+    const effectiveVolume = this.getEffectiveVolume(normalizedVolume);
 
     if (this.gainNode && this.context) {
       this.gainNode.gain.cancelScheduledValues(this.context.currentTime);
-      this.gainNode.gain.setValueAtTime(normalizedVolume, this.context.currentTime);
+      this.gainNode.gain.setValueAtTime(effectiveVolume, this.context.currentTime);
     } else {
       // Fallback: direct volume (no Web Audio context)
-      this.audio.volume = normalizedVolume;
+      this.audio.volume = effectiveVolume;
     }
 
     try {
@@ -653,6 +821,150 @@ class AudioService {
     } catch (error) {
       console.warn('保存音量失败:', error);
     }
+  }
+
+  // ==================== Smart Transitions & Waveform Analyser ====================
+
+  private handleSmartTransitionTick() {
+    if (this.audio.paused || !Number.isFinite(this.audio.duration) || this.audio.duration <= 0) {
+      return;
+    }
+
+    const currentTime = this.audio.currentTime;
+    const duration = this.audio.duration;
+    const remaining = duration - currentTime;
+
+    // 1. Equal-Power Crossfade envelope at track end
+    if (
+      this.crossfadeEnabled &&
+      this.crossfadeDuration > 0 &&
+      duration > this.crossfadeDuration * 2 &&
+      remaining <= this.crossfadeDuration &&
+      remaining > 0.05
+    ) {
+      const progress = Math.min(1, Math.max(0, (this.crossfadeDuration - remaining) / this.crossfadeDuration));
+      // Equal-power cosine fade-out curve: cos(progress * pi / 2)
+      const equalPowerGain = Math.cos(progress * 0.5 * Math.PI) * this.getEffectiveVolume(this.volume);
+      if (this.gainNode && this.context) {
+        this.gainNode.gain.setValueAtTime(equalPowerGain, this.context.currentTime);
+      } else if (typeof this.audio.volume === 'number') {
+        this.audio.volume = Math.max(0, Math.min(1, equalPowerGain));
+      }
+      this.crossfadeActive = true;
+    } else if (this.crossfadeActive && remaining > this.crossfadeDuration) {
+      this.crossfadeActive = false;
+      this.applyVolume(this.volume);
+    }
+
+    // 2. Skip Silence (< -50 dBFS in intro/outro)
+    if (this.skipSilenceEnabled && this.analyserNode) {
+      const db = this.getRmsDb();
+      if (db < -50) {
+        if (currentTime > 0.3 && currentTime < 4.0) {
+          this.seek(Math.min(duration - 1, currentTime + 0.5));
+        } else if (duration > 15 && remaining < 5.0 && remaining > 0.4) {
+          this.seek(duration - 0.1);
+        }
+      }
+    }
+  }
+
+  public getRmsDb(): number {
+    if (!this.analyserNode) return 0;
+    const buffer = new Uint8Array(this.analyserNode.fftSize);
+    this.analyserNode.getByteTimeDomainData(buffer);
+    let sumSquares = 0;
+    for (let i = 0; i < buffer.length; i++) {
+      const normalized = (buffer[i] - 128) / 128;
+      sumSquares += normalized * normalized;
+    }
+    const rms = Math.sqrt(sumSquares / buffer.length);
+    if (rms <= 0.00001) return -100;
+    return 20 * Math.log10(rms);
+  }
+
+  public getFrequencyData(): Uint8Array {
+    if (!this.analyserNode) return new Uint8Array(0);
+    const data = new Uint8Array(this.analyserNode.frequencyBinCount);
+    this.analyserNode.getByteFrequencyData(data);
+    return data;
+  }
+
+  public setSmartCrossfade(enabled: boolean, durationSec?: number) {
+    this.crossfadeEnabled = enabled;
+    if (typeof durationSec === 'number' && durationSec >= 1 && durationSec <= 10) {
+      this.crossfadeDuration = durationSec;
+    }
+    try {
+      localStorage.setItem('smartCrossfadeEnabled', JSON.stringify(this.crossfadeEnabled));
+      localStorage.setItem('smartCrossfadeDuration', String(this.crossfadeDuration));
+    } catch {
+      // ignore
+    }
+  }
+
+  public getSmartCrossfade(): { enabled: boolean; duration: number } {
+    return { enabled: this.crossfadeEnabled, duration: this.crossfadeDuration };
+  }
+
+  public setSkipSilence(enabled: boolean) {
+    this.skipSilenceEnabled = enabled;
+    try {
+      localStorage.setItem('skipSilenceEnabled', JSON.stringify(enabled));
+    } catch {
+      // ignore
+    }
+  }
+
+  public isSkipSilenceEnabled(): boolean {
+    return this.skipSilenceEnabled;
+  }
+
+  public setReplayGainEnabled(enabled: boolean) {
+    this.replayGainEnabled = enabled;
+    this.applyVolume(this.volume);
+    try {
+      localStorage.setItem('replayGainEnabled', JSON.stringify(enabled));
+    } catch {
+      // ignore
+    }
+  }
+
+  public isReplayGainEnabled(): boolean {
+    return this.replayGainEnabled;
+  }
+
+  public getSmartTransitionConfig() {
+    return {
+      crossfadeEnabled: this.crossfadeEnabled,
+      crossfadeDuration: this.crossfadeDuration,
+      skipSilenceEnabled: this.skipSilenceEnabled,
+      replayGainEnabled: this.replayGainEnabled
+    };
+  }
+
+  public setSmartTransitionConfig(config: {
+    crossfadeEnabled?: boolean;
+    crossfadeDuration?: number;
+    skipSilenceEnabled?: boolean;
+    replayGainEnabled?: boolean;
+  }) {
+    if (typeof config.crossfadeEnabled === 'boolean') {
+      this.setSmartCrossfade(config.crossfadeEnabled, config.crossfadeDuration);
+    } else if (typeof config.crossfadeDuration === 'number') {
+      this.setSmartCrossfade(this.crossfadeEnabled, config.crossfadeDuration);
+    }
+    if (typeof config.skipSilenceEnabled === 'boolean') {
+      this.setSkipSilence(config.skipSilenceEnabled);
+    }
+    if (typeof config.replayGainEnabled === 'boolean') {
+      this.setReplayGainEnabled(config.replayGainEnabled);
+    }
+    return this.getSmartTransitionConfig();
+  }
+
+  public getCurrentTime(): number {
+    return this.audio?.currentTime || 0;
   }
 
   public setPlaybackRate(rate: number) {

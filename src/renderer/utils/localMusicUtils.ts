@@ -107,6 +107,33 @@ export function parseLrcToILyric(lrcString: string | null): ILyric | null {
 }
 
 /**
+ * 多艺术家与流派分隔符解析（Namida 风格）
+ * 支持 feat., ft., &, ;, ,, /, 空字符(\x00) 等多种分隔符拆分并去重
+ * @param raw 原始艺术家或流派字符串
+ * @returns 拆分后的独立名称列表
+ */
+export function parseMultiArtists(raw: string | null | undefined): string[] {
+  if (!raw || typeof raw !== 'string') return ['未知艺术家'];
+  const parts = raw
+    .split(/\s*(?:feat\.?|ft\.?|&|;|,|\/|\x00)\s*/i)
+    .map((item) => item.trim())
+    .filter(Boolean);
+  return parts.length > 0 ? Array.from(new Set(parts)) : [raw.trim() || '未知艺术家'];
+}
+
+export function parseMultiGenres(raw: string | null | undefined): string[] {
+  if (!raw || typeof raw !== 'string') return [];
+  return Array.from(
+    new Set(
+      raw
+        .split(/\s*(?:;|,|\/|&|\x00)\s*/i)
+        .map((item) => item.trim())
+        .filter(Boolean)
+    )
+  );
+}
+
+/**
  * 将 LocalMusicEntry 转换为 SongResult，以复用现有播放系统
  * @param entry 本地音乐条目
  * @returns 兼容播放系统的 SongResult 对象
@@ -119,27 +146,30 @@ export function toSongResult(entry: LocalMusicEntry): SongResult {
   // SongItem 模板用 v-if="item.picUrl" 自动跳过渲染。
   // 用户重新扫描会让主进程落盘新封面（参见 scanFolders 的自愈条件）
   const coverUrl = entry.coverPath ? filePathToLocalUrl(entry.coverPath) : '';
+  const parsedArtists = parseMultiArtists(entry.artist);
+  const localMediaUrl = filePathToLocalUrl(entry.filePath);
+  const lowerPath = entry.filePath.toLowerCase();
+  const isVideoFile = lowerPath.endsWith('.mp4') || lowerPath.endsWith('.webm');
 
   return {
     id: entry.id,
     name: entry.title,
     picUrl: coverUrl,
-    ar: [
-      {
-        name: entry.artist,
-        id: 0,
-        picId: 0,
-        img1v1Id: 0,
-        briefDesc: '',
-        picUrl: '',
-        img1v1Url: '',
-        albumSize: 0,
-        alias: [],
-        trans: '',
-        musicSize: 0,
-        topicPerson: 0
-      }
-    ],
+    videoUrl: isVideoFile ? localMediaUrl : undefined,
+    ar: parsedArtists.map((artistName, index) => ({
+      name: artistName,
+      id: index,
+      picId: 0,
+      img1v1Id: 0,
+      briefDesc: '',
+      picUrl: '',
+      img1v1Url: '',
+      albumSize: 0,
+      alias: [],
+      trans: '',
+      musicSize: 0,
+      topicPerson: 0
+    })),
     al: {
       name: entry.album,
       id: 0,
@@ -156,7 +186,7 @@ export function toSongResult(entry: LocalMusicEntry): SongResult {
       company: '',
       briefDesc: '',
       artist: {
-        name: entry.artist,
+        name: parsedArtists[0] || entry.artist,
         id: 0,
         picId: 0,
         img1v1Id: 0,
@@ -182,10 +212,10 @@ export function toSongResult(entry: LocalMusicEntry): SongResult {
       picId_str: ''
     },
     song: {
-      artists: [{ name: entry.artist }],
+      artists: parsedArtists.map((artistName) => ({ name: artistName })),
       album: { name: entry.album }
     },
-    playMusicUrl: filePathToLocalUrl(entry.filePath),
+    playMusicUrl: localMediaUrl,
     duration: entry.duration,
     dt: entry.duration,
     source: 'netease' as const,

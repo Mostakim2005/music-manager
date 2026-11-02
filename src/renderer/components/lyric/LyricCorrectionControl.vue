@@ -13,35 +13,47 @@ const { t } = useI18n();
 </script>
 
 <template>
-  <div class="lyric-correction">
+  <div class="lyric-correction" role="group" aria-label="Lyric timing offset control">
     <n-tooltip placement="right">
       <template #trigger>
-        <div
+        <button
+          type="button"
           class="lyric-correction-btn"
-          @click="emit('adjust', -0.2)"
-          :title="t('player.subtractCorrection', { num: 0.2 })"
+          aria-label="Subtract 100ms lyric offset"
+          @click="emit('adjust', -0.1)"
+          :title="`${t('player.subtractCorrection', { num: 0.1 })} (-100ms)`"
         >
           <i class="ri-subtract-line text-base"></i>
-        </div>
+        </button>
       </template>
-      <span>{{ t('player.subtractCorrection', { num: 0.2 }) }}</span>
+      <span>-100ms ({{ t('player.subtractCorrection', { num: 0.1 }) }})</span>
     </n-tooltip>
-    <span
-      class="text-xs py-0.5 px-1 rounded bg-white/70 dark:bg-neutral-800/70 shadow font-mono tracking-wider text-gray-700 dark:text-gray-200 bg-opacity-40 backdrop-blur-2xl"
-    >
-      {{ props.correctionTime > 0 ? '+' : '' }}{{ props.correctionTime.toFixed(1) }}s
-    </span>
     <n-tooltip placement="right">
       <template #trigger>
-        <div
+        <button
+          type="button"
+          class="text-xs py-0.5 px-1.5 rounded bg-white/70 dark:bg-neutral-800/70 shadow font-mono tabular-nums tracking-wider text-gray-700 dark:text-gray-200 bg-opacity-40 backdrop-blur-2xl cursor-pointer hover:bg-emerald-500/20 transition-colors"
+          aria-label="Reset lyric offset to 0ms"
+          @click="emit('adjust', -props.correctionTime)"
+        >
+          {{ props.correctionTime > 0 ? '+' : '' }}{{ Math.round(props.correctionTime * 1000) }}ms
+        </button>
+      </template>
+      <span>点击重置偏移 (0ms)</span>
+    </n-tooltip>
+    <n-tooltip placement="right">
+      <template #trigger>
+        <button
+          type="button"
           class="lyric-correction-btn"
-          @click="emit('adjust', 0.2)"
-          :title="t('player.addCorrection', { num: 0.2 })"
+          aria-label="Add 100ms lyric offset"
+          @click="emit('adjust', 0.1)"
+          :title="`${t('player.addCorrection', { num: 0.1 })} (+100ms)`"
         >
           <i class="ri-add-line text-base"></i>
-        </div>
+        </button>
       </template>
-      <span>{{ t('player.addCorrection', { num: 0.2 }) }}</span>
+      <span>+100ms ({{ t('player.addCorrection', { num: 0.1 }) }})</span>
     </n-tooltip>
   </div>
 </template>

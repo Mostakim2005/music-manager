@@ -55,6 +55,11 @@ import i18n from '../i18n/main';
 import { loadLyricWindow } from './lyric';
 import { initializeCacheManager } from './modules/cache';
 import { initializeConfig } from './modules/config';
+import {
+  initializeDiscordRpc,
+  updateDiscordPlayState,
+  updateDiscordSong
+} from './modules/discordRpc';
 import { initializeDownloadManager, setDownloadManagerWindow } from './modules/downloadManager';
 import { initializeFileManager } from './modules/fileManager';
 import { initializeFonts } from './modules/fonts';
@@ -136,6 +141,9 @@ function initialize(configStore: any) {
 
   // 初始化 MPRIS 服务 (Linux)
   initializeMpris(mainWindow);
+
+  // 初始化 Discord Rich Presence
+  initializeDiscordRpc();
 
   // 初始化更新处理程序
   setupUpdateHandlers(mainWindow);
@@ -235,12 +243,14 @@ if (!isSingleInstance) {
   ipcMain.on('update-play-state', (_, playing: boolean) => {
     updatePlayState(playing);
     updateMprisPlayState(playing);
+    updateDiscordPlayState(playing);
   });
 
   // 监听当前歌曲变化
   ipcMain.on('update-current-song', (_, song: any) => {
     updateCurrentSong(song);
     updateMprisCurrentSong(song);
+    updateDiscordSong(song);
   });
 
   // 所有窗口关闭时的处理

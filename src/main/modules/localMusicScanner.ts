@@ -8,8 +8,19 @@ import * as mm from 'music-metadata';
 import * as os from 'os';
 import * as path from 'path';
 
-/** 支持的音频文件格式 */
-const SUPPORTED_AUDIO_FORMATS = ['.mp3', '.flac', '.wav', '.ogg', '.m4a', '.aac'] as const;
+/** 支持的音视频文件格式（含统一音视频队列支持） */
+const SUPPORTED_AUDIO_FORMATS = [
+  '.mp3',
+  '.flac',
+  '.wav',
+  '.ogg',
+  '.m4a',
+  '.aac',
+  '.opus',
+  '.mp4',
+  '.webm'
+] as const;
+const DEFAULT_EXCLUDED_DIRS = new Set(['node_modules', '.git', '$RECYCLE.BIN', 'System Volume Information']);
 const METADATA_PARSE_CONCURRENCY = Math.min(8, Math.max(2, os.cpus().length));
 const MAX_COVER_BYTES = 8 * 1024 * 1024;
 
@@ -175,6 +186,9 @@ async function scanMusicFiles(folderPath: string): Promise<string[]> {
         const fullPath = path.join(dirPath, entry.name);
 
         if (entry.isDirectory()) {
+          if (DEFAULT_EXCLUDED_DIRS.has(entry.name)) {
+            continue;
+          }
           // 递归扫描子目录
           await walkDirectory(fullPath);
         } else if (entry.isFile()) {
@@ -220,6 +234,9 @@ async function scanMusicFilesWithStats(folderPath: string): Promise<ScannedMusic
         const fullPath = path.join(dirPath, entry.name);
 
         if (entry.isDirectory()) {
+          if (DEFAULT_EXCLUDED_DIRS.has(entry.name)) {
+            continue;
+          }
           await walkDirectory(fullPath);
         } else if (entry.isFile()) {
           const ext = path.extname(entry.name);

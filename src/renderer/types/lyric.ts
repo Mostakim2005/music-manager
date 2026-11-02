@@ -6,6 +6,7 @@ export interface LyricConfig {
   fontWeight: number;
   lineHeight: number;
   showTranslation: boolean;
+  showRomanization?: boolean;
   theme: 'default' | 'light' | 'dark';
   hidePlayBar: boolean;
   translationEngine?: 'none' | 'opencc';
@@ -40,6 +41,7 @@ export const DEFAULT_LYRIC_CONFIG: LyricConfig = {
   fontWeight: 500,
   lineHeight: 2,
   showTranslation: true,
+  showRomanization: true,
   theme: 'default',
   hidePlayBar: true,
   hideMiniPlayBar: false,
@@ -74,6 +76,12 @@ export interface ILyric {
   lrc: Lrc;
   klyric: Lrc;
   tlyric: Lrc;
+  romalrc?: Lrc;
+  yrc?: Lrc;
+  ytlrc?: Lrc;
+  yromalrc?: Lrc;
+  lyricUser?: unknown;
+  transUser?: unknown;
   code: number;
 }
 

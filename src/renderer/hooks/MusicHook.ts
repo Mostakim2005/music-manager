@@ -354,6 +354,7 @@ const setupAudioListeners = () => {
                 type: 'update',
                 nowIndex: nowIndex.value,
                 nowTime: nowTime.value,
+                correctionTime: correctionTime.value,
                 isPlay: getPlayerStore().play
               })
             );
@@ -568,10 +569,16 @@ const setupCorrectionTimeWatcher = () => {
 export const adjustCorrectionTime = (delta: number) => {
   const id = playMusic.value?.id;
   if (!id) return;
-  const newVal = Math.max(-10, Math.min(10, (correctionTime.value ?? 0) + delta));
+  const rawVal = (correctionTime.value ?? 0) + delta;
+  const roundedVal = Math.round(rawVal * 100) / 100;
+  const newVal = Math.max(-10, Math.min(10, roundedVal));
   correctionTime.value = newVal;
   correctionTimeMap.value[id] = newVal;
   saveCorrectionMap();
+  nowIndex.value = getLrcIndex(nowTime.value);
+  if (isElectron && isLyricWindowOpen.value) {
+    sendLyricToWin();
+  }
 };
 
 // 获取当前播放歌词
@@ -709,6 +716,7 @@ export const sendLyricToWin = () => {
         type: 'full',
         nowIndex,
         nowTime: nowTime.value,
+        correctionTime: correctionTime.value,
         startCurrentTime: lrcTimeArray.value[nowIndex] || 0,
         nextTime: lrcTimeArray.value[nowIndex + 1] || 0,
         isPlay: getPlayerStore().play,

@@ -395,7 +395,8 @@ export function createMainWindow(icon: Electron.NativeImage): BrowserWindow {
     preload: join(__dirname, '../preload/index.js'),
     sandbox: false,
     contextIsolation: true,
-    webSecurity: false
+    webSecurity: false,
+    backgroundThrottling: false
   };
 
   console.log(

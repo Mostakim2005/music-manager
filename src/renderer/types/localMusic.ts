@@ -1,10 +1,20 @@
 // 本地音乐相关类型定义
 
 /**
- * 支持的音频文件格式
- * 包含 mp3、flac、wav、ogg、m4a、aac 六种常见格式
+ * 支持的音视频文件格式（含统一音视频队列支持）
+ * 包含 mp3、flac、wav、ogg、m4a、aac、opus、mp4、webm 格式
  */
-export const SUPPORTED_AUDIO_FORMATS = ['.mp3', '.flac', '.wav', '.ogg', '.m4a', '.aac'] as const;
+export const SUPPORTED_AUDIO_FORMATS = [
+  '.mp3',
+  '.flac',
+  '.wav',
+  '.ogg',
+  '.m4a',
+  '.aac',
+  '.opus',
+  '.mp4',
+  '.webm'
+] as const;
 
 /** 支持的音频格式类型 */
 export type SupportedAudioFormat = (typeof SUPPORTED_AUDIO_FORMATS)[number];

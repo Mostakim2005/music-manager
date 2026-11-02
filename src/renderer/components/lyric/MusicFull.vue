@@ -222,6 +222,12 @@
                 </div>
                 <!-- 普通歌词显示 -->
                 <span v-else :style="getLrcStyle(index)">{{ item.text }}</span>
+                <div
+                  v-if="config.showRomanization !== false && item.romaText"
+                  class="music-lrc-text-roma"
+                >
+                  {{ item.romaText }}
+                </div>
                 <div v-show="config.showTranslation" class="music-lrc-text-tr">
                   {{ item.trText }}
                 </div>
@@ -1063,6 +1069,15 @@ defineExpose({
         background-clip: text !important;
         -webkit-background-clip: text !important;
         padding-right: 30px;
+      }
+
+      &-roma {
+        @apply font-normal italic;
+        font-size: calc(var(--lyric-font-size, 22px) * 0.68) !important;
+        line-height: 1.4 !important;
+        opacity: 0.78;
+        color: var(--text-color-primary);
+        margin-top: 2px;
       }
 
       &-tr {

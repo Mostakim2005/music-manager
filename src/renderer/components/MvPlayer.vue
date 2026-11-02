@@ -246,6 +246,32 @@
               </div>
             </div>
 
+            <!-- Picture-in-Picture (PiP) -->
+            <n-tooltip v-if="!isMobile" trigger="hover" placement="top">
+              <template #trigger>
+                <n-button
+                  quaternary
+                  circle
+                  aria-label="Toggle Picture-in-Picture"
+                  class="!text-white hover:!text-green-400"
+                  @click="togglePiP"
+                >
+                  <template #icon>
+                    <n-icon size="20">
+                      <i
+                        :class="
+                          isPiP
+                            ? 'ri-picture-in-picture-exit-line'
+                            : 'ri-picture-in-picture-2-line'
+                        "
+                      ></i>
+                    </n-icon>
+                  </template>
+                </n-button>
+              </template>
+              画中画 (PiP)
+            </n-tooltip>
+
             <!-- Fullscreen -->
             <n-button
               quaternary
@@ -336,11 +362,15 @@ const props = withDefaults(
     show: boolean;
     currentMv?: IMvItem;
     noList?: boolean;
+    initialTime?: number;
+    directVideoUrl?: string;
   }>(),
   {
     show: false,
     currentMv: undefined,
-    noList: false
+    noList: false,
+    initialTime: 0,
+    directVideoUrl: undefined
   }
 );
 
@@ -348,6 +378,7 @@ const emit = defineEmits<{
   (e: 'update:show', value: boolean): void;
   (e: 'next', loading: (value: boolean) => void): void;
   (e: 'prev', loading: (value: boolean) => void): void;
+  (e: 'sync-time', time: number): void;
 }>();
 
 // Refs
@@ -368,6 +399,7 @@ const autoPlayBlocked = ref(false);
 const isDragging = ref(false);
 const showModeHint = ref(false);
 const doubleTapAction = ref<'forward' | 'rewind' | null>(null);
+const isPiP = ref(false);
 
 // Controls Visibility Logic
 const { idle } = useIdle(3000); // 3 seconds idle
@@ -416,14 +448,19 @@ const handleProgressChange = (value: number) => {
 const handleTimeUpdate = () => {
   if (!videoRef.value) return;
   currentTime.value = videoRef.value.currentTime;
+  emit('sync-time', currentTime.value);
   if (!isDragging.value) {
-    progress.value = (currentTime.value / duration.value) * 100;
+    progress.value = duration.value ? (currentTime.value / duration.value) * 100 : 0;
   }
 };
 
 const handleLoadedMetadata = () => {
   if (!videoRef.value) return;
   duration.value = videoRef.value.duration;
+  if (props.initialTime && props.initialTime > 0 && props.initialTime < duration.value) {
+    videoRef.value.currentTime = props.initialTime;
+    currentTime.value = props.initialTime;
+  }
 };
 
 const handleEnded = () => {
@@ -463,7 +500,25 @@ const toggleFullscreen = () => {
   toggleFullscreenState();
 };
 
+const togglePiP = async () => {
+  if (!videoRef.value) return;
+  try {
+    if (document.pictureInPictureElement) {
+      await document.exitPictureInPicture();
+      isPiP.value = false;
+    } else if (typeof videoRef.value.requestPictureInPicture === 'function') {
+      await videoRef.value.requestPictureInPicture();
+      isPiP.value = true;
+    }
+  } catch (error) {
+    console.warn('Picture-in-Picture failed:', error);
+  }
+};
+
 const handleClose = () => {
+  if (videoRef.value) {
+    emit('sync-time', videoRef.value.currentTime);
+  }
   emit('update:show', false);
 };
 
@@ -471,10 +526,17 @@ const loadMvUrl = async (mv: IMvItem) => {
   playLoading.value = true;
   autoPlayBlocked.value = false;
   try {
-    const res = await getMvUrl(mv.id);
-    mvUrl.value = res.data.data.url;
+    if (props.directVideoUrl) {
+      mvUrl.value = props.directVideoUrl;
+    } else {
+      const res = await getMvUrl(mv.id);
+      mvUrl.value = res.data.data.url;
+    }
     await nextTick();
     if (videoRef.value) {
+      if (props.initialTime && props.initialTime > 0) {
+        videoRef.value.currentTime = props.initialTime;
+      }
       try {
         await videoRef.value.play();
       } catch (error) {

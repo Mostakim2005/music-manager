@@ -91,16 +91,86 @@
       </div>
     </div>
   </n-modal>
+
+  <!-- 智能过渡与离线缓存设置弹窗 -->
+  <n-modal
+    v-model:show="showTransitionsModal"
+    :mask-closable="true"
+    :unstable-show-mask="false"
+    :z-index="9999999"
+  >
+    <div class="speed-modal-content transitions-modal-content">
+      <div class="modal-close" @click="showTransitionsModal = false">
+        <i class="ri-close-line"></i>
+      </div>
+      <h3>Smart Transitions &amp; Offline Cache</h3>
+      <div class="transitions-controls space-y-4 mt-4">
+        <div class="flex items-center justify-between">
+          <div>
+            <div class="font-medium text-sm">Equal-Power Crossfade</div>
+            <div class="text-xs opacity-70">Smooth transition between tracks ({{ crossfadeSeconds }}s)</div>
+          </div>
+          <n-switch v-model:value="crossfadeEnabled" />
+        </div>
+        <div v-if="crossfadeEnabled" class="px-1">
+          <n-slider
+            v-model:value="crossfadeSeconds"
+            :min="1"
+            :max="10"
+            :step="1"
+          />
+        </div>
+        <div class="flex items-center justify-between">
+          <div>
+            <div class="font-medium text-sm">Skip Silence (-50 dBFS)</div>
+            <div class="text-xs opacity-70">Automatically skip dead air at track boundaries</div>
+          </div>
+          <n-switch v-model:value="skipSilenceEnabled" />
+        </div>
+        <div class="flex items-center justify-between">
+          <div>
+            <div class="font-medium text-sm">ReplayGain Loudness Normalization</div>
+            <div class="text-xs opacity-70">Balance perceived volume across albums and tracks</div>
+          </div>
+          <n-switch v-model:value="replayGainEnabled" />
+        </div>
+        <div class="flex items-center justify-between">
+          <div>
+            <div class="font-medium text-sm">Waveform Seekbar</div>
+            <div class="text-xs opacity-70">Display interactive amplitude peaks on the player bar</div>
+          </div>
+          <n-switch v-model:value="waveformSeekbarEnabled" />
+        </div>
+        <div class="pt-3 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
+          <div>
+            <div class="font-medium text-sm">IndexedDB Offline Audio &amp; Lyric Cache</div>
+            <div class="text-xs opacity-70">
+              Cached: {{ cacheStats.length }} tracks ({{ cacheSizeMb }} MB)
+            </div>
+          </div>
+          <button
+            type="button"
+            class="px-3 py-1.5 text-xs font-medium rounded-full bg-red-500/15 text-red-500 hover:bg-red-500/25 transition"
+            @click="handleClearCache"
+          >
+            Clear Cache
+          </button>
+        </div>
+      </div>
+    </div>
+  </n-modal>
 </template>
 
 <script lang="ts" setup>
-import { DropdownOption, NSlider } from 'naive-ui';
+import { DropdownOption, NSlider, NSwitch } from 'naive-ui';
 import { computed, h, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import EqControl from '@/components/EQControl.vue';
 import SleepTimer from '@/components/player/SleepTimer.vue';
+import { audioService } from '@/services/audioService';
 import { usePlayerStore } from '@/store/modules/player';
+import { clearDB, countDBSize } from '@/utils/db';
 
 const { t } = useI18n();
 const playerStore = usePlayerStore();
@@ -109,7 +179,56 @@ const playerStore = usePlayerStore();
 const showDropdown = ref(false);
 const showEQModal = ref(false);
 const showSpeedModal = ref(false);
+const showTransitionsModal = ref(false);
 const isEQVisible = ref(false);
+
+const transitionConfig = ref(audioService.getSmartTransitionConfig());
+const cacheStats = ref<{ bytes: number; length: number }>({ bytes: 0, length: 0 });
+const cacheSizeMb = computed(() => (cacheStats.value.bytes / (1024 * 1024)).toFixed(2));
+
+const refreshCacheStats = async () => {
+  cacheStats.value = await countDBSize();
+};
+
+const crossfadeEnabled = computed({
+  get: () => transitionConfig.value.crossfadeEnabled,
+  set: (val: boolean) => {
+    transitionConfig.value = audioService.setSmartTransitionConfig({ crossfadeEnabled: val });
+  }
+});
+
+const crossfadeSeconds = computed({
+  get: () => transitionConfig.value.crossfadeDuration,
+  set: (val: number) => {
+    transitionConfig.value = audioService.setSmartTransitionConfig({ crossfadeDuration: val });
+  }
+});
+
+const skipSilenceEnabled = computed({
+  get: () => transitionConfig.value.skipSilenceEnabled,
+  set: (val: boolean) => {
+    transitionConfig.value = audioService.setSmartTransitionConfig({ skipSilenceEnabled: val });
+  }
+});
+
+const replayGainEnabled = computed({
+  get: () => transitionConfig.value.replayGainEnabled,
+  set: (val: boolean) => {
+    transitionConfig.value = audioService.setSmartTransitionConfig({ replayGainEnabled: val });
+  }
+});
+
+const waveformSeekbarEnabled = computed({
+  get: () => playerStore.showWaveformSeekbar,
+  set: (val: boolean) => {
+    playerStore.setShowWaveformSeekbar(val);
+  }
+});
+
+const handleClearCache = async () => {
+  await clearDB();
+  await refreshCacheStats();
+};
 
 // 监听弹窗状态，确保互斥
 watch(showEQModal, (newValue) => {
@@ -183,6 +302,15 @@ const dropdownOptions = computed<DropdownOption[]>(() => [
       playbackRate.value !== 1.0
         ? h('span', { class: 'active-option-mark' }, `${playbackRate.value}x`)
         : null
+  },
+  {
+    label: 'Smart Transitions & Cache',
+    key: 'transitions',
+    icon: () => h('i', { class: 'ri-pulse-line' }),
+    suffix: () =>
+      crossfadeEnabled.value || skipSilenceEnabled.value
+        ? h('span', { class: 'active-option-mark' }, 'ON')
+        : null
   }
 ]);
 
@@ -192,6 +320,7 @@ const handleSelect = (key: string) => {
   showEQModal.value = false;
   playerStore.showSleepTimer = false;
   showSpeedModal.value = false;
+  showTransitionsModal.value = false;
 
   // 然后仅打开所选弹窗
   switch (key) {
@@ -203,6 +332,11 @@ const handleSelect = (key: string) => {
       break;
     case 'speed':
       showSpeedModal.value = true;
+      break;
+    case 'transitions':
+      transitionConfig.value = audioService.getSmartTransitionConfig();
+      refreshCacheStats();
+      showTransitionsModal.value = true;
       break;
   }
 };

@@ -1,9 +1,19 @@
 import { useDebounceFn } from '@vueuse/core';
+import { Vibrant } from 'node-vibrant/browser';
 import tinycolor from 'tinycolor2';
+
+export interface IDynamicPalette {
+  vibrant: string;
+  darkVibrant: string;
+  lightVibrant: string;
+  muted: string;
+  darkMuted: string;
+}
 
 interface IColor {
   backgroundColor: string;
   primaryColor: string;
+  palette?: IDynamicPalette;
 }
 
 interface ITextColors {
@@ -26,12 +36,78 @@ interface LyricSettings {
   highlightColor?: string;
 }
 
+export const applyDynamicPaletteToRoot = (
+  palette: IDynamicPalette,
+  backgroundColor: string
+): void => {
+  try {
+    const rootStyle = document?.documentElement?.style;
+    if (!rootStyle?.setProperty) return;
+    rootStyle.setProperty('--player-vibrant', palette.vibrant);
+    rootStyle.setProperty('--player-dark-vibrant', palette.darkVibrant);
+    rootStyle.setProperty('--player-light-vibrant', palette.lightVibrant);
+    rootStyle.setProperty('--player-muted', palette.muted);
+    rootStyle.setProperty('--player-dark-muted', palette.darkMuted);
+    rootStyle.setProperty('--color-primary', palette.vibrant);
+    rootStyle.setProperty('--color-bg-gradient', backgroundColor);
+  } catch {
+    // ignore DOM errors in headless/test environments
+  }
+};
+
+export const extractVibrantPalette = async (imageSrc: string): Promise<IDynamicPalette | null> => {
+  if (!imageSrc) return null;
+  try {
+    const palette = await Vibrant.from(imageSrc).getPalette();
+    const vibrant = palette.Vibrant?.hex || palette.LightVibrant?.hex || '#10b981';
+    const darkVibrant = palette.DarkVibrant?.hex || tinycolor(vibrant).darken(28).toHexString();
+    const lightVibrant = palette.LightVibrant?.hex || tinycolor(vibrant).lighten(18).toHexString();
+    const muted = palette.Muted?.hex || tinycolor(vibrant).desaturate(30).toHexString();
+    const darkMuted = palette.DarkMuted?.hex || tinycolor(darkVibrant).desaturate(25).toHexString();
+    return {
+      vibrant,
+      darkVibrant,
+      lightVibrant,
+      muted,
+      darkMuted
+    };
+  } catch {
+    return null;
+  }
+};
+
 export const getImageLinearBackground = async (imageSrc: string): Promise<IColor> => {
   try {
+    const vibrantPalette = await extractVibrantPalette(imageSrc);
+    if (vibrantPalette) {
+      const primaryColor = tinycolor(vibrantPalette.vibrant).toRgbString();
+      const lightStop = tinycolor(vibrantPalette.lightVibrant).toRgbString();
+      const midStop = tinycolor(vibrantPalette.muted).toRgbString();
+      const darkStop = tinycolor(vibrantPalette.darkVibrant).toRgbString();
+      const backgroundColor = `linear-gradient(to bottom, ${lightStop} 0%, ${midStop} 50%, ${darkStop} 100%)`;
+      applyDynamicPaletteToRoot(vibrantPalette, backgroundColor);
+      return {
+        backgroundColor,
+        primaryColor,
+        palette: vibrantPalette
+      };
+    }
+
     const primaryColor = await getImagePrimaryColor(imageSrc);
+    const backgroundColor = generateGradientBackground(primaryColor);
+    const fallbackHex = tinycolor(primaryColor).toHexString();
+    const fallbackPalette: IDynamicPalette = {
+      vibrant: fallbackHex,
+      darkVibrant: tinycolor(primaryColor).darken(25).toHexString(),
+      lightVibrant: tinycolor(primaryColor).lighten(20).toHexString(),
+      muted: tinycolor(primaryColor).desaturate(25).toHexString(),
+      darkMuted: tinycolor(primaryColor).darken(30).desaturate(25).toHexString()
+    };
+    applyDynamicPaletteToRoot(fallbackPalette, backgroundColor);
     return {
-      backgroundColor: generateGradientBackground(primaryColor),
-      primaryColor
+      backgroundColor,
+      primaryColor,
+      palette: fallbackPalette
     };
   } catch (error) {
     console.error('error', error);

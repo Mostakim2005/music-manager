@@ -1,8 +1,10 @@
 import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
 
-import { audioService } from '@/services/audioService';
+import { audioService, PLAY_PAUSE_FADE_DURATION } from '@/services/audioService';
 import { playbackRequestManager } from '@/services/playbackRequestManager';
+
+export { PLAY_PAUSE_FADE_DURATION };
 import type { AudioOutputDevice } from '@/types/audio';
 import type { SongResult } from '@/types/music';
 import { debouncedLocalStorage } from '@/utils/debouncedStorage';
@@ -27,6 +29,23 @@ export const usePlayerCoreStore = defineStore(
     const isMuted = ref(false);
     const userPlayIntent = ref(false); // 用户是否想要播放
     const isFmPlaying = ref(false); // 是否正在播放私人FM
+    const playbackMode = ref<'song' | 'video'>('song'); // Seamless Audio/Video mode ('song' | 'video')
+    const showWaveformSeekbar = ref<boolean>(
+      localStorage.getItem('showWaveformSeekbar') !== 'false'
+    );
+
+    const setPlaybackMode = (mode: 'song' | 'video') => {
+      playbackMode.value = mode;
+    };
+
+    const setShowWaveformSeekbar = (enabled: boolean) => {
+      showWaveformSeekbar.value = enabled;
+      try {
+        localStorage.setItem('showWaveformSeekbar', String(enabled));
+      } catch {
+        // ignore
+      }
+    };
 
     // 音频输出设备
     const audioOutputDeviceId = ref<string>(
@@ -201,6 +220,8 @@ export const usePlayerCoreStore = defineStore(
       isMuted,
       userPlayIntent,
       isFmPlaying,
+      playbackMode,
+      showWaveformSeekbar,
       audioOutputDeviceId,
       availableAudioDevices,
 
@@ -220,6 +241,8 @@ export const usePlayerCoreStore = defineStore(
       setMuted,
       toggleMute,
       handlePause,
+      setPlaybackMode,
+      setShowWaveformSeekbar,
       refreshAudioDevices,
       setAudioOutputDevice,
       initAudioDeviceListener

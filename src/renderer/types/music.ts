@@ -30,6 +30,7 @@ export interface IWordData {
 export interface ILyricText {
   text: string;
   trText: string;
+  romaText?: string;
   words?: IWordData[];
   hasWordByWord?: boolean;
   startTime?: number;
@@ -76,6 +77,9 @@ export interface SongResult {
   // 时长
   duration?: number;
   dt?: number;
+  mv?: number;
+  mvid?: number;
+  videoUrl?: string;
   isFirstPlay?: boolean;
   isPodcast?: boolean;
 }

@@ -12,13 +12,22 @@ import { computed } from 'vue';
 // 导入所有拆分的子 stores
 import { useFavoriteStore } from './favorite';
 import { useIntelligenceModeStore } from './intelligenceMode';
-import { usePlayerCoreStore } from './playerCore';
+import { PLAY_PAUSE_FADE_DURATION, usePlayerCoreStore } from './playerCore';
 import { cleanupLegacyPlayHistoryStorage } from './playHistory';
 import { usePlaylistStore } from './playlist';
 import { type SleepTimerInfo, SleepTimerType, useSleepTimerStore } from './sleepTimer';
 
-export { type SleepTimerInfo, SleepTimerType };
-export { getSongUrl, loadLrc, useLyrics, useSongDetail, useSongUrl } from '@/hooks/usePlayerHooks';
+export { PLAY_PAUSE_FADE_DURATION, type SleepTimerInfo, SleepTimerType };
+export {
+  copyLyric,
+  getSongUrl,
+  loadLrc,
+  lyricParser,
+  parseLyric,
+  useLyrics,
+  useSongDetail,
+  useSongUrl
+} from '@/hooks/usePlayerHooks';
 export { isBilibiliIdMatch } from '@/utils/playerUtils';
 
 /**
@@ -43,7 +52,9 @@ export const usePlayerStore = defineStore('player', () => {
     volume,
     isMuted,
     userPlayIntent,
-    isFmPlaying
+    isFmPlaying,
+    playbackMode,
+    showWaveformSeekbar
   } = storeToRefs(playerCore);
 
   const { playList, playListIndex, playMode, originalPlayList, playListDrawerVisible } =
@@ -100,6 +111,8 @@ export const usePlayerStore = defineStore('player', () => {
     isMuted,
     userPlayIntent,
     isFmPlaying,
+    playbackMode,
+    showWaveformSeekbar,
 
     // PlayerCore - Computed
     currentSong,
@@ -117,6 +130,8 @@ export const usePlayerStore = defineStore('player', () => {
     setMuted: playerCore.setMuted,
     toggleMute: playerCore.toggleMute,
     handlePause: playerCore.handlePause,
+    setPlaybackMode: playerCore.setPlaybackMode,
+    setShowWaveformSeekbar: playerCore.setShowWaveformSeekbar,
 
     // ========== 播放列表管理 (Playlist) ==========
     playList,

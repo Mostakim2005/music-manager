@@ -19,7 +19,23 @@
     }"
     @click="handleBarClick"
   >
-    <div class="music-time custom-slider">
+    <div class="music-time custom-slider" :class="{ 'has-waveform': playerStore.showWaveformSeekbar }">
+      <div
+        v-if="playerStore.showWaveformSeekbar"
+        class="waveform-bars"
+        aria-hidden="true"
+      >
+        <span
+          v-for="(barHeight, idx) in waveformBars"
+          :key="idx"
+          class="waveform-bar"
+          :class="{
+            'is-played': idx / waveformBars.length <= progressRatio,
+            'is-playing': play
+          }"
+          :style="{ height: `${barHeight}%` }"
+        ></span>
+      </div>
       <n-slider
         v-model:value="timeSlider"
         :step="1"
@@ -63,6 +79,32 @@
           <p v-html="playMusic?.name || ''"></p>
         </n-ellipsis>
         <span v-if="playbackRate !== 1.0" class="playback-rate-badge"> {{ playbackRate }}x </span>
+        <div
+          v-if="hasVideoSupport"
+          class="mode-switch-pill"
+          role="group"
+          aria-label="Playback Mode Switcher"
+          @click.stop
+        >
+          <button
+            type="button"
+            class="mode-pill-btn"
+            :class="{ active: playerStore.playbackMode === 'song' }"
+            aria-label="Song Audio Mode"
+            @click.stop="switchPlaybackMode('song')"
+          >
+            Song
+          </button>
+          <button
+            type="button"
+            class="mode-pill-btn"
+            :class="{ active: playerStore.playbackMode === 'video' }"
+            aria-label="Video MV Mode"
+            @click.stop="switchPlaybackMode('video')"
+          >
+            Video
+          </button>
+        </div>
       </div>
       <div class="music-content-name">
         <n-ellipsis
@@ -179,6 +221,17 @@
     </div>
     <!-- 全屏播放器 -->
     <music-full-wrapper ref="MusicFullRef" v-model="musicFullVisible" :background="background" />
+    <!-- 无缝音视频切换 MV 播放器 -->
+    <mv-player
+      v-if="hasVideoSupport"
+      v-model:show="videoDrawerVisible"
+      :current-mv="currentMvAdapter"
+      :initial-time="videoSyncTime"
+      :direct-video-url="playMusic?.videoUrl || ''"
+      no-auto-next
+      @sync-time="handleVideoTimeSync"
+      @close="switchPlaybackMode('song')"
+    />
   </div>
 </template>
 
@@ -189,6 +242,7 @@ import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import MusicFullWrapper from '@/components/lyric/MusicFullWrapper.vue';
+import MvPlayer from '@/components/MvPlayer.vue';
 import AdvancedControlsPopover from '@/components/player/AdvancedControlsPopover.vue';
 import ReparsePopover from '@/components/player/ReparsePopover.vue';
 import {
@@ -320,8 +374,88 @@ const IGNORE_FULL_TRIGGER_SELECTOR = [
   '.music-buttons-prev',
   '.music-buttons-play',
   '.music-buttons-next',
-  '.audio-button' // 音量、播放模式、收藏、歌词、下载、更多、播放列表
+  '.audio-button', // 音量、播放模式、收藏、歌词、下载、更多、播放列表
+  '.mode-switch-pill'
 ].join(', ');
+
+// 波形进度条峰值生成与播放进度比
+const progressRatio = computed(() => {
+  if (!allTime.value || allTime.value <= 0) return 0;
+  return Math.min(1, Math.max(0, timeSlider.value / allTime.value));
+});
+
+const waveformBars = computed(() => {
+  const seedStr = String(playMusic.value?.id || playMusic.value?.name || 'alger-wave');
+  let hash = 2166136261;
+  for (let i = 0; i < seedStr.length; i++) {
+    hash ^= seedStr.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  const bars: number[] = [];
+  const count = 56;
+  for (let i = 0; i < count; i++) {
+    hash ^= i * 374761393;
+    hash = Math.imul(hash, 668265263);
+    const normalized = ((hash >>> 0) % 100) / 100;
+    const envelope = Math.sin((i / count) * Math.PI) * 0.45 + 0.55;
+    bars.push(Math.round(Math.max(22, Math.min(98, (25 + normalized * 75) * envelope))));
+  }
+  return bars;
+});
+
+// 无缝音视频切换 (Song | Video)
+const videoDrawerVisible = ref(false);
+const videoSyncTime = ref(0);
+
+const hasVideoSupport = computed(() => {
+  const song = playMusic.value as any;
+  if (!song || !song.id) return false;
+  return Boolean(song.mv || song.mvid || song.videoUrl || song.song?.mvid || song.song?.mv);
+});
+
+const currentMvAdapter = computed(() => {
+  const song = playMusic.value as any;
+  if (!song) return null;
+  const mvId = song.mv || song.mvid || song.song?.mvid || song.song?.mv || song.id;
+  return {
+    id: mvId,
+    name: song.name || '',
+    artistName: artistList.value?.map((a: any) => a.name).join(' / ') || '',
+    cover: song.picUrl || ''
+  } as any;
+});
+
+const handleVideoTimeSync = (timeSec: number) => {
+  if (Number.isFinite(timeSec) && timeSec >= 0) {
+    videoSyncTime.value = timeSec;
+    nowTime.value = Math.floor(timeSec);
+  }
+};
+
+const switchPlaybackMode = (mode: 'song' | 'video') => {
+  if (playerStore.playbackMode === mode && (mode === 'song' || videoDrawerVisible.value)) {
+    return;
+  }
+  playerStore.setPlaybackMode(mode);
+  if (mode === 'video') {
+    videoSyncTime.value = audioService.getCurrentTime() || nowTime.value || 0;
+    audioService.pause(true);
+    playerStore.setPlayMusic(false);
+    videoDrawerVisible.value = true;
+  } else {
+    videoDrawerVisible.value = false;
+    if (videoSyncTime.value > 0) {
+      audioService.seek(videoSyncTime.value);
+      nowTime.value = Math.floor(videoSyncTime.value);
+    }
+    const sound = audioService.getCurrentSound();
+    if (sound) {
+      sound.play();
+      audioService.fadeInVolume();
+    }
+    playerStore.setPlayMusic(true);
+  }
+};
 
 const handleBarClick = (event: MouseEvent) => {
   const target = event.target as HTMLElement | null;
@@ -685,5 +819,71 @@ const openPlayListDrawer = () => {
   @apply ml-2 px-1.5 h-4 flex items-center text-xs rounded bg-green-500 bg-opacity-15 text-green-600 dark:text-green-400;
   font-weight: 500;
   vertical-align: 1px;
+}
+
+.mode-switch-pill {
+  @apply ml-2 inline-flex items-center rounded-full p-0.5 bg-gray-200/80 dark:bg-gray-800/80 border border-gray-300/60 dark:border-gray-700/60;
+  flex-shrink: 0;
+
+  .mode-pill-btn {
+    @apply px-2 py-0.5 text-[11px] font-medium rounded-full transition-colors cursor-pointer;
+    color: inherit;
+    opacity: 0.72;
+
+    &.active {
+      @apply bg-green-500 text-white;
+      opacity: 1;
+    }
+
+    &:hover:not(.active) {
+      opacity: 1;
+    }
+  }
+}
+
+.music-time.has-waveform {
+  position: absolute;
+  top: -8px;
+  left: 0;
+  width: 100%;
+  height: 16px;
+  display: flex;
+  align-items: flex-end;
+
+  .waveform-bars {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 2px;
+    padding: 0 4px;
+    pointer-events: none;
+    z-index: 1;
+    opacity: 0.85;
+  }
+
+  .waveform-bar {
+    flex: 1;
+    min-width: 2px;
+    border-radius: 2px 2px 0 0;
+    background-color: rgba(156, 163, 175, 0.35);
+    transition: background-color 0.15s ease, transform 0.2s ease;
+
+    &.is-played {
+      background-color: var(--color-primary, #1ed760);
+    }
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .waveform-bar.is-played.is-playing:nth-child(odd) {
+      transform: scaleY(1.06);
+    }
+  }
+
+  .n-slider {
+    top: 8px;
+    z-index: 2;
+  }
 }
 </style>
