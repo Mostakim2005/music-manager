@@ -256,6 +256,84 @@ async function fetchFromMusicBrainz(
 }
 
 /**
+ * 生成符合 M3U8 标准规范的播放列表文件内容 (UTF-8)
+ */
+export function generateM3u8Content(
+  tracks: Array<{ filePath: string; title?: string; artist?: string; duration?: number }>
+): string {
+  const lines: string[] = ['#EXTM3U'];
+  for (const track of tracks || []) {
+    if (!track || !track.filePath) continue;
+    const durationSec = Math.round((track.duration || 0) / 1000);
+    const artist = track.artist || 'Unknown Artist';
+    const title = track.title || path.basename(track.filePath);
+    lines.push(`#EXTINF:${durationSec},${artist} - ${title}`);
+    lines.push(track.filePath);
+  }
+  return lines.join('\n');
+}
+
+/**
+ * 解析 M3U / M3U8 文件内容并提取去重后的有效绝对路径
+ */
+export function parseM3u8Content(content: string, baseDir?: string): string[] {
+  if (!content || typeof content !== 'string') {
+    return [];
+  }
+
+  // 剔除可能存在的 UTF-8 BOM
+  const cleanContent = content.charCodeAt(0) === 0xfeff ? content.slice(1) : content;
+  const lines = cleanContent.split(/\r?\n/);
+  const result: string[] = [];
+  const seen = new Set<string>();
+
+  for (const rawLine of lines) {
+    let line = rawLine.trim();
+    if (!line || line.startsWith('#')) {
+      continue;
+    }
+
+    // 去除双引号或单引号包裹
+    if (
+      (line.startsWith('"') && line.endsWith('"')) ||
+      (line.startsWith("'") && line.endsWith("'"))
+    ) {
+      line = line.slice(1, -1).trim();
+    }
+
+    // 处理 file:// 协议本地文件路径
+    if (line.startsWith('file://')) {
+      try {
+        const fileUrl = new URL(line);
+        line = decodeURIComponent(fileUrl.pathname);
+        if (process.platform === 'win32' && /^\/[a-zA-Z]:/.test(line)) {
+          line = line.slice(1);
+        }
+      } catch {
+        line = line.replace(/^file:\/\/\/?/, '');
+      }
+    }
+
+    let resolvedPath: string;
+    if (path.isAbsolute(line)) {
+      resolvedPath = path.normalize(line);
+    } else if (baseDir && baseDir.trim()) {
+      resolvedPath = path.resolve(baseDir.trim(), line);
+    } else {
+      resolvedPath = path.resolve(line);
+    }
+
+    const dedupeKey = process.platform === 'win32' ? resolvedPath.toLowerCase() : resolvedPath;
+    if (!seen.has(dedupeKey)) {
+      seen.add(dedupeKey);
+      result.push(resolvedPath);
+    }
+  }
+
+  return result;
+}
+
+/**
  * 初始化音频元数据与标签管理模块
  */
 export function initializeTagAndMetadataManager(): void {
@@ -614,6 +692,152 @@ export function initializeTagAndMetadataManager(): void {
       } catch (err: any) {
         console.error('选择封面图片失败:', err);
         return { canceled: true, filePath: null, dataUrl: null };
+      }
+    }
+  );
+
+  // 5. 导出 M3U8 播放列表
+  ipcMain.handle(
+    'library:export-m3u8',
+    async (
+      _,
+      params: {
+        tracks: Array<{ filePath: string; title?: string; artist?: string; duration?: number }>;
+        defaultName?: string;
+      }
+    ): Promise<{ ok?: boolean; canceled?: boolean; filePath?: string; error?: string }> => {
+      try {
+        const { tracks = [], defaultName } = params || {};
+        const result = await dialog.showSaveDialog({
+          defaultPath: defaultName || 'playlist.m3u8',
+          filters: [{ name: 'M3U8 Playlist', extensions: ['m3u8', 'm3u'] }]
+        });
+
+        if (result.canceled || !result.filePath) {
+          return { canceled: true };
+        }
+
+        const m3u8Content = generateM3u8Content(tracks);
+        await fs.promises.writeFile(result.filePath, m3u8Content, 'utf8');
+
+        return { ok: true, filePath: result.filePath };
+      } catch (err: any) {
+        console.error('导出 M3U8 播放列表失败:', err);
+        return { ok: false, error: err?.message || '导出播放列表失败' };
+      }
+    }
+  );
+
+  // 6. 导入 M3U / M3U8 播放列表
+  ipcMain.handle(
+    'library:import-m3u8',
+    async (): Promise<{
+      ok?: boolean;
+      canceled?: boolean;
+      filePaths?: string[];
+      playlistFilePath?: string;
+      error?: string;
+    }> => {
+      try {
+        const result = await dialog.showOpenDialog({
+          filters: [{ name: 'M3U / M3U8 Playlist', extensions: ['m3u8', 'm3u'] }],
+          properties: ['openFile']
+        });
+
+        if (result.canceled || !result.filePaths || result.filePaths.length === 0) {
+          return { canceled: true, filePaths: [] };
+        }
+
+        const selectedFile = result.filePaths[0];
+        const content = await fs.promises.readFile(selectedFile, 'utf8');
+        const parsed = parseM3u8Content(content, path.dirname(selectedFile));
+        const filePaths = parsed.filter((p) => fs.existsSync(p));
+
+        return {
+          ok: true,
+          filePaths,
+          playlistFilePath: selectedFile
+        };
+      } catch (err: any) {
+        console.error('导入 M3U8 播放列表失败:', err);
+        return { ok: false, filePaths: [], error: err?.message || '导入播放列表失败' };
+      }
+    }
+  );
+
+  // 7. 导出完整音乐库 JSON 备份
+  ipcMain.handle(
+    'library:export-backup-json',
+    async (
+      _,
+      params: {
+        payload: Record<string, any>;
+        defaultName?: string;
+      }
+    ): Promise<{ ok?: boolean; canceled?: boolean; filePath?: string; error?: string }> => {
+      try {
+        const { payload = {}, defaultName } = params || {};
+        const result = await dialog.showSaveDialog({
+          defaultPath: defaultName || 'music-manager-backup.json',
+          filters: [{ name: 'JSON Backup', extensions: ['json'] }]
+        });
+
+        if (result.canceled || !result.filePath) {
+          return { canceled: true };
+        }
+
+        const backupData = {
+          app: 'Music Manager',
+          exportedAt: new Date().toISOString(),
+          ...payload
+        };
+
+        await fs.promises.writeFile(
+          result.filePath,
+          JSON.stringify(backupData, null, 2),
+          'utf8'
+        );
+
+        return { ok: true, filePath: result.filePath };
+      } catch (err: any) {
+        console.error('导出 JSON 备份失败:', err);
+        return { ok: false, error: err?.message || '导出备份失败' };
+      }
+    }
+  );
+
+  // 8. 导入完整音乐库 JSON 备份
+  ipcMain.handle(
+    'library:import-backup-json',
+    async (): Promise<{
+      ok?: boolean;
+      canceled?: boolean;
+      data?: any;
+      filePath?: string;
+      error?: string;
+    }> => {
+      try {
+        const result = await dialog.showOpenDialog({
+          filters: [{ name: 'JSON Backup', extensions: ['json'] }],
+          properties: ['openFile']
+        });
+
+        if (result.canceled || !result.filePaths || result.filePaths.length === 0) {
+          return { canceled: true };
+        }
+
+        const selectedFile = result.filePaths[0];
+        const content = await fs.promises.readFile(selectedFile, 'utf8');
+        const parsedJson = JSON.parse(content);
+
+        return {
+          ok: true,
+          data: parsedJson,
+          filePath: selectedFile
+        };
+      } catch (err: any) {
+        console.error('导入 JSON 备份失败:', err);
+        return { ok: false, error: err?.message || '导入备份失败' };
       }
     }
   );

@@ -182,3 +182,55 @@ export async function copyLyric(lyric: string): Promise<boolean> {
     return ok;
   }
 }
+
+/**
+ * Format raw seconds into standard LRC timestamp string "[mm:ss.xx]"
+ * Example: 65.34 -> "[01:05.34]"
+ */
+export function formatLrcTimestamp(seconds: number): string {
+  if (isNaN(seconds) || seconds < 0) seconds = 0;
+  const mins = Math.floor(seconds / 60);
+  const remSecs = seconds % 60;
+  const wholeSecs = Math.floor(remSecs);
+  let hundredths = Math.round((remSecs - wholeSecs) * 100);
+  let finalSecs = wholeSecs;
+  let finalMins = mins;
+
+  if (hundredths >= 100) {
+    hundredths = 0;
+    finalSecs += 1;
+  }
+  if (finalSecs >= 60) {
+    finalSecs = 0;
+    finalMins += 1;
+  }
+
+  const mStr = String(finalMins).padStart(2, '0');
+  const sStr = String(finalSecs).padStart(2, '0');
+  const msStr = String(hundredths).padStart(2, '0');
+  return `[${mStr}:${sStr}.${msStr}]`;
+}
+
+/**
+ * Stamp a timestamp onto a lyric line, replacing any existing leading timestamp.
+ */
+export function stampLyricLine(line: string, timestampOrSeconds: string | number): string {
+  const ts =
+    typeof timestampOrSeconds === 'number'
+      ? formatLrcTimestamp(timestampOrSeconds)
+      : timestampOrSeconds;
+  const cleanLine = line.replace(/^(?:\[\d+:\d+(?:\.\d+)?\]\s*)+/g, '').trimStart();
+  return `${ts}${cleanLine}`;
+}
+
+/**
+ * Strip all leading timestamps from lyric lines.
+ */
+export function stripLrcTimestamps(lrcText: string): string {
+  if (!lrcText) return '';
+  return lrcText
+    .split('\n')
+    .map((line) => line.replace(/^(?:\[\d+:\d+(?:\.\d+)?\]\s*)+/g, '').trim())
+    .join('\n');
+}
+

@@ -87,7 +87,11 @@ const api = {
       'metadata:fetch-online',
       'lyrics:fetch-multi-source',
       'local-music:update-tags-and-file',
-      'local-music:select-cover-file'
+      'local-music:select-cover-file',
+      'library:export-m3u8',
+      'library:import-m3u8',
+      'library:export-backup-json',
+      'library:import-backup-json'
     ];
     if (validChannels.includes(channel)) {
       return ipcRenderer.invoke(channel, ...args);
@@ -120,6 +124,14 @@ const api = {
   updateLocalMusicTagsAndFile: (payload: any) =>
     ipcRenderer.invoke('local-music:update-tags-and-file', payload),
   selectCoverFile: () => ipcRenderer.invoke('local-music:select-cover-file'),
+  exportM3u8: (params: {
+    tracks: Array<{ filePath: string; title?: string; artist?: string; duration?: number }>;
+    defaultName?: string;
+  }) => ipcRenderer.invoke('library:export-m3u8', params),
+  importM3u8: () => ipcRenderer.invoke('library:import-m3u8'),
+  exportBackupJson: (params: { payload: Record<string, any>; defaultName?: string }) =>
+    ipcRenderer.invoke('library:export-backup-json', params),
+  importBackupJson: () => ipcRenderer.invoke('library:import-backup-json'),
 
   // Download manager
   downloadAdd: (task: any) => ipcRenderer.invoke('download:add', task),

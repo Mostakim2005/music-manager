@@ -93,10 +93,35 @@
               <button
                 v-if="localMusicStore.folderPaths.length > 0"
                 class="action-btn-icon w-10 h-10 rounded-full flex items-center justify-center bg-neutral-100 dark:bg-neutral-900 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-neutral-800 transition-all"
+                title="Manage Library Folders"
                 @click="showFolderManager = true"
               >
                 <i class="ri-folder-settings-line text-lg" />
               </button>
+
+              <!-- 个人听歌统计与Wrapped报告按钮 -->
+              <button
+                class="action-btn-icon w-10 h-10 rounded-full flex items-center justify-center bg-neutral-100 dark:bg-neutral-900 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-neutral-800 transition-all"
+                title="Personal Listening Stats & Wrapped"
+                @click="showListeningStats = true"
+              >
+                <i class="ri-bar-chart-box-line text-lg" />
+              </button>
+
+              <!-- 导出/导入 M3U8 歌单与 JSON 备份菜单 -->
+              <n-dropdown
+                trigger="click"
+                :options="backupDropdownOptions"
+                @select="handleBackupAction"
+              >
+                <button
+                  class="action-btn-icon px-3 h-10 rounded-full flex items-center gap-1.5 bg-neutral-100 dark:bg-neutral-900 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-neutral-800 transition-all text-xs font-medium"
+                  title="Export / Import M3U8 Playlist & JSON Library Backup"
+                >
+                  <i class="ri-database-2-line text-base" />
+                  <span class="hidden lg:inline">M3U8 / Backup</span>
+                </button>
+              </n-dropdown>
             </div>
           </div>
         </section>
@@ -214,16 +239,24 @@
       :entry="editingEntry"
       @saved="handleTrackSaved"
     />
+
+    <!-- 个人听歌统计与Wrapped弹窗 -->
+    <listening-stats-modal v-model:show="showListeningStats" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { createDiscreteApi } from 'naive-ui';
-import { computed, onMounted, ref } from 'vue';
+import { createDiscreteApi, type DropdownOption } from 'naive-ui';
+import { computed, h, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import LocalTrackEditorModal from '@/components/common/LocalTrackEditorModal.vue';
 import SongItem from '@/components/common/SongItem.vue';
+import ListeningStatsModal from '@/components/player/ListeningStatsModal.vue';
+import {
+  exportListeningStatsRaw,
+  importListeningStatsRaw
+} from '@/services/listeningStatsService';
 import { useLocalMusicStore } from '@/store/modules/localMusic';
 import { usePlayerStore } from '@/store/modules/player';
 import type { LocalMusicEntry } from '@/types/localMusic';
@@ -244,6 +277,103 @@ const showFolderManager = ref(false);
 /** 本地歌曲标签/文件编辑器弹窗 */
 const showTrackEditor = ref(false);
 const editingEntry = ref<LocalMusicEntry | null>(null);
+/** 听歌统计弹窗 */
+const showListeningStats = ref(false);
+
+const backupDropdownOptions: DropdownOption[] = [
+  {
+    label: 'Export Playlist as .M3U8',
+    key: 'export-m3u8',
+    icon: () => h('i', { class: 'ri-file-music-line' })
+  },
+  {
+    label: 'Import .M3U / .M3U8 Playlist',
+    key: 'import-m3u8',
+    icon: () => h('i', { class: 'ri-folder-upload-line' })
+  },
+  {
+    label: 'Export Full Library & Stats (.JSON Backup)',
+    key: 'export-json',
+    icon: () => h('i', { class: 'ri-download-cloud-2-line' })
+  },
+  {
+    label: 'Restore Library & Stats from .JSON Backup',
+    key: 'import-json',
+    icon: () => h('i', { class: 'ri-upload-cloud-2-line' })
+  }
+];
+
+async function handleBackupAction(key: string) {
+  try {
+    if (key === 'export-m3u8') {
+      const tracks = filteredList.value.map((item) => ({
+        filePath: item.filePath,
+        title: item.title,
+        artist: item.artist,
+        durationSec: item.duration ? Math.round(item.duration / 1000) : -1
+      }));
+      const res = await window.electron.ipcRenderer.invoke('library:export-m3u8', {
+        playlistName: 'MusicManager-LocalLibrary',
+        tracks
+      });
+      if (res?.ok) {
+        message.success(`Exported ${res.count} tracks to ${res.filePath}`);
+      } else if (res && !res.canceled && res.error) {
+        message.error(res.error);
+      }
+    } else if (key === 'import-m3u8') {
+      const res = await window.electron.ipcRenderer.invoke('library:import-m3u8');
+      if (res?.ok && Array.isArray(res.filePaths) && res.filePaths.length > 0) {
+        const parsed = await window.api.parseLocalMusicMetadata(res.filePaths);
+        for (const meta of parsed) {
+          await localMusicStore.updateEntry(meta);
+        }
+        message.success(`Imported ${parsed.length} track(s) from M3U8 playlist!`);
+      } else if (res && !res.canceled && res.error) {
+        message.error(res.error);
+      }
+    } else if (key === 'export-json') {
+      const payload = {
+        folderPaths: localMusicStore.folderPaths,
+        musicList: localMusicStore.musicList,
+        listeningStats: exportListeningStatsRaw()
+      };
+      const res = await window.electron.ipcRenderer.invoke('library:export-backup-json', {
+        payload
+      });
+      if (res?.ok) {
+        message.success(`Saved library & stats backup to ${res.filePath}`);
+      } else if (res && !res.canceled && res.error) {
+        message.error(res.error);
+      }
+    } else if (key === 'import-json') {
+      const res = await window.electron.ipcRenderer.invoke('library:import-backup-json');
+      if (res?.ok && res.payload) {
+        const { folderPaths, musicList, listeningStats } = res.payload;
+        if (Array.isArray(folderPaths)) {
+          for (const folder of folderPaths) {
+            localMusicStore.addFolder(folder);
+          }
+        }
+        if (Array.isArray(musicList)) {
+          for (const entry of musicList) {
+            if (entry && entry.id && entry.filePath) {
+              await localMusicStore.updateEntry(entry);
+            }
+          }
+        }
+        if (listeningStats && typeof listeningStats === 'object') {
+          importListeningStatsRaw(listeningStats);
+        }
+        message.success('Restored library folders, tracks, and listening stats from backup!');
+      } else if (res && !res.canceled && res.error) {
+        message.error(res.error);
+      }
+    }
+  } catch (err) {
+    message.error(`Backup operation failed: ${String(err)}`);
+  }
+}
 
 function openTrackEditor(entry: LocalMusicEntry) {
   editingEntry.value = entry;

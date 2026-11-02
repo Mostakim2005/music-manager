@@ -191,10 +191,23 @@
 
       <!-- Lyrics Editor -->
       <div class="mt-4">
-        <div class="flex items-center justify-between mb-1">
-          <label class="text-xs font-medium text-neutral-600 dark:text-neutral-400">
-            Embedded &amp; Sidecar Synced Lyrics (.lrc)
-          </label>
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-1">
+          <div class="flex items-center gap-2">
+            <label class="text-xs font-medium text-neutral-600 dark:text-neutral-400">
+              Embedded &amp; Sidecar Synced Lyrics (.lrc)
+            </label>
+            <n-button
+              size="tiny"
+              secondary
+              type="warning"
+              @click="showLrcSync = true"
+            >
+              <template #icon>
+                <i class="ri-timer-flash-line" />
+              </template>
+              Tap Timestamp Maker (Sync Plain Lyrics)
+            </n-button>
+          </div>
           <div class="flex items-center gap-2">
             <span class="text-xs text-neutral-500">Also save .lrc file next to audio</span>
             <n-switch v-model:value="form.saveSidecarLrc" size="small" />
@@ -222,12 +235,19 @@
       </div>
     </div>
   </n-modal>
+
+  <lrc-synchronizer-modal
+    v-model:show="showLrcSync"
+    :initial-lyrics="form.lyrics"
+    @apply="(synced) => (form.lyrics = synced)"
+  />
 </template>
 
 <script setup lang="ts">
 import { createDiscreteApi } from 'naive-ui';
 import { computed, reactive, ref, watch } from 'vue';
 
+import LrcSynchronizerModal from '@/components/common/LrcSynchronizerModal.vue';
 import type { LocalMusicEntry } from '@/types/localMusic';
 import { filePathToLocalUrl } from '@/utils/localMusicUtils';
 
@@ -246,6 +266,7 @@ const { message } = createDiscreteApi(['message']);
 const saving = ref(false);
 const fetchingMeta = ref(false);
 const fetchingLyrics = ref(false);
+const showLrcSync = ref(false);
 const metaCandidates = ref<any[]>([]);
 
 const form = reactive({

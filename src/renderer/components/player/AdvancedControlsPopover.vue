@@ -162,6 +162,12 @@
 
   <!-- 错误监控与诊断弹窗 -->
   <diagnostics-modal v-model:show="showDiagnosticsModal" />
+
+  <!-- A-B 区间循环与歌曲书签弹窗 -->
+  <ab-loop-modal v-model:show="showAbLoopModal" />
+
+  <!-- 个人听歌统计与年度报告弹窗 -->
+  <listening-stats-modal v-model:show="showListeningStatsModal" />
 </template>
 
 <script lang="ts" setup>
@@ -170,7 +176,9 @@ import { computed, h, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import EqControl from '@/components/EQControl.vue';
+import AbLoopModal from '@/components/player/AbLoopModal.vue';
 import DiagnosticsModal from '@/components/player/DiagnosticsModal.vue';
+import ListeningStatsModal from '@/components/player/ListeningStatsModal.vue';
 import SleepTimer from '@/components/player/SleepTimer.vue';
 import { audioService } from '@/services/audioService';
 import { usePlayerStore } from '@/store/modules/player';
@@ -185,6 +193,8 @@ const showEQModal = ref(false);
 const showSpeedModal = ref(false);
 const showTransitionsModal = ref(false);
 const showDiagnosticsModal = ref(false);
+const showAbLoopModal = ref(false);
+const showListeningStatsModal = ref(false);
 const isEQVisible = ref(false);
 
 const transitionConfig = ref(audioService.getSmartTransitionConfig());
@@ -318,6 +328,20 @@ const dropdownOptions = computed<DropdownOption[]>(() => [
         : null
   },
   {
+    label: 'A-B Loop & Bookmarks',
+    key: 'abLoop',
+    icon: () => h('i', { class: 'ri-repeat-2-line' }),
+    suffix: () =>
+      audioService.getAbLoop().enabled
+        ? h('span', { class: 'active-option-mark' }, 'A-B')
+        : null
+  },
+  {
+    label: 'Listening Stats & Wrapped',
+    key: 'listeningStats',
+    icon: () => h('i', { class: 'ri-bar-chart-box-line' })
+  },
+  {
     label: 'Error Watch & Diagnostics',
     key: 'diagnostics',
     icon: () => h('i', { class: 'ri-radar-line' })
@@ -332,6 +356,8 @@ const handleSelect = (key: string) => {
   showSpeedModal.value = false;
   showTransitionsModal.value = false;
   showDiagnosticsModal.value = false;
+  showAbLoopModal.value = false;
+  showListeningStatsModal.value = false;
 
   // 然后仅打开所选弹窗
   switch (key) {
@@ -348,6 +374,12 @@ const handleSelect = (key: string) => {
       transitionConfig.value = audioService.getSmartTransitionConfig();
       refreshCacheStats();
       showTransitionsModal.value = true;
+      break;
+    case 'abLoop':
+      showAbLoopModal.value = true;
+      break;
+    case 'listeningStats':
+      showListeningStatsModal.value = true;
       break;
     case 'diagnostics':
       showDiagnosticsModal.value = true;

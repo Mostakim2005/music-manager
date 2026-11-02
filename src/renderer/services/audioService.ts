@@ -1,6 +1,7 @@
 import type { AudioOutputDevice } from '@/types/audio';
 import type { SongResult } from '@/types/music';
 import { getImgUrl, isElectron } from '@/utils';
+import { addListeningSeconds, recordTrackPlay } from '@/services/listeningStatsService';
 
 /** Smooth play/pause volume fade duration in milliseconds (ported from YesPlayMusic Player.js) */
 export const PLAY_PAUSE_FADE_DURATION = 200;
@@ -29,6 +30,12 @@ class AudioService {
   private skipSilenceEnabled = false;
   private replayGainEnabled = true;
   private crossfadeActive = false;
+  private abLoop: { enabled: boolean; pointA: number | null; pointB: number | null } = {
+    enabled: false,
+    pointA: null,
+    pointB: null
+  };
+  private lastStatsTickTime = 0;
 
   private operationLock = false;
   private operationLockTimer: ReturnType<typeof setTimeout> | null = null;
@@ -100,29 +107,34 @@ class AudioService {
   private bindAudioEvents() {
     this.audio.addEventListener('play', () => {
       if (this.audio.paused || !this.currentTrack) return;
+      this.lastStatsTickTime = Date.now();
       this.updateMediaSessionState(true);
       this.emit('play');
     });
 
     this.audio.addEventListener('pause', () => {
       if (!this.audio.paused) return;
+      this.lastStatsTickTime = 0;
       this.updateMediaSessionState(false);
       this.emit('pause');
     });
 
     this.audio.addEventListener('ended', () => {
       if (!this.audio.ended || !this.currentTrack) return;
+      this.lastStatsTickTime = 0;
       this.updateMediaSessionState(false);
       this.emit('end', this.currentTrack);
     });
 
     this.audio.addEventListener('seeked', () => {
+      this.lastStatsTickTime = Date.now();
       this.updateMediaSessionPositionState();
       this.emit('seek');
     });
 
     this.audio.addEventListener('timeupdate', () => {
       this.handleSmartTransitionTick();
+      this.handleListeningStatsTick();
     });
 
     this.audio.addEventListener('waiting', () => {
@@ -564,6 +576,13 @@ class AudioService {
           this.updateMediaSessionPositionState();
           this.emit('load');
           this.releaseOperationLock();
+          if (isPlay && track) {
+            try {
+              recordTrackPlay(track);
+            } catch {
+              // safe ignore
+            }
+          }
           resolve(this.audio);
         } catch (error) {
           if (settled) return;
@@ -834,6 +853,18 @@ class AudioService {
     const duration = this.audio.duration;
     const remaining = duration - currentTime;
 
+    // 0. A-B Loop Repeat
+    if (
+      this.abLoop.enabled &&
+      this.abLoop.pointA !== null &&
+      this.abLoop.pointB !== null &&
+      this.abLoop.pointB > this.abLoop.pointA &&
+      currentTime >= this.abLoop.pointB
+    ) {
+      this.seek(this.abLoop.pointA);
+      return;
+    }
+
     // 1. Equal-Power Crossfade envelope at track end
     if (
       this.crossfadeEnabled &&
@@ -865,6 +896,23 @@ class AudioService {
         } else if (duration > 15 && remaining < 5.0 && remaining > 0.4) {
           this.seek(duration - 0.1);
         }
+      }
+    }
+  }
+
+  private handleListeningStatsTick() {
+    if (this.audio.paused || !this.currentTrack) return;
+    const now = Date.now();
+    if (!this.lastStatsTickTime) {
+      this.lastStatsTickTime = now;
+      return;
+    }
+    const elapsedMs = now - this.lastStatsTickTime;
+    if (elapsedMs >= 1000) {
+      const deltaSec = elapsedMs / 1000;
+      this.lastStatsTickTime = now;
+      if (deltaSec > 0 && deltaSec < 10) {
+        addListeningSeconds(this.currentTrack, deltaSec);
       }
     }
   }
@@ -965,6 +1013,95 @@ class AudioService {
 
   public getCurrentTime(): number {
     return this.audio?.currentTime || 0;
+  }
+
+  // ==================== A-B Loop Repeat & Bookmarks ====================
+
+  public setAbLoopPointA(timeSec?: number) {
+    const t = typeof timeSec === 'number' ? Math.max(0, timeSec) : this.getCurrentTime();
+    this.abLoop.pointA = t;
+    if (this.abLoop.pointB !== null && this.abLoop.pointB <= t) {
+      this.abLoop.pointB = null;
+      this.abLoop.enabled = false;
+    }
+    return this.getAbLoop();
+  }
+
+  public setAbLoopPointB(timeSec?: number) {
+    const t = typeof timeSec === 'number' ? Math.max(0, timeSec) : this.getCurrentTime();
+    if (this.abLoop.pointA === null) {
+      this.abLoop.pointA = 0;
+    }
+    if (t > this.abLoop.pointA) {
+      this.abLoop.pointB = t;
+      this.abLoop.enabled = true;
+    }
+    return this.getAbLoop();
+  }
+
+  public clearAbLoop() {
+    this.abLoop = { enabled: false, pointA: null, pointB: null };
+    return this.getAbLoop();
+  }
+
+  public getAbLoop() {
+    return { ...this.abLoop };
+  }
+
+  public getBookmarks(trackId: string | number): Array<{ id: string; time: number; label: string }> {
+    if (!trackId) return [];
+    try {
+      const raw = JSON.parse(localStorage.getItem('music_manager_bookmarks_v1') || '{}');
+      return Array.isArray(raw[String(trackId)]) ? raw[String(trackId)] : [];
+    } catch {
+      return [];
+    }
+  }
+
+  public addBookmark(
+    trackId: string | number,
+    timeSec?: number,
+    label?: string
+  ): Array<{ id: string; time: number; label: string }> {
+    if (!trackId) return [];
+    const time = typeof timeSec === 'number' ? Math.max(0, timeSec) : this.getCurrentTime();
+    try {
+      const raw = JSON.parse(localStorage.getItem('music_manager_bookmarks_v1') || '{}');
+      const key = String(trackId);
+      const list: Array<{ id: string; time: number; label: string }> = Array.isArray(raw[key])
+        ? raw[key]
+        : [];
+      list.push({
+        id: `${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        time: Math.round(time * 100) / 100,
+        label: label?.trim() || `Bookmark @ ${Math.floor(time / 60)}:${String(Math.floor(time % 60)).padStart(2, '0')}`
+      });
+      list.sort((a, b) => a.time - b.time);
+      raw[key] = list;
+      localStorage.setItem('music_manager_bookmarks_v1', JSON.stringify(raw));
+      return list;
+    } catch {
+      return [];
+    }
+  }
+
+  public removeBookmark(
+    trackId: string | number,
+    bookmarkId: string
+  ): Array<{ id: string; time: number; label: string }> {
+    if (!trackId) return [];
+    try {
+      const raw = JSON.parse(localStorage.getItem('music_manager_bookmarks_v1') || '{}');
+      const key = String(trackId);
+      const list: Array<{ id: string; time: number; label: string }> = Array.isArray(raw[key])
+        ? raw[key].filter((b: any) => b.id !== bookmarkId)
+        : [];
+      raw[key] = list;
+      localStorage.setItem('music_manager_bookmarks_v1', JSON.stringify(raw));
+      return list;
+    } catch {
+      return [];
+    }
   }
 
   public setPlaybackRate(rate: number) {

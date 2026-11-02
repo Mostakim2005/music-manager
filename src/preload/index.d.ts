@@ -113,6 +113,32 @@ interface API {
     filePath: string | null;
     dataUrl: string | null;
   }>;
+  /** 导出 M3U8 播放列表 */
+  exportM3u8: (params: {
+    tracks: Array<{ filePath: string; title?: string; artist?: string; duration?: number }>;
+    defaultName?: string;
+  }) => Promise<{ ok?: boolean; canceled?: boolean; filePath?: string; error?: string }>;
+  /** 导入 M3U / M3U8 播放列表 */
+  importM3u8: () => Promise<{
+    ok?: boolean;
+    canceled?: boolean;
+    filePaths?: string[];
+    playlistFilePath?: string;
+    error?: string;
+  }>;
+  /** 导出音乐库完整 JSON 备份 */
+  exportBackupJson: (params: {
+    payload: Record<string, any>;
+    defaultName?: string;
+  }) => Promise<{ ok?: boolean; canceled?: boolean; filePath?: string; error?: string }>;
+  /** 导入音乐库完整 JSON 备份 */
+  importBackupJson: () => Promise<{
+    ok?: boolean;
+    canceled?: boolean;
+    data?: any;
+    filePath?: string;
+    error?: string;
+  }>;
   // Download manager
   downloadAdd: (task: any) => Promise<string>;
   downloadAddBatch: (tasks: any) => Promise<{ batchId: string; taskIds: string[] }>;
