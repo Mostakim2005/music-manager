@@ -12,6 +12,7 @@ import { isElectron } from '@/utils';
 
 import App from './App.vue';
 import directives from './directive';
+import { initRendererErrorMonitor } from './services/errorMonitor';
 
 // Web 端注册最小 Service Worker，使站点满足 PWA 可安装条件（#640/#382）
 if (!isElectron && import.meta.env.PROD && 'serviceWorker' in navigator) {
@@ -31,4 +32,5 @@ Object.keys(directives).forEach((key: string) => {
 app.use(pinia);
 app.use(router);
 app.use(i18n as any);
+initRendererErrorMonitor(app);
 app.mount('#app');

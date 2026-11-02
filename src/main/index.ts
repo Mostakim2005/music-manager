@@ -12,6 +12,17 @@ process.on('uncaughtException', (error: NodeJS.ErrnoException) => {
     return;
   }
   console.error('[main] 未捕获异常:', error);
+  try {
+    recordErrorReport({
+      source: 'main',
+      severity: 'fatal',
+      message: error?.message || String(error),
+      stack: error?.stack,
+      context: { code: error?.code }
+    });
+  } catch {
+    // ignore
+  }
   dialog.showErrorBox(
     'A JavaScript error occurred in the main process',
     error?.stack || String(error)
@@ -19,6 +30,17 @@ process.on('uncaughtException', (error: NodeJS.ErrnoException) => {
 });
 process.on('unhandledRejection', (reason) => {
   console.error('[main] 未处理的 Promise 拒绝:', reason);
+  try {
+    const isErr = reason instanceof Error;
+    recordErrorReport({
+      source: 'main',
+      severity: 'error',
+      message: isErr ? reason.message : String(reason),
+      stack: isErr ? reason.stack : undefined
+    });
+  } catch {
+    // ignore
+  }
 });
 
 // 必须在 app.whenReady() 之前注册自定义协议为特权协议，
@@ -60,10 +82,16 @@ import {
   updateDiscordPlayState,
   updateDiscordSong
 } from './modules/discordRpc';
+import {
+  initializeErrorReporter,
+  recordErrorReport,
+  stopErrorReporterHttp
+} from './modules/errorReporter';
 import { initializeDownloadManager, setDownloadManagerWindow } from './modules/downloadManager';
 import { initializeFileManager } from './modules/fileManager';
 import { initializeFonts } from './modules/fonts';
 import { initializeLocalMusicScanner } from './modules/localMusicScanner';
+import { initializeTagAndMetadataManager } from './modules/tagAndMetadataManager';
 import { initializeLoginWindow } from './modules/loginWindow';
 import { initLxMusicHttp } from './modules/lxMusicHttp';
 import { initializeMpris, updateMprisCurrentSong, updateMprisPlayState } from './modules/mpris';
@@ -98,6 +126,8 @@ function initialize(configStore: any) {
 
   // 初始化文件管理
   initializeFileManager();
+  // 初始化错误报告及诊断HTTP服务
+  initializeErrorReporter();
   // 初始化本地音源插件媒体代理协议
   initPluginMediaProxy();
   // 初始化下载管理
@@ -114,6 +144,8 @@ function initialize(configStore: any) {
   initializeLoginWindow();
   // 初始化本地音乐扫描模块
   initializeLocalMusicScanner();
+  // 初始化音频标签与在线元数据管理模块
+  initializeTagAndMetadataManager();
 
   // 创建主窗口
   mainWindow = createMainWindow(icon);
@@ -264,6 +296,7 @@ if (!isSingleInstance) {
   app.on('before-quit', () => {
     // 设置退出标志
     setAppQuitting(true);
+    stopErrorReporterHttp();
   });
 
   // 重启应用

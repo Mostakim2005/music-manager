@@ -1,7 +1,7 @@
 {
-  "name": "AlgerMusicPlayer",
+  "name": "music-manager",
   "version": "5.1.0",
-  "description": "Alger Music Player",
+  "description": "Music Manager",
   "author": "Alger <algerkc@qq.com>",
   "main": "./out/main/index.js",
   "homepage": "https://github.com/algerkong/AlgerMusicPlayer",
@@ -135,8 +135,8 @@
     "vue-tsc": "^2.2.12"
   },
   "build": {
-    "appId": "com.alger.music",
-    "productName": "AlgerMusicPlayer",
+    "appId": "com.musicmanager.app",
+    "productName": "Music Manager",
     "publish": [
       {
         "provider": "github",
@@ -228,10 +228,10 @@
       "uninstallerIcon": "resources/icon.ico",
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "AlgerMusicPlayer",
+      "shortcutName": "Music Manager",
       "include": "build/installer.nsh",
       "deleteAppDataOnUninstall": true,
-      "uninstallDisplayName": "AlgerMusicPlayer"
+      "uninstallDisplayName": "Music Manager"
     }
   },
   "pnpm": {

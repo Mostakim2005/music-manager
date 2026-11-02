@@ -37,6 +37,7 @@ interface API {
   importLxMusicScript: () => Promise<{ name: string; content: string } | null>;
   importMusicSourcePlugin: () => Promise<{ name: string; content: string; path?: string } | null>;
   fetchMusicSourcePlugin: (url: string) => Promise<{ name: string; content: string; url: string }>;
+  reportError: (entry: any) => Promise<any>;
   invoke: (channel: string, ...args: any[]) => Promise<any>;
   getSearchSuggestions: (keyword: string) => Promise<any>;
   lxMusicHttpRequest: (request: { url: string; options: any; requestId: string }) => Promise<any>;
@@ -51,6 +52,67 @@ interface API {
   parseLocalMusicMetadata: (
     filePaths: string[]
   ) => Promise<import('../renderer/types/localMusic').LocalMusicMeta[]>;
+  /** 在线搜索元数据与封面（iTunes + MusicBrainz） */
+  fetchOnlineMetadata: (query: {
+    title: string;
+    artist?: string;
+    album?: string;
+  }) => Promise<{
+    results: Array<{
+      title: string;
+      artist: string;
+      album: string;
+      year: string;
+      genre: string;
+      trackNumber: number;
+      coverUrl: string;
+      source: 'iTunes' | 'MusicBrainz';
+    }>;
+  }>;
+  /** 多源歌词检索（LRCLIB 全球开源歌词 + 自动罗马音） */
+  fetchMultiSourceLyrics: (query: {
+    title: string;
+    artist?: string;
+    album?: string;
+    durationSec?: number;
+  }) => Promise<{
+    lrc: string;
+    tlyric: string;
+    romalrc: string;
+    source: string;
+    candidates: Array<{
+      id: number | string;
+      trackName: string;
+      artistName: string;
+      albumName: string;
+      syncedLyrics: string;
+      plainLyrics: string;
+      source: string;
+    }>;
+  }>;
+  /** 更新本地音频标签、封面、侧车歌词及物理文件重命名 */
+  updateLocalMusicTagsAndFile: (payload: {
+    filePath: string;
+    newFileName?: string;
+    title: string;
+    artist: string;
+    album: string;
+    year?: string;
+    genre?: string;
+    lyrics?: string;
+    coverDataUrlOrPath?: string;
+    saveSidecarLrc?: boolean;
+  }) => Promise<{
+    ok: boolean;
+    updatedEntry?: import('../renderer/types/localMusic').LocalMusicMeta;
+    error?: string;
+  }>;
+  /** 选择本地封面图片 */
+  selectCoverFile: () => Promise<{
+    canceled: boolean;
+    filePath: string | null;
+    dataUrl: string | null;
+  }>;
   // Download manager
   downloadAdd: (task: any) => Promise<string>;
   downloadAddBatch: (tasks: any) => Promise<{ batchId: string; taskIds: string[] }>;
@@ -75,6 +137,7 @@ interface API {
 // 自定义IPC渲染进程通信接口
 interface IpcRenderer {
   send: (channel: string, ...args: any[]) => void;
+  reportError: (entry: any) => Promise<any>;
   invoke: (channel: string, ...args: any[]) => Promise<any>;
   on: (channel: string, listener: (...args: any[]) => void) => () => void;
   removeAllListeners: (channel: string) => void;

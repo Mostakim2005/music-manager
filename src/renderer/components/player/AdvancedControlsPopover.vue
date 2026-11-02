@@ -159,6 +159,9 @@
       </div>
     </div>
   </n-modal>
+
+  <!-- 错误监控与诊断弹窗 -->
+  <diagnostics-modal v-model:show="showDiagnosticsModal" />
 </template>
 
 <script lang="ts" setup>
@@ -167,6 +170,7 @@ import { computed, h, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import EqControl from '@/components/EQControl.vue';
+import DiagnosticsModal from '@/components/player/DiagnosticsModal.vue';
 import SleepTimer from '@/components/player/SleepTimer.vue';
 import { audioService } from '@/services/audioService';
 import { usePlayerStore } from '@/store/modules/player';
@@ -180,6 +184,7 @@ const showDropdown = ref(false);
 const showEQModal = ref(false);
 const showSpeedModal = ref(false);
 const showTransitionsModal = ref(false);
+const showDiagnosticsModal = ref(false);
 const isEQVisible = ref(false);
 
 const transitionConfig = ref(audioService.getSmartTransitionConfig());
@@ -311,6 +316,11 @@ const dropdownOptions = computed<DropdownOption[]>(() => [
       crossfadeEnabled.value || skipSilenceEnabled.value
         ? h('span', { class: 'active-option-mark' }, 'ON')
         : null
+  },
+  {
+    label: 'Error Watch & Diagnostics',
+    key: 'diagnostics',
+    icon: () => h('i', { class: 'ri-radar-line' })
   }
 ]);
 
@@ -321,6 +331,7 @@ const handleSelect = (key: string) => {
   playerStore.showSleepTimer = false;
   showSpeedModal.value = false;
   showTransitionsModal.value = false;
+  showDiagnosticsModal.value = false;
 
   // 然后仅打开所选弹窗
   switch (key) {
@@ -337,6 +348,9 @@ const handleSelect = (key: string) => {
       transitionConfig.value = audioService.getSmartTransitionConfig();
       refreshCacheStats();
       showTransitionsModal.value = true;
+      break;
+    case 'diagnostics':
+      showDiagnosticsModal.value = true;
       break;
   }
 };

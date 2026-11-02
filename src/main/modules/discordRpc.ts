@@ -43,7 +43,7 @@ function syncActivity(): void {
 
   try {
     const artistText = currentSongInfo.artist || 'Unknown Artist';
-    const albumText = currentSongInfo.album || 'AlgerMusicPlayer';
+    const albumText = currentSongInfo.album || 'Music Manager';
     rpcClient.user
       .setActivity({
         details: `${currentSongInfo.name}`.slice(0, 128),
@@ -75,7 +75,7 @@ export function updateDiscordSong(song: any): void {
   currentSongInfo = {
     name: song.name || song.title || 'Unknown Track',
     artist,
-    album: song.al?.name || song.album?.name || song.album || 'AlgerMusicPlayer',
+    album: song.al?.name || song.album?.name || song.album || 'Music Manager',
     picUrl: song.picUrl || song.al?.picUrl || '',
     duration: song.dt || song.duration || 0
   };

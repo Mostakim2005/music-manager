@@ -137,16 +137,31 @@
           </div>
 
           <!-- 歌曲列表 -->
-          <div v-else-if="filteredList.length > 0" class="song-list-container">
-            <song-item
+          <div v-else-if="filteredList.length > 0" class="song-list-container space-y-1">
+            <div
               v-for="(item, index) in filteredSongResults"
               :key="item.id"
-              :index="index"
-              :item="item"
-              :can-remove="true"
-              @play="handlePlaySong"
-              @remove-song="handleRemoveSong"
-            />
+              class="flex items-center gap-2 group"
+            >
+              <div class="flex-1 min-w-0">
+                <song-item
+                  :index="index"
+                  :item="item"
+                  :can-remove="true"
+                  @play="handlePlaySong"
+                  @remove-song="handleRemoveSong"
+                />
+              </div>
+              <button
+                type="button"
+                class="px-2.5 py-1.5 rounded-xl text-xs font-medium bg-neutral-100 dark:bg-neutral-900 text-neutral-600 dark:text-neutral-300 hover:bg-primary/15 hover:text-primary transition flex items-center gap-1 shrink-0"
+                title="Edit Metadata, Artwork & Filename"
+                @click.stop="openTrackEditor(filteredList[index])"
+              >
+                <i class="ri-edit-box-line text-sm" />
+                <span class="hidden sm:inline">Edit Tags / File</span>
+              </button>
+            </div>
           </div>
         </section>
       </div>
@@ -192,6 +207,13 @@
         </template>
       </n-drawer-content>
     </n-drawer>
+
+    <!-- 本地音乐元数据、封面与文件名编辑器 -->
+    <local-track-editor-modal
+      v-model:show="showTrackEditor"
+      :entry="editingEntry"
+      @saved="handleTrackSaved"
+    />
   </div>
 </template>
 
@@ -200,9 +222,11 @@ import { createDiscreteApi } from 'naive-ui';
 import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 
+import LocalTrackEditorModal from '@/components/common/LocalTrackEditorModal.vue';
 import SongItem from '@/components/common/SongItem.vue';
 import { useLocalMusicStore } from '@/store/modules/localMusic';
 import { usePlayerStore } from '@/store/modules/player';
+import type { LocalMusicEntry } from '@/types/localMusic';
 import type { SongResult } from '@/types/music';
 import { filterByKeyword, toSongResult } from '@/utils/localMusicUtils';
 
@@ -217,6 +241,18 @@ const playerStore = usePlayerStore();
 const searchKeyword = ref('');
 /** 文件夹管理抽屉是否显示 */
 const showFolderManager = ref(false);
+/** 本地歌曲标签/文件编辑器弹窗 */
+const showTrackEditor = ref(false);
+const editingEntry = ref<LocalMusicEntry | null>(null);
+
+function openTrackEditor(entry: LocalMusicEntry) {
+  editingEntry.value = entry;
+  showTrackEditor.value = true;
+}
+
+async function handleTrackSaved(updatedEntry: LocalMusicEntry, oldId: string) {
+  await localMusicStore.updateEntry(updatedEntry, oldId);
+}
 
 // ==================== Computed ====================
 /** 根据搜索关键词过滤后的本地音乐列表 */

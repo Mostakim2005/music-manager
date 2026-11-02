@@ -18,6 +18,7 @@ import {
   getTrackSource
 } from '@/utils/db';
 import { alignSubLyrics, copyLyric, lyricParser, parseLyric } from '@/utils/lyrics';
+import { detectScriptAndRomanize } from '@/utils/transliteration';
 import { parseLyrics as parseYrcLyrics } from '@/utils/yrcParser';
 
 export { copyLyric, lyricParser, parseLyric };
@@ -318,11 +319,11 @@ export const loadLrc = async (id: string | number): Promise<ILyric> => {
             }));
       const alignedRoma = alignSubLyrics(times, primaryTexts, romaSubList);
       lyrics.forEach((item, index) => {
-        item.romaText = alignedRoma[index] || '';
+        item.romaText = alignedRoma[index] || detectScriptAndRomanize(item.text) || '';
       });
     } else {
       lyrics.forEach((item) => {
-        item.romaText = '';
+        item.romaText = detectScriptAndRomanize(item.text) || '';
       });
     }
 

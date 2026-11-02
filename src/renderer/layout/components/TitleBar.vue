@@ -66,7 +66,7 @@
 
       <!-- 应用标题：Mac 靠左侧紧随控制按钮，其他系统靠左 -->
       <span class="title-bar__brand" :class="{ 'title-bar__brand--mac': isElectron && isMac }">
-        Alger Music
+        Music Manager
       </span>
     </div>
 

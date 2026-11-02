@@ -7,7 +7,7 @@ import { defineStore } from 'pinia';
 import { ref } from 'vue';
 
 import useIndexedDB from '@/hooks/IndexDBHook';
-import type { LocalMusicEntry } from '@/types/localMusic';
+import type { LocalMusicEntry, LocalMusicMeta } from '@/types/localMusic';
 import { removeStaleEntries } from '@/utils/localMusicUtils';
 
 const { message } = createDiscreteApi(['message']);
@@ -301,6 +301,29 @@ export const useLocalMusicStore = defineStore(
     }
 
     /**
+     * 更新单个本地音乐条目（例如修改标签、封面或重命名磁盘文件后）
+     */
+    async function updateEntry(updatedMeta: LocalMusicMeta, oldId?: string): Promise<LocalMusicEntry> {
+      const localDB = await getDB();
+      const newId = generateId(updatedMeta.filePath);
+      const newEntry: LocalMusicEntry = {
+        ...updatedMeta,
+        id: newId
+      };
+      if (oldId && oldId !== newId) {
+        await localDB.deleteData(LOCAL_MUSIC_STORE, oldId);
+      }
+      await localDB.saveData(LOCAL_MUSIC_STORE, newEntry);
+      const idx = musicList.value.findIndex((e) => e.id === (oldId || newId));
+      if (idx !== -1) {
+        musicList.value.splice(idx, 1, newEntry);
+      } else {
+        musicList.value.push(newEntry);
+      }
+      return newEntry;
+    }
+
+    /**
      * 清理缓存：检查文件存在性，移除已不存在的文件条目
      */
     async function clearCache(): Promise<void> {
@@ -359,6 +382,7 @@ export const useLocalMusicStore = defineStore(
       scanFolders,
       loadFromCache,
       removeEntry,
+      updateEntry,
       clearCache
     };
   },

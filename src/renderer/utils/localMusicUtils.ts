@@ -4,6 +4,7 @@
 import type { LocalMusicEntry, LocalMusicMeta } from '@/types/localMusic';
 import { SUPPORTED_AUDIO_FORMATS } from '@/types/localMusic';
 import type { ILyric, ILyricText, IWordData, SongResult } from '@/types/music';
+import { detectScriptAndRomanize } from '@/utils/transliteration';
 import { parseLyrics as parseYrcLyrics } from '@/utils/yrcParser';
 
 import { filePathToLocalUrl } from '../../shared/localUrl';
@@ -87,6 +88,7 @@ export function parseLrcToILyric(lrcString: string | null): ILyric | null {
       lrcArray.push({
         text: line.fullText,
         trText: '',
+        romaText: detectScriptAndRomanize(line.fullText) || '',
         words: hasWords ? (line.words as IWordData[]) : undefined,
         hasWordByWord: hasWords,
         startTime: line.startTime,

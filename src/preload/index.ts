@@ -65,6 +65,8 @@ const api = {
       callback(locale);
     });
   },
+  // 错误报告与诊断相关
+  reportError: (entry: any) => ipcRenderer.invoke('error-reporter:report', entry),
   // 歌词缓存相关
   invoke: (channel: string, ...args: any[]) => {
     const validChannels = [
@@ -76,7 +78,16 @@ const api = {
       'clear-lyric-cache',
       'scan-local-music',
       'scan-local-music-with-stats',
-      'parse-local-music-metadata'
+      'parse-local-music-metadata',
+      'error-reporter:get-reports',
+      'error-reporter:report',
+      'error-reporter:clear',
+      'error-reporter:export',
+      'error-reporter:test',
+      'metadata:fetch-online',
+      'lyrics:fetch-multi-source',
+      'local-music:update-tags-and-file',
+      'local-music:select-cover-file'
     ];
     if (validChannels.includes(channel)) {
       return ipcRenderer.invoke(channel, ...args);
@@ -98,6 +109,17 @@ const api = {
     ipcRenderer.invoke('scan-local-music-with-stats', folderPath),
   parseLocalMusicMetadata: (filePaths: string[]) =>
     ipcRenderer.invoke('parse-local-music-metadata', filePaths),
+  fetchOnlineMetadata: (query: { title: string; artist?: string; album?: string }) =>
+    ipcRenderer.invoke('metadata:fetch-online', query),
+  fetchMultiSourceLyrics: (query: {
+    title: string;
+    artist?: string;
+    album?: string;
+    durationSec?: number;
+  }) => ipcRenderer.invoke('lyrics:fetch-multi-source', query),
+  updateLocalMusicTagsAndFile: (payload: any) =>
+    ipcRenderer.invoke('local-music:update-tags-and-file', payload),
+  selectCoverFile: () => ipcRenderer.invoke('local-music:select-cover-file'),
 
   // Download manager
   downloadAdd: (task: any) => ipcRenderer.invoke('download:add', task),
