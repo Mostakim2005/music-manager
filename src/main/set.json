@@ -42,5 +42,19 @@
   "enableDiskCache": true,
   "diskCacheDir": "",
   "diskCacheMaxSizeMB": 4096,
-  "diskCacheCleanupPolicy": "lru"
+  "diskCacheCleanupPolicy": "lru",
+  "showPlayBarVideoSwitcher": true,
+  "showWaveformSeekbar": true,
+  "enableDynamicPalette": true,
+  "enablePlayPauseFade": true,
+  "enableDiscordRpc": true,
+  "showRomanization": true,
+  "showTranslation": true,
+  "enableSmartCrossfade": true,
+  "smartCrossfadeDuration": 3,
+  "enableSkipSilence": false,
+  "enableReplayGain": true,
+  "showAbLoopOnBar": true,
+  "showStatsOnBar": true,
+  "showDiagnosticsOnBar": true
 }

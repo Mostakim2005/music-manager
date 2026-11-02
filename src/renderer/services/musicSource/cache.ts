@@ -8,9 +8,11 @@
  */
 import { cloneDeep } from 'lodash';
 
-import { musicDB } from '@/hooks/MusicHook';
+import { musicDB } from '@/hooks/IndexDBHook';
 
-const { saveData, getData, deleteData } = musicDB;
+const saveData = (...args: Parameters<typeof musicDB.saveData>) => musicDB.saveData(...args);
+const getData = (...args: Parameters<typeof musicDB.getData>) => musicDB.getData(...args);
+const deleteData = (...args: Parameters<typeof musicDB.deleteData>) => musicDB.deleteData(...args);
 
 export type CachedUrlEntry = {
   url: string;

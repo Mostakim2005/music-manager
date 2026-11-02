@@ -106,9 +106,13 @@ import { initWindowSizeManager } from './modules/window-size';
 import { startMusicApi } from './server';
 
 // 导入所有图标
-const iconPath = join(__dirname, '../../resources');
+const iconPath = app.isPackaged ? process.resourcesPath : join(__dirname, '../../resources');
 const icon = nativeImage.createFromPath(
-  process.platform === 'darwin' ? join(iconPath, 'icon.icns') : join(iconPath, 'icon.png')
+  process.platform === 'darwin'
+    ? join(iconPath, 'icon.icns')
+    : process.platform === 'win32'
+      ? join(iconPath, 'icon.ico')
+      : join(iconPath, 'icon.png')
 );
 
 let mainWindow: Electron.BrowserWindow;
@@ -276,6 +280,12 @@ if (!isSingleInstance) {
     updatePlayState(playing);
     updateMprisPlayState(playing);
     updateDiscordPlayState(playing);
+  });
+
+  // 监听 Discord RPC 开关变化
+  ipcMain.on('update-discord-rpc-enabled', (_, enabled: boolean) => {
+    const { setDiscordRpcEnabled } = require('./modules/discordRpc');
+    setDiscordRpcEnabled(enabled);
   });
 
   // 监听当前歌曲变化

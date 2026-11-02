@@ -40,6 +40,39 @@
         class="control-right absolute top-8 right-8 z-[9999]"
         :class="{ 'pure-mode': config.pureModeEnabled }"
       >
+        <!-- Roma 罗马音快捷开关 -->
+        <div
+          v-if="hasRomanization"
+          class="control-btn control-btn-pill"
+          :class="{ 'is-active': config.showRomanization !== false }"
+          title="Toggle Romanized / Phonetic Lyrics (Roma)"
+          @click="toggleRomanization"
+        >
+          <span class="text-xs font-semibold">Roma</span>
+        </div>
+
+        <!-- 译 翻译快捷开关 -->
+        <div
+          v-if="hasTranslation"
+          class="control-btn control-btn-pill"
+          :class="{ 'is-active': config.showTranslation }"
+          title="Toggle Translated Lyrics (译)"
+          @click="toggleTranslation"
+        >
+          <span class="text-xs font-semibold">译</span>
+        </div>
+
+        <!-- 歌词微调面板显隐开关 -->
+        <div
+          v-if="!isMobile"
+          class="control-btn"
+          :class="{ 'is-active': forceShowOffsetStepper }"
+          title="Toggle Lyric Timing Offset Control (-100ms / +100ms)"
+          @click="forceShowOffsetStepper = !forceShowOffsetStepper"
+        >
+          <i class="ri-timer-line"></i>
+        </div>
+
         <n-popover v-model:show="settingsPopoverVisible" trigger="click" placement="bottom" raw>
           <template #trigger>
             <div class="control-btn">
@@ -242,6 +275,7 @@
             <lyric-correction-control
               v-if="!isMobile"
               :correction-time="correctionTime"
+              :force-visible="forceShowOffsetStepper"
               @adjust="adjustCorrectionTime"
             />
           </n-layout>
@@ -346,8 +380,32 @@ const showStickyHeader = ref(false);
 const lyricSettingsRef = ref<InstanceType<typeof LyricSettings>>();
 const isSongChanging = ref(false);
 const isFullScreen = ref(false);
+const forceShowOffsetStepper = ref(false);
 
 const config = ref<LyricConfig>({ ...DEFAULT_LYRIC_CONFIG });
+
+const hasRomanization = computed(() => {
+  return lrcArray.value.some((item) => Boolean(item.romaText && item.romaText.trim()));
+});
+
+const hasTranslation = computed(() => {
+  return lrcArray.value.some((item) => Boolean(item.trText && item.trText.trim()));
+});
+
+const toggleRomanization = () => {
+  const current = config.value.showRomanization !== false;
+  config.value = {
+    ...config.value,
+    showRomanization: !current
+  };
+};
+
+const toggleTranslation = () => {
+  config.value = {
+    ...config.value,
+    showTranslation: !config.value.showTranslation
+  };
+};
 
 watch(
   () => lyricSettingsRef.value?.config,
@@ -1326,6 +1384,21 @@ defineExpose({
   i {
     @apply text-xl;
     color: var(--text-color-active);
+  }
+
+  &.control-btn-pill {
+    @apply w-auto px-2.5 h-8 rounded-full font-medium text-xs;
+    color: var(--text-color-primary);
+  }
+
+  &.is-active {
+    background: rgba(16, 185, 129, 0.28) !important;
+    border: 1px solid rgba(16, 185, 129, 0.6) !important;
+    color: #10b981 !important;
+
+    i {
+      color: #10b981 !important;
+    }
   }
 
   &:hover {

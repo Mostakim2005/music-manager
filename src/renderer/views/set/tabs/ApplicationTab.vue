@@ -62,6 +62,20 @@
       <s-btn @click="showRemoteControlModal = true">{{ t('common.configure') }}</s-btn>
     </setting-item>
 
+    <setting-item
+      v-if="isElectron"
+      title="Discord 状态共享 (Discord Rich Presence)"
+      description="在 Discord 个人资料状态中实时显示正在播放的歌曲、歌手及播放进度"
+    >
+      <n-switch
+        v-model:value="setData.enableDiscordRpc"
+        @update:value="handleDiscordRpcChange"
+      >
+        <template #checked>{{ t('common.on') }}</template>
+        <template #unchecked>{{ t('common.off') }}</template>
+      </n-switch>
+    </setting-item>
+
     <shortcut-settings v-model:show="showShortcutModal" @change="handleShortcutsChange" />
     <remote-control-setting v-model:visible="showRemoteControlModal" />
   </setting-section>
@@ -110,5 +124,11 @@ const openDownloadPath = () => {
 
 const handleShortcutsChange = (shortcuts: any) => {
   console.log('快捷键已更新:', shortcuts);
+};
+
+const handleDiscordRpcChange = (enabled: boolean) => {
+  if (window.electron?.ipcRenderer) {
+    window.electron.ipcRenderer.send('update-discord-rpc-enabled', enabled);
+  }
 };
 </script>

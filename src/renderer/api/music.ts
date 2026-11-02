@@ -13,7 +13,8 @@ type MusicParseResult = {
   };
 };
 
-const { saveData, getData } = musicDB;
+const saveData = (...args: Parameters<typeof musicDB.saveData>) => musicDB.saveData(...args);
+const getData = (...args: Parameters<typeof musicDB.getData>) => musicDB.getData(...args);
 
 // 将 FM 歌曲移至垃圾桶（不喜欢）
 export const fmTrash = (id: number) => {

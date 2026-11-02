@@ -36,11 +36,31 @@ interface LyricSettings {
   highlightColor?: string;
 }
 
+export const resetDynamicPaletteOnRoot = (): void => {
+  try {
+    const rootStyle = document?.documentElement?.style;
+    if (!rootStyle?.removeProperty) return;
+    rootStyle.removeProperty('--player-vibrant');
+    rootStyle.removeProperty('--player-dark-vibrant');
+    rootStyle.removeProperty('--player-light-vibrant');
+    rootStyle.removeProperty('--player-muted');
+    rootStyle.removeProperty('--player-dark-muted');
+    rootStyle.removeProperty('--color-primary');
+    rootStyle.removeProperty('--color-bg-gradient');
+  } catch {
+    // ignore
+  }
+};
+
 export const applyDynamicPaletteToRoot = (
   palette: IDynamicPalette,
   backgroundColor: string
 ): void => {
   try {
+    if (typeof localStorage !== 'undefined' && localStorage.getItem('enableDynamicPalette') === 'false') {
+      resetDynamicPaletteOnRoot();
+      return;
+    }
     const rootStyle = document?.documentElement?.style;
     if (!rootStyle?.setProperty) return;
     rootStyle.setProperty('--player-vibrant', palette.vibrant);

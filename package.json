@@ -152,6 +152,15 @@
         "filter": [
           "**/*"
         ]
+      },
+      {
+        "from": "resources",
+        "to": ".",
+        "filter": [
+          "icon*.*",
+          "favicon.ico",
+          "icons/**/*"
+        ]
       }
     ],
     "mac": {

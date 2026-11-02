@@ -19,7 +19,12 @@
     }"
     @click="handleBarClick"
   >
-    <div class="music-time custom-slider" :class="{ 'has-waveform': playerStore.showWaveformSeekbar }">
+    <div
+      class="music-time custom-slider"
+      :class="{ 'has-waveform': playerStore.showWaveformSeekbar }"
+      title="Double-click to toggle Waveform Seekbar"
+      @dblclick.stop="toggleWaveformSeekbar"
+    >
       <div
         v-if="playerStore.showWaveformSeekbar"
         class="waveform-bars"
@@ -79,8 +84,18 @@
           <p v-html="playMusic?.name || ''"></p>
         </n-ellipsis>
         <span v-if="playbackRate !== 1.0" class="playback-rate-badge"> {{ playbackRate }}x </span>
+        <button
+          v-if="abLoopState.enabled"
+          type="button"
+          class="ml-2 px-2 py-0.5 rounded-full text-xs font-mono font-medium bg-emerald-500/20 text-emerald-500 hover:bg-emerald-500/30 transition flex items-center gap-1 cursor-pointer shrink-0"
+          title="A-B Loop Active. Click to adjust or cancel."
+          @click.stop="showAbLoopModal = true"
+        >
+          <i class="ri-repeat-2-line text-xs"></i>
+          <span>A-B</span>
+        </button>
         <div
-          v-if="hasVideoSupport"
+          v-if="hasVideoSupport && settingsStore.setData.showPlayBarVideoSwitcher !== false"
           class="mode-switch-pill"
           role="group"
           aria-label="Playback Mode Switcher"
@@ -232,6 +247,9 @@
       @sync-time="handleVideoTimeSync"
       @close="switchPlaybackMode('song')"
     />
+
+    <!-- A-B 循环与书签快捷弹窗 -->
+    <ab-loop-modal v-model:show="showAbLoopModal" />
   </div>
 </template>
 
@@ -243,6 +261,7 @@ import { useI18n } from 'vue-i18n';
 
 import MusicFullWrapper from '@/components/lyric/MusicFullWrapper.vue';
 import MvPlayer from '@/components/MvPlayer.vue';
+import AbLoopModal from '@/components/player/AbLoopModal.vue';
 import AdvancedControlsPopover from '@/components/player/AdvancedControlsPopover.vue';
 import ReparsePopover from '@/components/player/ReparsePopover.vue';
 import {
@@ -296,6 +315,15 @@ const { playMode, playModeIcon, playModeText, togglePlayMode } = usePlayMode();
 
 // 播放速度控制
 const { playbackRate } = storeToRefs(playerStore);
+
+// A-B 循环与书签快捷弹窗状态
+const showAbLoopModal = ref(false);
+const abLoopState = computed(() => audioService.getAbLoop());
+
+// 双击进度条快捷切换波形进度条
+const toggleWaveformSeekbar = () => {
+  playerStore.setShowWaveformSeekbar(!playerStore.showWaveformSeekbar);
+};
 
 // 背景颜色
 const background = ref('#000');

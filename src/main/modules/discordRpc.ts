@@ -1,9 +1,11 @@
 import { Client } from '@xhayper/discord-rpc';
+import { getSharedStore } from './config';
 
 const DISCORD_CLIENT_ID = '1123456789012345678';
 
 let rpcClient: Client | null = null;
 let isConnected = false;
+let isEnabled = true;
 let currentSongInfo: {
   name?: string;
   artist?: string;
@@ -13,8 +15,36 @@ let currentSongInfo: {
 } | null = null;
 let isPlayingState = false;
 
+export function setDiscordRpcEnabled(enabled: boolean): void {
+  isEnabled = Boolean(enabled);
+  if (!isEnabled) {
+    if (rpcClient) {
+      try {
+        rpcClient.user?.clearActivity().catch(() => {});
+        rpcClient.destroy().catch(() => {});
+      } catch {
+        // ignore
+      }
+      rpcClient = null;
+      isConnected = false;
+    }
+  } else if (!rpcClient) {
+    initializeDiscordRpc();
+  }
+}
+
+export function isDiscordRpcEnabled(): boolean {
+  return isEnabled;
+}
+
 export function initializeDiscordRpc(): void {
   try {
+    const store = getSharedStore();
+    if (store && store.get('set.enableDiscordRpc') === false) {
+      isEnabled = false;
+      return;
+    }
+    isEnabled = true;
     rpcClient = new Client({
       clientId: DISCORD_CLIENT_ID
     });
@@ -37,7 +67,7 @@ export function initializeDiscordRpc(): void {
 }
 
 function syncActivity(): void {
-  if (!rpcClient || !isConnected || !rpcClient.user || !currentSongInfo?.name) {
+  if (!isEnabled || !rpcClient || !isConnected || !rpcClient.user || !currentSongInfo?.name) {
     return;
   }
 

@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n';
 
 const props = defineProps<{
   correctionTime: number;
+  forceVisible?: boolean;
 }>();
 const emit = defineEmits<{
   (e: 'adjust', delta: number): void;
@@ -13,7 +14,12 @@ const { t } = useI18n();
 </script>
 
 <template>
-  <div class="lyric-correction" role="group" aria-label="Lyric timing offset control">
+  <div
+    class="lyric-correction"
+    :class="{ 'is-forced-visible': props.forceVisible }"
+    role="group"
+    aria-label="Lyric timing offset control"
+  >
     <n-tooltip placement="right">
       <template #trigger>
         <button
@@ -62,6 +68,11 @@ const { t } = useI18n();
 .lyric-correction {
   /* bottom 需越过全屏态下钉底的 PlayBar（h-20=80px, z-index:9999），否则被遮挡无法点击（#592） */
   @apply absolute right-0 bottom-24 flex flex-col items-center space-y-1 z-50 select-none transition-opacity duration-200 opacity-0 pointer-events-none;
+
+  &.is-forced-visible {
+    opacity: 1 !important;
+    pointer-events: auto !important;
+  }
 }
 
 .lyric-correction-btn {

@@ -30,6 +30,19 @@
     </setting-item>
 
     <setting-item
+      title="动态封面自适应调色 (Dynamic Vibrant Palette)"
+      description="基于当前专辑封面主色动态生成背景渐变网格与强调色"
+    >
+      <n-switch
+        v-model:value="setData.enableDynamicPalette"
+        @update:value="handleDynamicPaletteChange"
+      >
+        <template #checked>{{ t('common.on') }}</template>
+        <template #unchecked>{{ t('common.off') }}</template>
+      </n-switch>
+    </setting-item>
+
+    <setting-item
       :title="t('settings.basic.language')"
       :description="t('settings.basic.languageDesc')"
     >
@@ -44,6 +57,26 @@
       <n-switch v-model:value="setData.tabletMode">
         <template #checked><i class="ri-tablet-line"></i></template>
         <template #unchecked><i class="ri-smartphone-line"></i></template>
+      </n-switch>
+    </setting-item>
+
+    <setting-item
+      title="罗马音 / 拼音 / 音译歌词 (Romanization)"
+      description="默认在歌词中显示日文罗马音 (Romaji)、孟加拉语音译及汉语拼音"
+    >
+      <n-switch v-model:value="setData.showRomanization" @update:value="handleRomanizationChange">
+        <template #checked>{{ t('common.show') }}</template>
+        <template #unchecked>{{ t('common.hide') }}</template>
+      </n-switch>
+    </setting-item>
+
+    <setting-item
+      title="歌词翻译 (Translation)"
+      description="默认在歌词中显示中文/英文译文"
+    >
+      <n-switch v-model:value="setData.showTranslation" @update:value="handleTranslationChange">
+        <template #checked>{{ t('common.show') }}</template>
+        <template #unchecked>{{ t('common.hide') }}</template>
       </n-switch>
     </setting-item>
 
@@ -230,6 +263,34 @@ const isDarkTheme = computed({
 
 const handleAutoThemeChange = (value: boolean) => {
   settingsStore.setAutoTheme(value);
+};
+
+const handleDynamicPaletteChange = (enabled: boolean) => {
+  try {
+    localStorage.setItem('enableDynamicPalette', String(enabled));
+  } catch {
+    // ignore
+  }
+};
+
+const handleRomanizationChange = (enabled: boolean) => {
+  try {
+    const raw = JSON.parse(localStorage.getItem('lyric-config') || '{}');
+    raw.showRomanization = enabled;
+    localStorage.setItem('lyric-config', JSON.stringify(raw));
+  } catch {
+    // ignore
+  }
+};
+
+const handleTranslationChange = (enabled: boolean) => {
+  try {
+    const raw = JSON.parse(localStorage.getItem('lyric-config') || '{}');
+    raw.showTranslation = enabled;
+    localStorage.setItem('lyric-config', JSON.stringify(raw));
+  } catch {
+    // ignore
+  }
 };
 
 const gpuAccelerationChanged = ref(false);

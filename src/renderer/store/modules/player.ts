@@ -54,7 +54,12 @@ export const usePlayerStore = defineStore('player', () => {
     userPlayIntent,
     isFmPlaying,
     playbackMode,
-    showWaveformSeekbar
+    showWaveformSeekbar,
+    showVideoModeToggle,
+    showAbLoopOnBar,
+    showStatsOnBar,
+    showDiagnosticsOnBar,
+    enableDynamicPalette
   } = storeToRefs(playerCore);
 
   const { playList, playListIndex, playMode, originalPlayList, playListDrawerVisible } =
@@ -113,6 +118,11 @@ export const usePlayerStore = defineStore('player', () => {
     isFmPlaying,
     playbackMode,
     showWaveformSeekbar,
+    showVideoModeToggle,
+    showAbLoopOnBar,
+    showStatsOnBar,
+    showDiagnosticsOnBar,
+    enableDynamicPalette,
 
     // PlayerCore - Computed
     currentSong,
@@ -132,6 +142,11 @@ export const usePlayerStore = defineStore('player', () => {
     handlePause: playerCore.handlePause,
     setPlaybackMode: playerCore.setPlaybackMode,
     setShowWaveformSeekbar: playerCore.setShowWaveformSeekbar,
+    setShowVideoModeToggle: playerCore.setShowVideoModeToggle,
+    setShowAbLoopOnBar: playerCore.setShowAbLoopOnBar,
+    setShowStatsOnBar: playerCore.setShowStatsOnBar,
+    setShowDiagnosticsOnBar: playerCore.setShowDiagnosticsOnBar,
+    setEnableDynamicPalette: playerCore.setEnableDynamicPalette,
 
     // ========== 播放列表管理 (Playlist) ==========
     playList,

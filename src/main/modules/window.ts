@@ -12,6 +12,7 @@ import {
 import { join } from 'path';
 
 import { getSharedStore } from './config';
+import { recordErrorReport } from './errorReporter';
 import {
   applyContentZoom,
   applyInitialState,
@@ -155,10 +156,13 @@ function initializeProxy() {
 }
 
 function setThumbarButtons(window: BrowserWindow) {
+  const iconsDir = app.isPackaged
+    ? join(process.resourcesPath, 'icons')
+    : join(app.getAppPath(), 'resources/icons');
   window.setThumbarButtons([
     {
       tooltip: 'prev',
-      icon: nativeImage.createFromPath(join(app.getAppPath(), 'resources/icons', 'prev.png')),
+      icon: nativeImage.createFromPath(join(iconsDir, 'prev.png')),
       click() {
         window.webContents.send('global-shortcut', 'prevPlay');
       }
@@ -166,9 +170,7 @@ function setThumbarButtons(window: BrowserWindow) {
 
     {
       tooltip: isPlaying ? 'pause' : 'play',
-      icon: nativeImage.createFromPath(
-        join(app.getAppPath(), 'resources/icons', isPlaying ? 'pause.png' : 'play.png')
-      ),
+      icon: nativeImage.createFromPath(join(iconsDir, isPlaying ? 'pause.png' : 'play.png')),
       click() {
         window.webContents.send('global-shortcut', 'togglePlay');
       }
@@ -176,7 +178,7 @@ function setThumbarButtons(window: BrowserWindow) {
 
     {
       tooltip: 'next',
-      icon: nativeImage.createFromPath(join(app.getAppPath(), 'resources/icons', 'next.png')),
+      icon: nativeImage.createFromPath(join(iconsDir, 'next.png')),
       click() {
         window.webContents.send('global-shortcut', 'nextPlay');
       }
@@ -560,6 +562,42 @@ export function createMainWindow(icon: Electron.NativeImage): BrowserWindow {
     }
     return { action: 'deny' };
   });
+
+  // 捕获早期渲染进程控制台错误（包括模块初始化崩溃）到 ErrorReporter
+  mainWindow.webContents.on(
+    'console-message',
+    (_event, level, message, line, sourceId) => {
+      if (level >= 3 || /Uncaught\s+\w*Error/i.test(message)) {
+        recordErrorReport({
+          source: 'renderer',
+          severity: level >= 3 ? 'error' : 'warn',
+          message,
+          context: { line, sourceId, level }
+        });
+      }
+    }
+  );
+
+  mainWindow.webContents.on('render-process-gone', (_event, details) => {
+    recordErrorReport({
+      source: 'renderer',
+      severity: 'fatal',
+      message: `Renderer process gone: ${details.reason}`,
+      context: details
+    });
+  });
+
+  mainWindow.webContents.on(
+    'did-fail-load',
+    (_event, errorCode, errorDescription, validatedURL) => {
+      recordErrorReport({
+        source: 'renderer',
+        severity: 'error',
+        message: `Renderer failed to load (${errorCode}): ${errorDescription}`,
+        context: { errorCode, errorDescription, validatedURL }
+      });
+    }
+  );
 
   // HMR for renderer base on electron-vite cli.
   // Load the remote URL for development or the local html file for production.

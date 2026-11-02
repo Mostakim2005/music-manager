@@ -33,6 +33,21 @@ export const usePlayerCoreStore = defineStore(
     const showWaveformSeekbar = ref<boolean>(
       localStorage.getItem('showWaveformSeekbar') !== 'false'
     );
+    const showVideoModeToggle = ref<boolean>(
+      localStorage.getItem('showVideoModeToggle') !== 'false'
+    );
+    const showAbLoopOnBar = ref<boolean>(
+      localStorage.getItem('showAbLoopOnBar') !== 'false'
+    );
+    const showStatsOnBar = ref<boolean>(
+      localStorage.getItem('showStatsOnBar') !== 'false'
+    );
+    const showDiagnosticsOnBar = ref<boolean>(
+      localStorage.getItem('showDiagnosticsOnBar') !== 'false'
+    );
+    const enableDynamicPalette = ref<boolean>(
+      localStorage.getItem('enableDynamicPalette') !== 'false'
+    );
 
     const setPlaybackMode = (mode: 'song' | 'video') => {
       playbackMode.value = mode;
@@ -42,6 +57,51 @@ export const usePlayerCoreStore = defineStore(
       showWaveformSeekbar.value = enabled;
       try {
         localStorage.setItem('showWaveformSeekbar', String(enabled));
+      } catch {
+        // ignore
+      }
+    };
+
+    const setShowVideoModeToggle = (enabled: boolean) => {
+      showVideoModeToggle.value = enabled;
+      try {
+        localStorage.setItem('showVideoModeToggle', String(enabled));
+      } catch {
+        // ignore
+      }
+    };
+
+    const setShowAbLoopOnBar = (enabled: boolean) => {
+      showAbLoopOnBar.value = enabled;
+      try {
+        localStorage.setItem('showAbLoopOnBar', String(enabled));
+      } catch {
+        // ignore
+      }
+    };
+
+    const setShowStatsOnBar = (enabled: boolean) => {
+      showStatsOnBar.value = enabled;
+      try {
+        localStorage.setItem('showStatsOnBar', String(enabled));
+      } catch {
+        // ignore
+      }
+    };
+
+    const setShowDiagnosticsOnBar = (enabled: boolean) => {
+      showDiagnosticsOnBar.value = enabled;
+      try {
+        localStorage.setItem('showDiagnosticsOnBar', String(enabled));
+      } catch {
+        // ignore
+      }
+    };
+
+    const setEnableDynamicPalette = (enabled: boolean) => {
+      enableDynamicPalette.value = enabled;
+      try {
+        localStorage.setItem('enableDynamicPalette', String(enabled));
       } catch {
         // ignore
       }
@@ -222,6 +282,11 @@ export const usePlayerCoreStore = defineStore(
       isFmPlaying,
       playbackMode,
       showWaveformSeekbar,
+      showVideoModeToggle,
+      showAbLoopOnBar,
+      showStatsOnBar,
+      showDiagnosticsOnBar,
+      enableDynamicPalette,
       audioOutputDeviceId,
       availableAudioDevices,
 
@@ -243,6 +308,11 @@ export const usePlayerCoreStore = defineStore(
       handlePause,
       setPlaybackMode,
       setShowWaveformSeekbar,
+      setShowVideoModeToggle,
+      setShowAbLoopOnBar,
+      setShowStatsOnBar,
+      setShowDiagnosticsOnBar,
+      setEnableDynamicPalette,
       refreshAudioDevices,
       setAudioOutputDevice,
       initAudioDeviceListener

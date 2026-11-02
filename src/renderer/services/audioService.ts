@@ -25,6 +25,7 @@ class AudioService {
   // Smooth fade & Smart Transitions state
   private fadeTimer: ReturnType<typeof setTimeout> | null = null;
   private fadeInterval: ReturnType<typeof setInterval> | null = null;
+  private smoothFadeEnabled = true;
   private crossfadeEnabled = true;
   private crossfadeDuration = 3; // seconds (1-10s)
   private skipSilenceEnabled = false;
@@ -690,7 +691,7 @@ class AudioService {
   public fadeInVolume(durationMs: number = PLAY_PAUSE_FADE_DURATION) {
     this.cancelFadeTimer();
     const targetVolume = this.getEffectiveVolume(this.volume);
-    if (durationMs <= 0 || targetVolume <= 0) {
+    if (!this.smoothFadeEnabled || durationMs <= 0 || targetVolume <= 0) {
       this.applyVolume(this.volume);
       return;
     }
@@ -728,7 +729,7 @@ class AudioService {
 
     try {
       // If audio is already paused, ended, or immediate pause is requested, pause right away
-      if (!withFade || this.audio.paused || this.audio.ended) {
+      if (!withFade || !this.smoothFadeEnabled || this.audio.paused || this.audio.ended) {
         this.audio.pause();
         return;
       }
@@ -982,8 +983,22 @@ class AudioService {
     return this.replayGainEnabled;
   }
 
+  public setSmoothFadeEnabled(enabled: boolean) {
+    this.smoothFadeEnabled = enabled;
+    try {
+      localStorage.setItem('smoothFadeEnabled', JSON.stringify(enabled));
+    } catch {
+      // ignore
+    }
+  }
+
+  public isSmoothFadeEnabled(): boolean {
+    return this.smoothFadeEnabled;
+  }
+
   public getSmartTransitionConfig() {
     return {
+      smoothFadeEnabled: this.smoothFadeEnabled,
       crossfadeEnabled: this.crossfadeEnabled,
       crossfadeDuration: this.crossfadeDuration,
       skipSilenceEnabled: this.skipSilenceEnabled,
@@ -992,11 +1007,15 @@ class AudioService {
   }
 
   public setSmartTransitionConfig(config: {
+    smoothFadeEnabled?: boolean;
     crossfadeEnabled?: boolean;
     crossfadeDuration?: number;
     skipSilenceEnabled?: boolean;
     replayGainEnabled?: boolean;
   }) {
+    if (typeof config.smoothFadeEnabled === 'boolean') {
+      this.setSmoothFadeEnabled(config.smoothFadeEnabled);
+    }
     if (typeof config.crossfadeEnabled === 'boolean') {
       this.setSmartCrossfade(config.crossfadeEnabled, config.crossfadeDuration);
     } else if (typeof config.crossfadeDuration === 'number') {
