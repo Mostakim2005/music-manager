@@ -89,10 +89,11 @@ import {
 } from './modules/errorReporter';
 import { initializeDownloadManager, setDownloadManagerWindow } from './modules/downloadManager';
 import { initializeFileManager } from './modules/fileManager';
+import { registerLocalProtocol } from './modules/localProtocol';
 import { initializeFonts } from './modules/fonts';
 import { initializeLocalMusicScanner } from './modules/localMusicScanner';
 import { initializeTagAndMetadataManager } from './modules/tagAndMetadataManager';
-import { initializeLoginWindow } from './modules/loginWindow';
+import { initializeYoutube } from './modules/youtube';
 import { initLxMusicHttp } from './modules/lxMusicHttp';
 import { initializeMpris, updateMprisCurrentSong, updateMprisPlayState } from './modules/mpris';
 import { initializeOtherApi } from './modules/otherApi';
@@ -128,8 +129,9 @@ function initialize(configStore: any) {
     i18n.global.locale = savedLanguage;
   }
 
-  // 初始化文件管理
+  // 初始化文件管理与增强型安全 local:// 本地媒体协议 (含 CORS、Range 及特殊字符编码支持)
   initializeFileManager();
+  registerLocalProtocol();
   // 初始化错误报告及诊断HTTP服务
   initializeErrorReporter();
   // 初始化本地音源插件媒体代理协议
@@ -144,12 +146,12 @@ function initialize(configStore: any) {
   initializeWindowManager();
   // 初始化字体管理
   initializeFonts();
-  // 初始化登录窗口
-  initializeLoginWindow();
   // 初始化本地音乐扫描模块
   initializeLocalMusicScanner();
   // 初始化音频标签与在线元数据管理模块
   initializeTagAndMetadataManager();
+  // 初始化 YouTube 引擎与流式代理模块
+  initializeYoutube();
 
   // 创建主窗口
   mainWindow = createMainWindow(icon);
@@ -318,5 +320,15 @@ if (!isSingleInstance) {
   // 获取系统架构信息
   ipcMain.on('get-arch', (event) => {
     event.returnValue = process.arch;
+  });
+
+  // 跨窗口单媒体播放互斥 (A4)
+  ipcMain.on('media-play', (event, data) => {
+    const { BrowserWindow: BW } = require('electron');
+    for (const win of BW.getAllWindows()) {
+      if (win.webContents && win.webContents.id !== event.sender.id && !win.isDestroyed()) {
+        win.webContents.send('media-pause-all', data);
+      }
+    }
   });
 }

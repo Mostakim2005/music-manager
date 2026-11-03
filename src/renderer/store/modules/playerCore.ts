@@ -3,6 +3,7 @@ import { computed, ref } from 'vue';
 
 import { audioService, PLAY_PAUSE_FADE_DURATION } from '@/services/audioService';
 import { playbackRequestManager } from '@/services/playbackRequestManager';
+import { getSongKey, savePosition } from '@/services/songLibrary';
 
 export { PLAY_PAUSE_FADE_DURATION };
 import type { AudioOutputDevice } from '@/types/audio';
@@ -30,6 +31,7 @@ export const usePlayerCoreStore = defineStore(
     const userPlayIntent = ref(false); // 用户是否想要播放
     const isFmPlaying = ref(false); // 是否正在播放私人FM
     const playbackMode = ref<'song' | 'video'>('song'); // Seamless Audio/Video mode ('song' | 'video')
+    const videoCarryTime = ref<number>(0);
     const showWaveformSeekbar = ref<boolean>(
       localStorage.getItem('showWaveformSeekbar') !== 'false'
     );
@@ -49,8 +51,24 @@ export const usePlayerCoreStore = defineStore(
       localStorage.getItem('enableDynamicPalette') !== 'false'
     );
 
-    const setPlaybackMode = (mode: 'song' | 'video') => {
+    const setPlaybackMode = (mode: 'song' | 'video', carryTime?: number) => {
+      const prevMode = playbackMode.value;
       playbackMode.value = mode;
+
+      if (prevMode !== mode) {
+        if (mode === 'video') {
+          // Carry currentTime from audio across to video
+          const audioTime = typeof carryTime === 'number' ? carryTime : audioService.getCurrentTime();
+          videoCarryTime.value = audioTime;
+          audioService.pause(true);
+        } else if (mode === 'song') {
+          // Carry currentTime from video back across to audio
+          const targetTime = typeof carryTime === 'number' ? carryTime : videoCarryTime.value;
+          if (targetTime > 0) {
+            audioService.seek(targetTime);
+          }
+        }
+      }
     };
 
     const setShowWaveformSeekbar = (enabled: boolean) => {
@@ -209,6 +227,10 @@ export const usePlayerCoreStore = defineStore(
         const currentSound = audioService.getCurrentSound();
         if (currentSound && audioService.getCurrentTrack()?.id === playMusic.value.id) {
           savePlaybackProgress(playMusic.value.id, currentSound.currentTime);
+          const songKey = getSongKey(playMusic.value);
+          if (songKey) {
+            void savePosition(songKey, currentSound.currentTime);
+          }
         }
         audioService.pause();
       } catch (error) {
@@ -281,6 +303,7 @@ export const usePlayerCoreStore = defineStore(
       userPlayIntent,
       isFmPlaying,
       playbackMode,
+      videoCarryTime,
       showWaveformSeekbar,
       showVideoModeToggle,
       showAbLoopOnBar,

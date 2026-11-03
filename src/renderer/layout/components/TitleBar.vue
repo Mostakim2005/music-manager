@@ -74,18 +74,7 @@
     <div class="title-bar__spacer" />
 
     <div class="title-bar__trailing">
-      <n-button
-        v-if="!isElectron"
-        class="title-bar__download"
-        type="primary"
-        size="small"
-        text
-        :title="t('comp.titleBar.download')"
-        @click="openDownloadPage"
-      >
-        <i class="ri-download-line" aria-hidden="true" />
-        {{ t('comp.titleBar.download') }}
-      </n-button>
+
 
       <template v-if="isElectron">
         <button
@@ -179,11 +168,7 @@ const {
   confirmCloseAction
 } = useWindowControls();
 
-const openDownloadPage = () => {
-  if (!isElectron) {
-    window.open('http://donate.alger.fun/download', '_blank');
-  }
-};
+
 
 const handleMacGreenClick = (event: MouseEvent) => {
   // Option + 点击触发系统全屏，普通点击触发窗口铺满屏幕（最大化/还原）

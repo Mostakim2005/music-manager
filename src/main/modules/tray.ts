@@ -54,7 +54,7 @@ function getArtistString(song: SongInfo | null): string {
 
 // 获取歌曲完整标题（歌曲名 - 艺术家）
 function getSongTitle(song: SongInfo | null): string {
-  if (!song) return '未播放';
+  if (!song) return 'Not playing';
   const artistStr = getArtistString(song);
   return artistStr ? `${song.name} - ${artistStr}` : song.name;
 }
@@ -112,10 +112,10 @@ function updateStatusBarTray() {
       songTitleTray.setToolTip(fullTitle);
       console.log('更新状态栏歌曲显示:', title, '完整信息:', fullTitle);
     } else {
-      songTitleTray.setTitle('未播放', {
+      songTitleTray.setTitle('Not playing', {
         fontType: 'monospacedDigit'
       });
-      songTitleTray.setToolTip('未播放');
+      songTitleTray.setToolTip('Not playing');
       console.log('更新状态栏歌曲显示: 未播放');
     }
   }

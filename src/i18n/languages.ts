@@ -1,25 +1,17 @@
-// 语言配置文件 - 集中管理语言相关的配置
+// Language configuration - English is the default and only shipped language
 
-// 语言显示名称映射
+// Language display name mapping
 export const LANGUAGE_DISPLAY_NAMES: Record<string, string> = {
-  'zh-CN': '简体中文',
-  'zh-Hant': '繁體中文',
-  'en-US': 'English',
-  'ja-JP': '日本語',
-  'ko-KR': '한국어'
+  'en-US': 'English'
 };
 
-// 默认语言
-export const DEFAULT_LANGUAGE = 'zh-CN';
+// Default language
+export const DEFAULT_LANGUAGE = 'en-US';
 
-// 回退语言
+// Fallback language
 export const FALLBACK_LANGUAGE = 'en-US';
 
-// 语言排序优先级（用于在UI中的显示顺序）
+// Language sort priority
 export const LANGUAGE_PRIORITY: Record<string, number> = {
-  'zh-CN': 1,
-  'zh-Hant': 2,
-  'en-US': 3,
-  'ja-JP': 4,
-  'ko-KR': 5
+  'en-US': 1
 };

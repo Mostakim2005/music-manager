@@ -9,6 +9,7 @@ import type { Artist, ILyricText, SongResult } from '@/types/music';
 import { isElectron } from '@/utils';
 import { getTextColors } from '@/utils/linearColor';
 import { savePlaybackProgress } from '@/utils/playerUtils';
+import { getSongKey, savePosition } from '@/services/songLibrary';
 import { isEditableTarget } from '@/utils/shortcutKeyboard';
 import { parseLyrics } from '@/utils/yrcParser';
 
@@ -353,14 +354,19 @@ const setupAudioListeners = () => {
           }
         }
 
-        // === localStorage 进度保存（每 ~2 秒）===
+        // === 进度保存（每 ~5 秒）===
         if (
-          Math.floor(currentTime) % 2 === 0 &&
+          Math.floor(currentTime) % 5 === 0 &&
           Math.floor(currentTime) !== Math.floor(lastSavedProgress)
         ) {
           lastSavedProgress = currentTime;
-          if (getPlayerStore().playMusic?.id) {
-            savePlaybackProgress(getPlayerStore().playMusic.id, currentTime);
+          const currentMusic = getPlayerStore().playMusic;
+          if (currentMusic?.id) {
+            savePlaybackProgress(currentMusic.id, currentTime);
+            const songKey = getSongKey(currentMusic);
+            if (songKey) {
+              void savePosition(songKey, currentTime);
+            }
           }
         }
 

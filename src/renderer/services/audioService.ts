@@ -2,6 +2,8 @@ import type { AudioOutputDevice } from '@/types/audio';
 import type { SongResult } from '@/types/music';
 import { getImgUrl, isElectron } from '@/utils';
 import { addListeningSeconds, recordTrackPlay } from '@/services/listeningStatsService';
+import { mediaCoordinator, setAudioServiceInstance } from '@/services/mediaCoordinator';
+import { getSongKey, savePosition } from '@/services/songLibrary';
 
 /** Smooth play/pause volume fade duration in milliseconds (ported from YesPlayMusic Player.js) */
 export const PLAY_PAUSE_FADE_DURATION = 200;
@@ -71,6 +73,15 @@ class AudioService {
     // Bind native DOM events
     this.bindAudioEvents();
 
+    try {
+      mediaCoordinator.registerMediaElement(this.audio, 'audioService', () => {
+        this.pause();
+      });
+      setAudioServiceInstance(this);
+    } catch {
+      // safe fallback in test/mock environments
+    }
+
     if ('mediaSession' in navigator) {
       this.initMediaSession();
     }
@@ -100,7 +111,17 @@ class AudioService {
     }
 
     this.forceResetOperationLock();
-    window.addEventListener('beforeunload', () => this.forceResetOperationLock());
+    window.addEventListener('beforeunload', () => {
+      this.forceResetOperationLock();
+      if (this.currentTrack && this.audio?.currentTime > 0) {
+        try {
+          const key = getSongKey(this.currentTrack);
+          if (key) void savePosition(key, this.audio.currentTime);
+        } catch {
+          // ignore
+        }
+      }
+    });
   }
 
   // ==================== Native DOM Event Binding ====================
@@ -118,6 +139,14 @@ class AudioService {
       this.lastStatsTickTime = 0;
       this.updateMediaSessionState(false);
       this.emit('pause');
+      if (this.currentTrack && this.audio?.currentTime > 0) {
+        try {
+          const key = getSongKey(this.currentTrack);
+          if (key) void savePosition(key, this.audio.currentTime);
+        } catch {
+          // ignore
+        }
+      }
     });
 
     this.audio.addEventListener('ended', () => {
@@ -492,14 +521,36 @@ class AudioService {
 
   // ==================== Playback Control ====================
 
+  public isPaused(): boolean {
+    return this.audio?.paused ?? true;
+  }
+
+  public getDuration(): number {
+    return this.audio?.duration || 0;
+  }
+
   public play(
-    url: string,
-    track: SongResult,
+    url?: string,
+    track?: SongResult,
     isPlay: boolean = true,
     seekTime?: number,
     _existingSound?: HTMLAudioElement
   ): Promise<HTMLAudioElement> {
     if (!url || !track) {
+      if (this.audio.src) {
+        if (seekTime !== undefined) {
+          this.seek(seekTime);
+        }
+        try {
+          mediaCoordinator.claimPlayback('audioService', this.audio);
+        } catch {
+          // ignore
+        }
+        return this.audio.play().then(() => {
+          this.fadeInVolume(PLAY_PAUSE_FADE_DURATION);
+          return this.audio;
+        });
+      }
       return Promise.reject(new Error('缺少必要参数: url和track'));
     }
 
@@ -563,6 +614,11 @@ class AudioService {
           }
           if (settled) return;
           if (isPlay) {
+            try {
+              mediaCoordinator.claimPlayback('audioService', this.audio);
+            } catch {
+              // safe fallback
+            }
             await this.audio.play();
             this.fadeInVolume(PLAY_PAUSE_FADE_DURATION);
           } else {
@@ -782,6 +838,14 @@ class AudioService {
     this.cancelFadeTimer();
     this.crossfadeActive = false;
     this.forceResetOperationLock();
+    if (this.currentTrack && this.audio?.currentTime > 0) {
+      try {
+        const key = getSongKey(this.currentTrack);
+        if (key) void savePosition(key, this.audio.currentTime);
+      } catch {
+        // ignore
+      }
+    }
     // 移除尚未结算的加载监听器，避免 stop 后旧的 canplay/error 仍触发过期回调
     if (this.pendingLoadCleanup) {
       this.pendingLoadCleanup();

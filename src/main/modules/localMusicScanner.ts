@@ -42,9 +42,97 @@ function getCoverDir(): string {
 
 /** 从 mime 类型推断文件扩展名 */
 function extFromMime(mime: string | undefined): string {
-  const sub = mime?.split('/')[1]?.split(';')[0]?.trim().toLowerCase();
-  if (!sub) return 'bin';
-  return sub === 'jpeg' ? 'jpg' : sub;
+  if (!mime) return 'jpg';
+  const clean = mime.toLowerCase();
+  if (clean.includes('png')) return 'png';
+  if (clean.includes('webp')) return 'webp';
+  if (clean.includes('gif')) return 'gif';
+  return 'jpg';
+}
+
+/** 常见外部封面文件名（不区分大小写匹配） */
+const FOLDER_COVER_NAMES = [
+  'cover.jpg',
+  'cover.jpeg',
+  'cover.png',
+  'cover.webp',
+  'folder.jpg',
+  'folder.jpeg',
+  'folder.png',
+  'folder.webp',
+  'front.jpg',
+  'front.jpeg',
+  'front.png',
+  'front.webp'
+];
+
+/** 从 native metadata 提取可能的封面（兼容 MP4 covr 及 Vorbis/FLAC PICTURE 块） */
+function extractNativePicture(metadata: mm.IAudioMetadata): mm.IPicture | undefined {
+  if (metadata.common.picture && metadata.common.picture.length > 0) {
+    return metadata.common.picture[0];
+  }
+  if (!metadata.native) return undefined;
+
+  for (const tagList of Object.values(metadata.native)) {
+    if (!Array.isArray(tagList)) continue;
+    for (const tag of tagList) {
+      if (!tag || !tag.value) continue;
+      // MP4 iTunes / QuickTime 'covr'
+      if (tag.id === 'covr') {
+        if (Buffer.isBuffer(tag.value)) {
+          return {
+            format: 'image/jpeg',
+            data: tag.value,
+            type: 'Cover (front)',
+            description: ''
+          };
+        }
+        const val = tag.value as any;
+        if (val && val.data && Buffer.isBuffer(val.data)) {
+          return {
+            format: val.format || 'image/jpeg',
+            data: val.data,
+            type: val.type || 'Cover (front)',
+            description: ''
+          };
+        }
+      }
+      // FLAC / Vorbis METADATA_BLOCK_PICTURE
+      if (tag.id === 'METADATA_BLOCK_PICTURE' || tag.id === 'PICTURE') {
+        const val = tag.value as any;
+        if (val && Buffer.isBuffer(val.data)) {
+          return {
+            format: val.format || 'image/jpeg',
+            data: val.data,
+            type: val.type || 'Cover (front)',
+            description: val.description || ''
+          };
+        }
+      }
+    }
+  }
+  return undefined;
+}
+
+/** 寻找音频同级目录下的封面图片文件 */
+async function findFolderCoverFile(audioFilePath: string): Promise<string | null> {
+  try {
+    const dir = path.dirname(audioFilePath);
+    const files = await fs.promises.readdir(dir).catch(() => []);
+    const fileMap = new Map<string, string>();
+    for (const f of files) {
+      fileMap.set(f.toLowerCase(), f);
+    }
+    for (const name of FOLDER_COVER_NAMES) {
+      const match = fileMap.get(name);
+      if (match) {
+        return path.join(dir, match);
+      }
+    }
+  } catch {
+    // 忽略目录扫描异常
+  }
+  return null;
 }
 
 /**
@@ -103,6 +191,7 @@ function extractTitleFromFilename(filePath: string): string {
 /**
  * 将封面图片落盘到 userData/AudioCovers/，返回绝对路径
  * 文件名按 sourceFilePath 的 sha256 + 推断扩展名拼成，幂等可覆盖
+ * 若音频自身未内嵌封面，自动 fallback 到音频同级目录下的 cover/folder/front 图片
  * @param picture music-metadata 解析出的封面图片对象
  * @param sourceFilePath 音乐源文件绝对路径，用于生成稳定的封面文件名
  * @returns 封面文件绝对路径，无封面或写入失败返回 null
@@ -111,29 +200,42 @@ async function extractCoverToFile(
   picture: mm.IPicture | undefined,
   sourceFilePath: string
 ): Promise<string | null> {
-  if (!picture) {
-    return null;
-  }
-  try {
-    if (picture.data.length > MAX_COVER_BYTES) {
-      console.warn(
-        `封面超过大小上限被跳过: ${sourceFilePath} (${picture.data.length} bytes > ${MAX_COVER_BYTES})`
-      );
-      return null;
-    }
-    const ext = extFromMime(picture.format);
-    const hash = crypto.createHash('sha256').update(sourceFilePath).digest('hex');
-    const coverFile = path.join(getCoverDir(), `${hash}.${ext}`);
+  const hash = crypto.createHash('sha256').update(sourceFilePath).digest('hex');
+  const coverDir = getCoverDir();
 
-    // 直接覆盖写：本函数只在文件 mtime 变更时被调用（见 scanFolders 的 parseTargets），
-    // 频率本就受守门；按 size 跳过会在"用户替换内嵌封面、新旧字节数恰好相等"时留旧图，
-    // 单张封面几十~几百 KB，覆盖代价可忽略。
-    await fs.promises.writeFile(coverFile, Buffer.from(picture.data));
-    return coverFile;
-  } catch (error) {
-    console.error('封面落盘失败:', error);
-    return null;
+  // 1. 若音频内嵌了封面（ID3 / FLAC / MP4 covr）
+  if (picture && picture.data && picture.data.length > 0) {
+    try {
+      if (picture.data.length > MAX_COVER_BYTES) {
+        console.warn(
+          `封面超过大小上限被跳过: ${sourceFilePath} (${picture.data.length} bytes > ${MAX_COVER_BYTES})`
+        );
+      } else {
+        const ext = extFromMime(picture.format);
+        const coverFile = path.join(coverDir, `${hash}.${ext}`);
+        await fs.promises.writeFile(coverFile, Buffer.from(picture.data));
+        return coverFile;
+      }
+    } catch (error) {
+      console.error('内嵌封面落盘失败:', error);
+    }
   }
+
+  // 2. Fallback: 检查音频同级目录是否存在 cover.jpg / folder.jpg / front.png 等图片
+  const folderCover = await findFolderCoverFile(sourceFilePath);
+  if (folderCover) {
+    try {
+      const ext = path.extname(folderCover).replace(/^\./, '').toLowerCase() || 'jpg';
+      const coverFile = path.join(coverDir, `${hash}.${ext}`);
+      await fs.promises.copyFile(folderCover, coverFile);
+      return coverFile;
+    } catch (err) {
+      console.warn('复制目录封面失败:', folderCover, err);
+      return folderCover;
+    }
+  }
+
+  return null;
 }
 
 /**
@@ -298,6 +400,7 @@ async function parseMetadata(filePath: string): Promise<LocalMusicMeta> {
   try {
     const metadata = await mm.parseFile(filePath);
     const { common, format } = metadata;
+    const picture = extractNativePicture(metadata);
 
     return {
       filePath,
@@ -305,15 +408,19 @@ async function parseMetadata(filePath: string): Promise<LocalMusicMeta> {
       artist: common.artist || fallback.artist,
       album: common.album || fallback.album,
       duration: format.duration ? Math.round(format.duration * 1000) : 0,
-      coverPath: await extractCoverToFile(common.picture?.[0], filePath),
+      coverPath: await extractCoverToFile(picture, filePath),
       lyrics: extractLyrics(common.lyrics),
       fileSize,
       modifiedTime
     };
   } catch (error) {
-    // 解析失败使用 fallback，不中断流程
-    console.error(`元数据解析失败，使用 fallback: ${filePath}`, error);
-    return fallback;
+    // 解析失败使用 fallback + 尝试目录封面，不中断流程
+    console.warn(`元数据解析异常，使用 fallback 及目录封面: ${filePath}`, error);
+    const folderCover = await findFolderCoverFile(filePath);
+    return {
+      ...fallback,
+      coverPath: folderCover
+    };
   }
 }
 

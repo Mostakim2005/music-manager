@@ -87,6 +87,7 @@ const api = {
       'metadata:fetch-online',
       'lyrics:fetch-multi-source',
       'local-music:update-tags-and-file',
+      'local-music:save-synced-lyrics',
       'local-music:select-cover-file',
       'library:export-m3u8',
       'library:import-m3u8',
@@ -123,6 +124,8 @@ const api = {
   }) => ipcRenderer.invoke('lyrics:fetch-multi-source', query),
   updateLocalMusicTagsAndFile: (payload: any) =>
     ipcRenderer.invoke('local-music:update-tags-and-file', payload),
+  saveSyncedLyrics: (params: { filePath: string; lyrics: string; saveSidecar?: boolean }) =>
+    ipcRenderer.invoke('local-music:save-synced-lyrics', params),
   selectCoverFile: () => ipcRenderer.invoke('local-music:select-cover-file'),
   exportM3u8: (params: {
     tracks: Array<{ filePath: string; title?: string; artist?: string; duration?: number }>;
@@ -167,8 +170,40 @@ const api = {
     ipcRenderer.removeAllListeners('download:state-change');
     ipcRenderer.removeAllListeners('download:batch-complete');
     ipcRenderer.removeAllListeners('download:request-url');
+  },
+  sendMediaPlay: (data: any) => ipcRenderer.send('media-play', data),
+  onMediaPauseAll: (callback: (data: any) => void) => {
+    const listener = (_event: IpcRendererEvent, data: any) => callback(data);
+    ipcRenderer.on('media-pause-all', listener);
+    return () => ipcRenderer.removeListener('media-pause-all', listener);
   }
 };
+
+// YouTube 引擎与媒体代理桥接
+const youtube = {
+  search: (query: string, options?: { limit?: number; type?: 'video' | 'music' }) =>
+    ipcRenderer.invoke('yt:search', query, options),
+  formats: (idOrUrl: string) => ipcRenderer.invoke('yt:formats', idOrUrl),
+  streamUrl: (idOrUrl: string, options?: { kind?: 'audio' | 'video'; height?: number }) =>
+    ipcRenderer.invoke('yt:streamUrl', idOrUrl, options),
+  download: (idOrUrl: string, options: any) => ipcRenderer.invoke('yt:download', idOrUrl, options),
+  cancelDownload: (jobId: string) => ipcRenderer.invoke('yt:cancelDownload', jobId),
+  readLink: (filePath: string) => ipcRenderer.invoke('yt:readLink', filePath),
+  writeLink: (filePath: string, youtubeUrl: string) =>
+    ipcRenderer.invoke('yt:writeLink', filePath, youtubeUrl),
+  resolveDownloadDir: (contextFilePath?: string) =>
+    ipcRenderer.invoke('yt:resolveDownloadDir', contextFilePath),
+  binaryStatus: () => ipcRenderer.invoke('yt:binaryStatus'),
+  updateBinary: () => ipcRenderer.invoke('yt:updateBinary'),
+  onDownloadProgress: (callback: (progress: any) => void) => {
+    const listener = (_event: IpcRendererEvent, data: any) => callback(data);
+    ipcRenderer.on('yt:download-progress', listener);
+    return () => ipcRenderer.removeListener('yt:download-progress', listener);
+  }
+};
+
+// @ts-ignore
+(api as any).youtube = youtube;
 
 // 创建带类型的ipcRenderer对象，暴露给渲染进程
 const ipc = {
@@ -201,6 +236,7 @@ if (process.contextIsolated) {
   try {
     contextBridge.exposeInMainWorld('electron', electronAPI);
     contextBridge.exposeInMainWorld('api', api);
+    contextBridge.exposeInMainWorld('youtube', youtube);
     contextBridge.exposeInMainWorld('ipcRenderer', ipc);
   } catch (error) {
     console.error(error);
@@ -210,6 +246,8 @@ if (process.contextIsolated) {
   window.electron = electronAPI;
   // @ts-ignore (define in dts)
   window.api = api;
+  // @ts-ignore (define in dts)
+  window.youtube = youtube;
   // @ts-ignore (define in dts)
   window.ipcRenderer = ipc;
 }

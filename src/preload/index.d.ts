@@ -107,6 +107,12 @@ interface API {
     updatedEntry?: import('../renderer/types/localMusic').LocalMusicMeta;
     error?: string;
   }>;
+  /** 单独保存时间戳歌词（内嵌到音频标签并落盘 .lrc 侧车文件） */
+  saveSyncedLyrics: (params: {
+    filePath: string;
+    lyrics: string;
+    saveSidecar?: boolean;
+  }) => Promise<{ ok: boolean; error?: string }>;
   /** 选择本地封面图片 */
   selectCoverFile: () => Promise<{
     canceled: boolean;
@@ -158,6 +164,34 @@ interface API {
   onDownloadBatchComplete: (cb: (data: any) => void) => void;
   onDownloadRequestUrl: (cb: (data: any) => void) => void;
   removeDownloadListeners: () => void;
+  sendMediaPlay?: (data: any) => void;
+  onMediaPauseAll?: (callback: (data: any) => void) => () => void;
+  youtube: YouTubeBridge;
+}
+
+export interface YouTubeBridge {
+  search: (
+    query: string,
+    options?: { limit?: number; type?: 'video' | 'music' }
+  ) => Promise<import('../main/modules/youtubeFormats').YtSearchResult[]>;
+  formats: (idOrUrl: string) => Promise<import('../main/modules/youtubeFormats').YtFormatsResult>;
+  streamUrl: (
+    idOrUrl: string,
+    options?: { kind?: 'audio' | 'video'; height?: number }
+  ) => Promise<import('../main/modules/youtube').YtStreamUrlResult>;
+  download: (
+    idOrUrl: string,
+    options: import('../main/modules/youtube').YtDownloadOptions
+  ) => Promise<string>;
+  cancelDownload: (jobId: string) => Promise<boolean>;
+  readLink: (filePath: string) => Promise<string | null>;
+  writeLink: (filePath: string, youtubeUrl: string) => Promise<{ ok: boolean; error?: string }>;
+  resolveDownloadDir: (contextFilePath?: string) => Promise<string>;
+  binaryStatus: () => Promise<import('../main/modules/youtube').YtBinaryStatus>;
+  updateBinary: () => Promise<{ success: boolean; output: string; version: string | null }>;
+  onDownloadProgress: (
+    callback: (progress: import('../main/modules/youtube').YtDownloadProgress) => void
+  ) => () => void;
 }
 
 // 自定义IPC渲染进程通信接口
@@ -173,6 +207,7 @@ declare global {
   interface Window {
     electron: ElectronAPI;
     api: API;
+    youtube: YouTubeBridge;
     ipcRenderer: IpcRenderer;
     $message: any;
   }

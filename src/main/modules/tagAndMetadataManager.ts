@@ -3,8 +3,10 @@
 // automatic phonetic romanization (romalrc), and atomic ID3/FLAC tag writing with physical renaming.
 
 import axios from 'axios';
+import { spawnSync } from 'child_process';
 import * as crypto from 'crypto';
 import { app, dialog, ipcMain } from 'electron';
+import ffmpegStatic from 'ffmpeg-static';
 import type { FlacTags } from 'flac-tagger';
 import { PictureType, readFlacTags, writeFlacTags } from 'flac-tagger';
 import * as fs from 'fs';
@@ -13,6 +15,122 @@ import NodeID3 from 'node-id3';
 import * as path from 'path';
 
 import { generateRomanizedLyricLrc } from '../../shared/transliteration';
+
+/** 获取可用 ffmpeg 静态可执行文件路径 */
+function getFfmpegPath(): string {
+  try {
+    const raw = typeof ffmpegStatic === 'string' ? ffmpegStatic : (require('ffmpeg-static') as string);
+    if (!raw) return '';
+    return raw.replace('app.asar', 'app.asar.unpacked');
+  } catch {
+    return '';
+  }
+}
+
+/** 在 Windows 等环境安全重命名，遇到短暂 EBUSY/EPERM 锁时指数回退重试 */
+async function safeRename(source: string, target: string, retries = 5, delayMs = 200): Promise<void> {
+  for (let attempt = 0; attempt < retries; attempt++) {
+    try {
+      await fs.promises.rename(source, target);
+      return;
+    } catch (err: any) {
+      if ((err?.code === 'EBUSY' || err?.code === 'EPERM') && attempt < retries - 1) {
+        await new Promise((r) => setTimeout(r, delayMs));
+        continue;
+      }
+      throw err;
+    }
+  }
+}
+
+/** 安全原子覆盖替换文件 */
+async function safeReplaceFile(source: string, target: string): Promise<void> {
+  try {
+    await safeRename(source, target);
+  } catch (renameErr) {
+    try {
+      await fs.promises.copyFile(source, target);
+      await fs.promises.unlink(source).catch(() => {});
+    } catch (copyErr) {
+      throw renameErr;
+    }
+  }
+}
+
+/**
+ * 使用 FFmpeg 写入 MP4/M4A/OPUS/OGG 标签与内嵌封面
+ */
+async function writeFfmpegTags(
+  filePath: string,
+  payload: {
+    title: string;
+    artist: string;
+    album: string;
+    year?: string;
+    genre?: string;
+    lyrics?: string;
+  },
+  coverResolved: { buffer: Buffer; mime: string } | null
+): Promise<void> {
+  const ffmpeg = getFfmpegPath();
+  if (!ffmpeg || !fs.existsSync(ffmpeg)) {
+    throw new Error('FFmpeg binary not available for writing tags');
+  }
+
+  const dir = path.dirname(filePath);
+  const ext = path.extname(filePath);
+  const tempOut = path.join(dir, `.tmp_tag_${Date.now()}_${Math.random().toString(36).slice(2)}${ext}`);
+  let coverTemp: string | null = null;
+
+  try {
+    const args = ['-y', '-i', filePath];
+
+    if (coverResolved) {
+      const coverExt = extToMime(coverResolved.mime) === 'image/png' ? '.png' : '.jpg';
+      coverTemp = path.join(dir, `.tmp_covr_${Date.now()}_${Math.random().toString(36).slice(2)}${coverExt}`);
+      await fs.promises.writeFile(coverTemp, coverResolved.buffer);
+      args.push('-i', coverTemp);
+      args.push('-map', '0:a');
+      args.push('-map', '1:0');
+      args.push('-c', 'copy');
+      args.push('-disposition:v:0', 'attached_pic');
+    } else {
+      args.push('-map', '0');
+      args.push('-c', 'copy');
+    }
+
+    args.push('-metadata', `title=${payload.title}`);
+    args.push('-metadata', `artist=${payload.artist}`);
+    args.push('-metadata', `album=${payload.album}`);
+    if (payload.year && payload.year.trim()) {
+      args.push('-metadata', `date=${payload.year.trim()}`);
+    }
+    if (payload.genre && payload.genre.trim()) {
+      args.push('-metadata', `genre=${payload.genre.trim()}`);
+    }
+    if (payload.lyrics && payload.lyrics.trim()) {
+      args.push('-metadata', `lyrics=${payload.lyrics.trim()}`);
+      args.push('-metadata', `©lyr=${payload.lyrics.trim()}`);
+    }
+
+    args.push(tempOut);
+
+    const res = spawnSync(ffmpeg, args, { stdio: 'pipe' });
+    if (res.status !== 0) {
+      const errOut = res.stderr ? res.stderr.toString('utf8') : 'Unknown error';
+      throw new Error(`FFmpeg tagging failed with exit code ${res.status}: ${errOut.slice(0, 300)}`);
+    }
+
+    await safeReplaceFile(tempOut, filePath);
+  } finally {
+    if (coverTemp && fs.existsSync(coverTemp)) {
+      await fs.promises.unlink(coverTemp).catch(() => {});
+    }
+    if (fs.existsSync(tempOut)) {
+      await fs.promises.unlink(tempOut).catch(() => {});
+    }
+  }
+}
 
 export interface LocalTrackEditPayload {
   filePath: string;
@@ -155,22 +273,37 @@ async function resolveCoverBuffer(
   return null;
 }
 
-/** 查询 iTunes Search API */
+/** 查询 iTunes Search API (含自动降级与关键词清洗检索) */
 async function fetchFromITunes(
   title: string,
   artist?: string
 ): Promise<MetadataOnlineResult[]> {
   try {
-    const term = [title, artist].filter(Boolean).join(' ').trim();
-    const url = `https://itunes.apple.com/search?term=${encodeURIComponent(
+    let term = [title, artist].filter(Boolean).join(' ').trim();
+    let url = `https://itunes.apple.com/search?term=${encodeURIComponent(
       term
     )}&media=music&limit=5`;
-    const res = await axios.get<{ resultCount: number; results: any[] }>(url, {
+    let res = await axios.get<{ resultCount: number; results: any[] }>(url, {
       timeout: REQUEST_TIMEOUT_MS,
       headers: { 'User-Agent': HTTP_USER_AGENT }
     });
 
-    const items = res.data?.results || [];
+    let items = res.data?.results || [];
+
+    // 若未搜出结果且 title 包含 (feat. ...) 或 [Remix] 等额外修饰词，自动剔除后重试
+    if (items.length === 0) {
+      const stripped = title.replace(/\s*[\(\[][^\)\]]*(?:feat|ft|remix|version|mix)[^\)\]]*[\)\]]/gi, '').trim();
+      if (stripped && stripped !== title) {
+        const fallbackTerm = [stripped, artist].filter(Boolean).join(' ').trim();
+        url = `https://itunes.apple.com/search?term=${encodeURIComponent(fallbackTerm)}&media=music&limit=5`;
+        res = await axios.get<{ resultCount: number; results: any[] }>(url, {
+          timeout: REQUEST_TIMEOUT_MS,
+          headers: { 'User-Agent': HTTP_USER_AGENT }
+        });
+        items = res.data?.results || [];
+      }
+    }
+
     return items.map((item) => {
       const rawCover: string = item.artworkUrl100 || '';
       // 提取 1000x1000 高清大图
@@ -196,15 +329,19 @@ async function fetchFromITunes(
   }
 }
 
-/** 查询 MusicBrainz API + Cover Art Archive */
+/** 查询 MusicBrainz API + Cover Art Archive (含特殊字符清洗避免 400 Bad Request) */
 async function fetchFromMusicBrainz(
   title: string,
   artist?: string
 ): Promise<MetadataOnlineResult[]> {
   try {
-    let query = `recording:"${title}"`;
-    if (artist && artist.trim()) {
-      query += ` AND artist:"${artist.trim()}"`;
+    // 清理 Lucene 保留字符，防止语法解析错误
+    const cleanTitle = title.replace(/[+\-!(){}\[\]^"~*?:\\\/]/g, ' ').replace(/\s+/g, ' ').trim();
+    const cleanArtist = (artist || '').replace(/[+\-!(){}\[\]^"~*?:\\\/]/g, ' ').replace(/\s+/g, ' ').trim();
+
+    let query = `recording:"${cleanTitle || title}"`;
+    if (cleanArtist) {
+      query += ` AND artist:"${cleanArtist}"`;
     }
 
     const url = `https://musicbrainz.org/ws/2/recording/?query=${encodeURIComponent(
@@ -479,7 +616,7 @@ export function initializeTagAndMetadataManager(): void {
           payload.coverDataUrlOrPath
         );
 
-        // 2. 根据文件格式写入 ID3v2 / FLAC Vorbis 标签
+        // 2. 根据文件格式写入 ID3v2 / FLAC Vorbis / MP4 / Opus / Ogg 标签与内嵌封面
         if (ext === '.mp3') {
           const id3Tags: NodeID3.Tags = {
             title: payload.title,
@@ -545,6 +682,20 @@ export function initializeTagAndMetadataManager(): void {
           }
 
           await writeFlacTags(flacTags, filePath);
+        } else if (ext === '.m4a' || ext === '.mp4' || ext === '.opus' || ext === '.ogg' || ext === '.wav' || ext === '.webm') {
+          // 使用 ffmpeg-static 为 M4A (AAC)、OPUS、OGG 等容器写入元数据与封面
+          await writeFfmpegTags(
+            filePath,
+            {
+              title: payload.title,
+              artist: payload.artist,
+              album: payload.album,
+              year: payload.year,
+              genre: payload.genre,
+              lyrics: payload.lyrics
+            },
+            coverResolved
+          );
         }
 
         // 3. 写入同名侧车 .lrc 文件（默认为 true）
@@ -586,13 +737,13 @@ export function initializeTagAndMetadataManager(): void {
               };
             }
 
-            await fs.promises.rename(filePath, targetPath);
+            await safeRename(filePath, targetPath);
 
             // 同时迁移同名 sidecar .lrc 文件
             const oldLrc = filePath.replace(/\.[^.]+$/, '.lrc');
             const newLrc = targetPath.replace(/\.[^.]+$/, '.lrc');
             if (fs.existsSync(oldLrc)) {
-              await fs.promises.rename(oldLrc, newLrc);
+              await safeRename(oldLrc, newLrc);
             }
 
             finalPath = targetPath;
@@ -651,6 +802,75 @@ export function initializeTagAndMetadataManager(): void {
       } catch (err: any) {
         console.error('更新本地音乐元数据失败:', err);
         return { ok: false, error: err?.message || '更新标签失败' };
+      }
+    }
+  );
+
+  // 3.1 单独保存时间戳歌词（同时内嵌至音频 ID3 / Vorbis / MP4 标签并落盘 .lrc 侧车文件）
+  ipcMain.handle(
+    'local-music:save-synced-lyrics',
+    async (
+      _,
+      params: { filePath: string; lyrics: string; saveSidecar?: boolean }
+    ): Promise<{ ok: boolean; error?: string }> => {
+      try {
+        const { filePath, lyrics, saveSidecar = true } = params || {};
+        if (!filePath || !fs.existsSync(filePath)) {
+          return { ok: false, error: `Audio file does not exist: ${filePath}` };
+        }
+        if (!lyrics || !lyrics.trim()) {
+          return { ok: false, error: 'Lyrics content cannot be empty' };
+        }
+
+        const trimmed = lyrics.trim();
+        const ext = path.extname(filePath).toLowerCase();
+
+        // 1. 尝试将歌词内嵌到音频文件
+        if (ext === '.mp3') {
+          await NodeID3.Promise.update(
+            {
+              unsynchronisedLyrics: {
+                language: 'eng',
+                text: trimmed
+              }
+            },
+            filePath
+          );
+        } else if (ext === '.flac') {
+          const existing = await readFlacTags(filePath).catch(() => ({ tagMap: {} }));
+          const tagMap: Record<string, string[] | string> = {
+            ...(existing.tagMap || {}),
+            LYRICS: trimmed,
+            UNSYNCEDLYRICS: trimmed
+          };
+          await writeFlacTags({ tagMap, picture: (existing as any).picture }, filePath);
+        } else if (ext === '.m4a' || ext === '.mp4' || ext === '.opus' || ext === '.ogg' || ext === '.wav') {
+          const meta = await mm.parseFile(filePath).catch(() => null);
+          const title = meta?.common.title || path.basename(filePath, ext);
+          const artist = meta?.common.artist || '';
+          const album = meta?.common.album || '';
+          await writeFfmpegTags(
+            filePath,
+            {
+              title,
+              artist,
+              album,
+              lyrics: trimmed
+            },
+            null
+          );
+        }
+
+        // 2. 落盘保存同名 .lrc 侧车文件
+        if (saveSidecar) {
+          const sidecarLrcPath = filePath.replace(/\.[^.]+$/, '.lrc');
+          await fs.promises.writeFile(sidecarLrcPath, trimmed, 'utf8');
+        }
+
+        return { ok: true };
+      } catch (err: any) {
+        console.error('保存同步歌词失败:', err);
+        return { ok: false, error: err?.message || 'Failed to save synced lyrics' };
       }
     }
   );

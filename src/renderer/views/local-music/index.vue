@@ -161,32 +161,18 @@
             </button>
           </div>
 
-          <!-- 歌曲列表 -->
+          <!-- 歌曲列表 (紧凑型行布局，44px 圆角封面，标题艺术家 flex-1，右侧紧凑按钮组) -->
           <div v-else-if="filteredList.length > 0" class="song-list-container space-y-1">
-            <div
+            <local-track-row
               v-for="(item, index) in filteredSongResults"
               :key="item.id"
-              class="flex items-center gap-2 group"
-            >
-              <div class="flex-1 min-w-0">
-                <song-item
-                  :index="index"
-                  :item="item"
-                  :can-remove="true"
-                  @play="handlePlaySong"
-                  @remove-song="handleRemoveSong"
-                />
-              </div>
-              <button
-                type="button"
-                class="px-2.5 py-1.5 rounded-xl text-xs font-medium bg-neutral-100 dark:bg-neutral-900 text-neutral-600 dark:text-neutral-300 hover:bg-primary/15 hover:text-primary transition flex items-center gap-1 shrink-0"
-                title="Edit Metadata, Artwork & Filename"
-                @click.stop="openTrackEditor(filteredList[index])"
-              >
-                <i class="ri-edit-box-line text-sm" />
-                <span class="hidden sm:inline">Edit Tags / File</span>
-              </button>
-            </div>
+              :index="index"
+              :item="item"
+              :entry="filteredList[index]"
+              @play="handlePlaySong"
+              @edit="openTrackEditor"
+              @remove="handleRemoveSong(item.id)"
+            />
           </div>
         </section>
       </div>
@@ -251,8 +237,8 @@ import { computed, h, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import LocalTrackEditorModal from '@/components/common/LocalTrackEditorModal.vue';
-import SongItem from '@/components/common/SongItem.vue';
 import ListeningStatsModal from '@/components/player/ListeningStatsModal.vue';
+import LocalTrackRow from './LocalTrackRow.vue';
 import {
   exportListeningStatsRaw,
   importListeningStatsRaw
@@ -445,8 +431,8 @@ async function handleScan(): Promise<void> {
  */
 async function handlePlaySong(song: SongResult): Promise<void> {
   try {
-    // 设置播放列表上下文，确保上下一首切换正常
     playerStore.prepareSongPlayback(song, filteredSongResults.value);
+    await playerStore.setPlay(song);
   } catch (error) {
     console.error('播放本地音乐失败:', error);
   }

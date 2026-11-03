@@ -20,6 +20,7 @@ import type { Platform, SongResult } from '@/types/music';
 import { getImgUrl } from '@/utils';
 import { getImageLinearBackground } from '@/utils/linearColor';
 import { readPlaybackProgress } from '@/utils/playerUtils';
+import { getPosition, getSongKey, savePosition } from '@/services/songLibrary';
 
 const { message } = createDiscreteApi(['message']);
 
@@ -165,6 +166,16 @@ export const playTrack = async (
   }
   if (!options.recovery) resetUrlExpiredRetry();
 
+  // Save playback position of the previous track before stopping
+  const prevTrack = audioService.getCurrentTrack();
+  const prevSound = audioService.getCurrentSound();
+  if (prevTrack && prevSound && prevSound.currentTime > 0) {
+    const prevKey = getSongKey(prevTrack);
+    if (prevKey) {
+      void savePosition(prevKey, prevSound.currentTime);
+    }
+  }
+
   audioService.stop();
   playerCore.setIsPlay(false);
   playerCore.userPlayIntent = shouldPlay;
@@ -193,8 +204,28 @@ export const playTrack = async (
     });
 
   const { getSongDetail } = useSongDetail();
-  const startTime =
+  let startTime =
     Number.isFinite(options.startTime) && options.startTime! >= 0 ? options.startTime! : 0;
+  if (options.startTime === undefined && !options.recovery) {
+    try {
+      const songKey = getSongKey(originalMusic);
+      if (songKey) {
+        const savedPos = await getPosition(songKey);
+        const durationSec =
+          originalMusic.dt && originalMusic.dt > 1000
+            ? originalMusic.dt / 1000
+            : ((originalMusic as any).durationSec ??
+              (originalMusic.duration && originalMusic.duration > 1000
+                ? originalMusic.duration / 1000
+                : (originalMusic.duration ?? 0)));
+        if (savedPos > 5 && (durationSec > 15 ? savedPos < durationSec - 10 : true)) {
+          startTime = savedPos;
+        }
+      }
+    } catch (e) {
+      console.warn('[playbackController] 获取保存进度失败:', e);
+    }
+  }
   let candidate = originalMusic;
   for (let attempt = 0; attempt < 2; attempt++) {
     let audioUrl: string | undefined;
@@ -281,8 +312,10 @@ export const resumeCurrentSong = async (): Promise<boolean> => {
     sound.readyState < 2 ||
     audioService.getCurrentTrack()?.id !== song.id
   ) {
+    const songKey = getSongKey(song);
+    const dbPos = songKey ? await getPosition(songKey) : 0;
     return playTrack(song, true, {
-      startTime: readPlaybackProgress(song.id),
+      startTime: dbPos > 0 ? dbPos : readPlaybackProgress(song.id),
       recordHistory: false
     });
   }
@@ -539,7 +572,9 @@ export const initializePlayState = async (): Promise<void> => {
 
       // 恢复上次保存的播放进度（仅UI显示）
       try {
-        const savedProgress = readPlaybackProgress(savedSong.id);
+        const songKey = getSongKey(savedSong);
+        const dbProgress = songKey ? await getPosition(songKey) : 0;
+        const savedProgress = dbProgress > 0 ? dbProgress : readPlaybackProgress(savedSong.id);
         if (savedProgress > 0) {
           const { nowTime, allTime } = await import('@/hooks/MusicHook');
           if (gen !== getCurrentGeneration()) return;
@@ -556,6 +591,9 @@ export const initializePlayState = async (): Promise<void> => {
       // 自动播放启用：调用 playTrack 恢复播放
       // 本地音乐（local:// 协议）不需要重新获取 URL，保留原始路径
       const isLocalMusic = playerCore.playMusic.playMusicUrl?.startsWith('local://');
+      const songKey = getSongKey(savedSong);
+      const dbProgress = songKey ? await getPosition(songKey) : 0;
+      const savedProgress = dbProgress > 0 ? dbProgress : readPlaybackProgress(savedSong.id);
 
       await playTrack(
         {
@@ -564,7 +602,7 @@ export const initializePlayState = async (): Promise<void> => {
           playMusicUrl: isLocalMusic ? playerCore.playMusic.playMusicUrl : undefined
         },
         true,
-        { startTime: readPlaybackProgress(savedSong.id), recordHistory: false }
+        { startTime: savedProgress, recordHistory: false }
       );
     }
   } catch (error) {

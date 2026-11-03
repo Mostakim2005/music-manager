@@ -384,7 +384,7 @@ const latestNightSong = computed<{
       id: randomSong.id,
       name: randomSong.name || 'Unknown',
       artist: randomSong.ar?.[0]?.name || 'Unknown Artist',
-      time: `凌晨 ${randomHour.toString().padStart(2, '0')}:${randomMinute.toString().padStart(2, '0')}`
+      time: `${randomHour.toString().padStart(2, '0')}:${randomMinute.toString().padStart(2, '0')}`
     };
   }
 
@@ -397,7 +397,7 @@ const latestNightSong = computed<{
       id: song.id,
       name: song.name || 'Unknown',
       artist: song.ar?.[0]?.name || 'Unknown Artist',
-      time: `凌晨 ${randomHour.toString().padStart(2, '0')}:${randomMinute.toString().padStart(2, '0')}`
+      time: `${randomHour.toString().padStart(2, '0')}:${randomMinute.toString().padStart(2, '0')}`
     };
   }
 

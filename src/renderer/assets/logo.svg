@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="m3TileGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0F172A" />
+      <stop offset="100%" stop-color="#1E293B" />
+    </linearGradient>
+    <filter id="m3Shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="6" stdDeviation="12" flood-color="#4F7CFF" flood-opacity="0.3" />
+    </filter>
+  </defs>
+  <!-- Material 3 Rounded Square Tile -->
+  <rect x="24" y="24" width="464" height="464" rx="112" fill="url(#m3TileGrad)" stroke="#334155" stroke-width="2.5" />
+  
+  <!-- Double M: Two overlapping rounded M strokes in accent color #4F7CFF -->
+  <g filter="url(#m3Shadow)" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <!-- First M (Layer 1) -->
+    <path
+      d="M 136 340 L 136 194 C 136 179 153 171 164 182 L 212 236 C 218 243 228 243 234 236 L 282 182 C 293 171 310 179 310 194 L 310 340"
+      stroke="#4F7CFF"
+      stroke-width="28"
+      stroke-opacity="0.55"
+    />
+    <!-- Second M (Layer 2, overlapping & adjacent offset) -->
+    <path
+      d="M 202 340 L 202 194 C 202 179 219 171 230 182 L 278 236 C 284 243 294 243 300 236 L 348 182 C 359 171 376 179 376 194 L 376 340"
+      stroke="#4F7CFF"
+      stroke-width="28"
+    />
+  </g>
+</svg>

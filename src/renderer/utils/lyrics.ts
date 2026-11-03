@@ -234,3 +234,75 @@ export function stripLrcTimestamps(lrcText: string): string {
     .join('\n');
 }
 
+/**
+ * Parse an LRC timestamp string "[mm:ss.xx]" or "mm:ss.xx" into raw seconds.
+ * Returns NaN if the timestamp cannot be parsed.
+ *
+ * @example parseLrcTimestamp("[01:05.34]") // 65.34
+ * @example parseLrcTimestamp("00:02.500") // 2.5
+ */
+export function parseLrcTimestamp(timestamp: string): number {
+  if (!timestamp || typeof timestamp !== 'string') return NaN;
+  const match = timestamp.trim().match(/\[?(\d+):(\d+)(?:\.(\d+))?\]?/);
+  if (!match) return NaN;
+
+  const mins = parseInt(match[1], 10);
+  const secs = parseInt(match[2], 10);
+  let fraction = 0;
+  if (match[3]) {
+    const rawFrac = match[3];
+    if (rawFrac.length === 1) {
+      fraction = parseInt(rawFrac, 10) / 10;
+    } else if (rawFrac.length === 2) {
+      fraction = parseInt(rawFrac, 10) / 100;
+    } else {
+      fraction = parseInt(rawFrac.slice(0, 3), 10) / 1000;
+    }
+  }
+
+  return mins * 60 + secs + fraction;
+}
+
+/**
+ * Nudge a single timestamp by a positive or negative delta (in seconds), clamping at 0.
+ *
+ * @example nudgeTimestamp("[01:00.00]", 0.5) // "[01:00.50]"
+ * @example nudgeTimestamp("[00:00.20]", -0.5) // "[00:00.00]"
+ */
+export function nudgeTimestamp(timestamp: string, deltaSeconds: number): string {
+  const current = parseLrcTimestamp(timestamp);
+  const base = isNaN(current) ? 0 : current;
+  const target = Math.max(0, base + deltaSeconds);
+  return formatLrcTimestamp(target);
+}
+
+/**
+ * Shift all timestamp markers inside an LRC text string by a global offset (in seconds).
+ * Clamps all resulting timestamps at 0.
+ *
+ * @param lrcText Full multiline LRC text
+ * @param offsetSeconds Global offset shift (e.g. +0.5, -0.2, or +1.0)
+ * @returns Updated LRC text with all timestamps shifted and clamped
+ */
+export function shiftAllLrcTimestamps(lrcText: string, offsetSeconds: number): string {
+  if (!lrcText || typeof lrcText !== 'string') return '';
+  return lrcText.replace(/\[(\d+):(\d+)(?:\.(\d+))?\]/g, (match) => {
+    return nudgeTimestamp(match, offsetSeconds);
+  });
+}
+
+/**
+ * Shift line-based timestamp array items by a given offset in seconds.
+ */
+export function shiftLinesTimestamps(
+  lines: Array<{ timestamp: string; text: string }>,
+  offsetSeconds: number
+): Array<{ timestamp: string; text: string }> {
+  if (!Array.isArray(lines)) return [];
+  return lines.map((l) => ({
+    timestamp: l.timestamp ? nudgeTimestamp(l.timestamp, offsetSeconds) : '',
+    text: l.text
+  }));
+}
+
+

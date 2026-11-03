@@ -345,6 +345,7 @@ import { computed, nextTick, onUnmounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import { getMvUrl } from '@/api/mv';
+import { mediaCoordinator } from '@/services/mediaCoordinator';
 import { IMvItem } from '@/types/mv';
 
 const { t } = useI18n();
@@ -426,6 +427,7 @@ const formatTime = (seconds: number) => {
 const togglePlay = () => {
   if (!videoRef.value) return;
   if (videoRef.value.paused) {
+    mediaCoordinator.claimPlayback('mv-player-video', videoRef.value);
     videoRef.value.play().catch(() => {
       autoPlayBlocked.value = true;
     });
@@ -538,6 +540,7 @@ const loadMvUrl = async (mv: IMvItem) => {
         videoRef.value.currentTime = props.initialTime;
       }
       try {
+        mediaCoordinator.claimPlayback('mv-player-video', videoRef.value);
         await videoRef.value.play();
       } catch (error) {
         console.warn('Auto-play blocked:', error);
@@ -616,7 +619,51 @@ watch(
   }
 );
 
+let unregisterMedia: (() => void) | null = null;
+let pipEnterHandler: (() => void) | null = null;
+let pipLeaveHandler: (() => void) | null = null;
+
+watch(
+  videoRef,
+  (videoEl) => {
+    if (unregisterMedia) {
+      unregisterMedia();
+      unregisterMedia = null;
+    }
+    if (videoEl) {
+      unregisterMedia = mediaCoordinator.registerMediaElement(
+        videoEl,
+        'mv-player-video',
+        () => {
+          videoEl.pause();
+          isPlaying.value = false;
+        },
+        'MvPlayer'
+      );
+
+      pipEnterHandler = () => {
+        isPiP.value = true;
+        mediaCoordinator.claimPlayback('mv-player-video', videoEl);
+      };
+      pipLeaveHandler = () => {
+        isPiP.value = false;
+      };
+      videoEl.addEventListener('enterpictureinpicture', pipEnterHandler);
+      videoEl.addEventListener('leavepictureinpicture', pipLeaveHandler);
+    }
+  },
+  { immediate: true }
+);
+
 onUnmounted(() => {
+  if (unregisterMedia) {
+    unregisterMedia();
+    unregisterMedia = null;
+  }
+  if (videoRef.value) {
+    if (pipEnterHandler) videoRef.value.removeEventListener('enterpictureinpicture', pipEnterHandler);
+    if (pipLeaveHandler) videoRef.value.removeEventListener('leavepictureinpicture', pipLeaveHandler);
+  }
   if (cursorTimer) clearTimeout(cursorTimer);
 });
 </script>

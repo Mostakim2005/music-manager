@@ -57,6 +57,7 @@
     "electron-window-state": "^5.0.3",
     "express": "^4.22.1",
     "fflate": "^0.8.3",
+    "ffmpeg-static": "^5.3.0",
     "file-type": "^21.1.1",
     "flac-tagger": "^1.0.7",
     "font-list": "^1.6.0",
@@ -108,6 +109,7 @@
     "eslint-plugin-simple-import-sort": "^12.1.1",
     "eslint-plugin-vue": "^10.6.2",
     "eslint-plugin-vue-scoped-css": "^2.12.0",
+    "fake-indexeddb": "^6.2.7",
     "globals": "^16.5.0",
     "howler": "^2.2.4",
     "lint-staged": "^15.5.2",
@@ -116,10 +118,12 @@
     "naive-ui": "^2.43.2",
     "pinia": "^3.0.4",
     "pinyin-match": "^1.2.10",
+    "png-to-ico": "^3.0.2",
     "postcss": "^8.5.6",
     "prettier": "^3.7.4",
     "remixicon": "^4.7.0",
     "sass": "^1.96.0",
+    "sharp": "^0.35.5",
     "tailwindcss": "^3.4.19",
     "tinycolor2": "^1.6.0",
     "tunajs": "^1.0.15",
@@ -145,6 +149,9 @@
         "repo": "AlgerMusicPlayer"
       }
     ],
+    "asarUnpack": [
+      "**/node_modules/ffmpeg-static/**"
+    ],
     "extraResources": [
       {
         "from": "resources/html",
@@ -160,6 +167,13 @@
           "icon*.*",
           "favicon.ico",
           "icons/**/*"
+        ]
+      },
+      {
+        "from": "resources/bin",
+        "to": "bin",
+        "filter": [
+          "**/*"
         ]
       }
     ],

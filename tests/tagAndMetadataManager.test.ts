@@ -6,6 +6,7 @@ import {
   generateM3u8Content,
   parseM3u8Content
 } from '../src/main/modules/tagAndMetadataManager';
+import { decodeLocalProtocolUrl } from '../src/main/modules/localProtocol';
 
 // Mock electron app & ipcMain with vi.hoisted
 const { ipcHandlers, mockDialog } = vi.hoisted(() => {
@@ -295,5 +296,47 @@ file:///C:/absolute/song4.mp3
     // Verify cover cache in userData/AudioCovers
     expect(res.updatedEntry.coverPath).toBeTruthy();
     expect(fs.existsSync(res.updatedEntry.coverPath!)).toBe(true);
+  });
+
+  it('registers local-music:save-synced-lyrics and writes embedded and sidecar lyrics', async () => {
+    expect(ipcHandlers.has('local-music:save-synced-lyrics')).toBe(true);
+    const handler = ipcHandlers.get('local-music:save-synced-lyrics')!;
+
+    const testMp3 = path.join(tmpDir, 'lyric_test.mp3');
+    fs.writeFileSync(testMp3, Buffer.alloc(1024));
+
+    const lyricsContent = '[00:01.00] Line 1\n[00:05.00] Line 2';
+    const res = await handler(null, {
+      filePath: testMp3,
+      lyrics: lyricsContent,
+      saveSidecar: true
+    });
+
+    expect(res.ok).toBe(true);
+    const sidecarLrc = path.join(tmpDir, 'lyric_test.lrc');
+    expect(fs.existsSync(sidecarLrc)).toBe(true);
+    expect(fs.readFileSync(sidecarLrc, 'utf8')).toBe(lyricsContent);
+  });
+
+  describe('decodeLocalProtocolUrl', () => {
+    it('decodes URLs with spaces, hashes and percent signs', () => {
+      const url = 'local:///E%3A/Music/Rock%20%231%20100%25%20real.m4a';
+      const decoded = decodeLocalProtocolUrl(url);
+      expect(decoded).toContain('Rock #1 100% real.m4a');
+    });
+
+    it('strips query parameters from URLs', () => {
+      const url = 'local:///C%3A/Covers/album.jpg?param=100y100&t=12345';
+      const decoded = decodeLocalProtocolUrl(url);
+      expect(decoded).not.toContain('?');
+      expect(decoded).not.toContain('param');
+      expect(decoded).toContain('album.jpg');
+    });
+
+    it('decodes Unicode / non-ASCII characters correctly', () => {
+      const url = 'local:///C%3A/Music/%E6%AD%8C%E6%9B%B2.mp3';
+      const decoded = decodeLocalProtocolUrl(url);
+      expect(decoded).toContain('歌曲.mp3');
+    });
   });
 });

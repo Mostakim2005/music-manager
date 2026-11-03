@@ -186,7 +186,7 @@ export default {
     restart: 'Restart',
     refresh: 'Refresh',
     currentVersion: 'Current Version',
-    searchPlaceholder: 'Search for something...',
+    searchPlaceholder: 'Search for songs, artists, albums...',
     zoom: 'Zoom',
     zoom100: 'Zoom 100%',
     resetZoom: 'Reset Zoom',
