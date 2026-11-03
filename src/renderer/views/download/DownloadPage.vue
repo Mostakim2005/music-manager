@@ -763,7 +763,7 @@ const handlePlayMusic = async (item: any) => {
       } as any,
       picUrl: item.picUrl,
       playMusicUrl: getLocalFilePath(filePath),
-      source: 'netease' as 'netease',
+      source: 'local' as any,
       count: 0
     };
 

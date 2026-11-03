@@ -39,14 +39,7 @@ export const useMusicSources = () => {
       label: provider.name,
       icon: provider.icon,
       color: provider.color,
-      group:
-        provider.kind === 'plugin'
-          ? 'plugin'
-          : provider.key === 'netease'
-            ? 'netease'
-            : provider.key === 'customApi' || provider.key === 'gdmusic'
-              ? 'builtin'
-              : 'unblock',
+      group: provider.kind === 'plugin' ? 'plugin' : 'builtin',
       available: provider.available,
       configHint: provider.configHint,
       builtin: provider.builtin,

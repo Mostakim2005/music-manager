@@ -128,7 +128,7 @@ export function useSongItem(props: { item: SongResult; canRemove?: boolean }) {
             artists: newSongData.ar || newSongData.artists,
             album: newSongData.al || newSongData.album
           },
-          source: 'netease',
+          source: 'youtube' as any,
           count: 0
         };
         recommendStore.replaceSongInDailyRecommend(props.item.id, newSong);

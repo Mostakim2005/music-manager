@@ -165,11 +165,20 @@ export function initializeFileManager() {
   // 保存歌词文件
   ipcMain.handle(
     'save-lyric-file',
-    async (_, { filename, lrcContent }: { filename: string; lrcContent: string }) => {
+    async (
+      _,
+      {
+        filename,
+        lrcContent,
+        targetDir
+      }: { filename: string; lrcContent: string; targetDir?: string }
+    ) => {
       try {
         const configStore = getStore();
         const downloadPath =
-          (configStore.get('set.downloadPath') as string) || app.getPath('downloads');
+          targetDir ||
+          (configStore.get('set.downloadPath') as string) ||
+          app.getPath('downloads');
         const sanitizedName = sanitizeFilename(filename);
         let filePath = path.join(downloadPath, `${sanitizedName}.lrc`);
 

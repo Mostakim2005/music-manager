@@ -232,7 +232,7 @@
 </template>
 
 <script setup lang="ts">
-import { createDiscreteApi, type DropdownOption } from 'naive-ui';
+import { createDiscreteApi, NButton, type DropdownOption } from 'naive-ui';
 import { computed, h, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 
@@ -247,11 +247,11 @@ import { useLocalMusicStore } from '@/store/modules/localMusic';
 import { usePlayerStore } from '@/store/modules/player';
 import type { LocalMusicEntry } from '@/types/localMusic';
 import type { SongResult } from '@/types/music';
-import { filterByKeyword, toSongResult } from '@/utils/localMusicUtils';
+import { debounceIngestLocalTracks, filterByKeyword, toSongResult } from '@/utils/localMusicUtils';
 
 // ==================== Stores ====================
 const { t } = useI18n();
-const { message } = createDiscreteApi(['message']);
+const { message, notification } = createDiscreteApi(['message', 'notification']);
 const localMusicStore = useLocalMusicStore();
 const playerStore = usePlayerStore();
 
@@ -410,6 +410,71 @@ async function handleRemoveFolder(folder: string): Promise<void> {
   await localMusicStore.removeFolder(folder);
 }
 
+function triggerIngest(): void {
+  debounceIngestLocalTracks(localMusicStore.musicList, (entry, candidate) => {
+    const n = notification.info({
+      title: 'Possible Duplicate Track',
+      content: `"${entry.title}" might be a duplicate of "${candidate.title}". Merge into one song?`,
+      duration: 10000,
+      action: () =>
+        h('div', { class: 'flex items-center gap-2 mt-2' }, [
+          h(
+            NButton,
+            {
+              size: 'tiny',
+              type: 'primary',
+              onClick: async () => {
+                const { ingestLocalTrack, mergeSongs } = await import('@/services/songLibrary');
+                const ext = entry.filePath.split('.').pop()?.toLowerCase();
+                const newRes = await ingestLocalTrack(
+                  {
+                    path: entry.filePath,
+                    title: entry.title,
+                    artist: entry.artist || '',
+                    album: entry.album || '',
+                    durationSec: Math.round((entry.duration || 0) > 1000 ? entry.duration / 1000 : entry.duration || 0),
+                    bitrate: (entry as any).bitrate,
+                    container: ext
+                  },
+                  { forceNew: true }
+                );
+                await mergeSongs(candidate.id, newRes.songId);
+                message.success('Tracks merged');
+                n.destroy();
+              }
+            },
+            { default: () => 'Merge' }
+          ),
+          h(
+            NButton,
+            {
+              size: 'tiny',
+              onClick: async () => {
+                const { ingestLocalTrack } = await import('@/services/songLibrary');
+                const ext = entry.filePath.split('.').pop()?.toLowerCase();
+                await ingestLocalTrack(
+                  {
+                    path: entry.filePath,
+                    title: entry.title,
+                    artist: entry.artist || '',
+                    album: entry.album || '',
+                    durationSec: Math.round((entry.duration || 0) > 1000 ? entry.duration / 1000 : entry.duration || 0),
+                    bitrate: (entry as any).bitrate,
+                    container: ext
+                  },
+                  { forceNew: true }
+                );
+                message.info('Kept separate');
+                n.destroy();
+              }
+            },
+            { default: () => 'Keep separate' }
+          )
+        ])
+    });
+  });
+}
+
 /**
  * 触发扫描
  */
@@ -417,10 +482,12 @@ async function handleScan(): Promise<void> {
   if (localMusicStore.folderPaths.length === 0) {
     // 没有配置文件夹：先清掉可能残留的历史条目（#742），再引导用户添加文件夹
     await localMusicStore.scanFolders();
+    triggerIngest();
     await handleAddFolder();
     return;
   }
   await localMusicStore.scanFolders();
+  triggerIngest();
 }
 
 /**
@@ -486,6 +553,7 @@ onMounted(async () => {
   }
   // 进入页面时从 IndexedDB 缓存加载音乐列表
   await localMusicStore.loadFromCache();
+  triggerIngest();
 });
 </script>
 

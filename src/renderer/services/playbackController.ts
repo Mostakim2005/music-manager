@@ -70,7 +70,7 @@ const loadMetadata = async (
       if (music.lyric?.lrcTimeArray?.length) {
         return music.lyric;
       }
-      return await loadLrc(music.id);
+      return await loadLrc(music.id, music);
     })(),
     (async () => {
       if (music.backgroundColor && music.primaryColor) {
@@ -127,13 +127,14 @@ const triggerPreload = async (song: SongResult, gen: number): Promise<void> => {
  */
 const updateDocumentTitle = (music: SongResult): void => {
   let title = music.name;
-  if (music.source === 'netease' && music?.song?.artists) {
-    title += ` - ${music.song.artists.reduce(
-      (prev: string, curr: any) => `${prev}${curr.name}/`,
-      ''
-    )}`;
+  const artist =
+    music?.ar?.[0]?.name ||
+    music?.artists?.[0]?.name ||
+    (music as any)?.song?.artists?.[0]?.name;
+  if (artist) {
+    title += ` - ${artist}`;
   }
-  document.title = 'AlgerMusic - ' + title;
+  document.title = 'Music Manager - ' + title;
 };
 
 // ==================== 导出函数 ====================
@@ -182,6 +183,34 @@ export const playTrack = async (
   playerCore.playMusic = { ...music, playLoading: true };
   playerCore.playMusicUrl = '';
   updateDocumentTitle(music);
+
+  // Lazily inspect embedded YouTube link for local track on play
+  if (music.playMusicUrl?.startsWith('local://')) {
+    const rawPath = decodeURIComponent(music.playMusicUrl.replace('local://', ''));
+    if (rawPath && typeof window !== 'undefined') {
+      import('@/services/youtubeService')
+        .then(({ youtubeService }) => {
+          youtubeService
+            .readLink(rawPath)
+            .then(async (ytLink) => {
+              if (ytLink) {
+                const vid = youtubeService.extractVideoId(ytLink) || ytLink;
+                if (vid) {
+                  (music as any).youtubeId = vid;
+                  const { getLibraryDB } = await import('@/services/songLibrary');
+                  const db = getLibraryDB();
+                  const matched = await db.variants.where('path').equals(rawPath).first();
+                  if (matched?.songId) {
+                    await db.songs.update(matched.songId, { youtubeId: vid });
+                  }
+                }
+              }
+            })
+            .catch(() => {});
+        })
+        .catch(() => {});
+    }
+  }
 
   const originalMusic = { ...music };
   let loadedMetadata: Awaited<ReturnType<typeof loadMetadata>> | null = null;
@@ -439,11 +468,10 @@ const resetUrlExpiredRetry = (): void => {
  * Format error），不清缓存的话重新解析会再次命中同一个坏 URL 形成死循环
  */
 const clearParsedUrlCache = async (songId: string | number): Promise<void> => {
-  // 本地歌曲 id 为 hex 字符串，无解析缓存可清
-  if (!/^\d+$/.test(String(songId))) return;
+  if (!songId || String(songId).startsWith('local://')) return;
   try {
     const { MusicResolveCache } = await import('@/services/musicSource/cache');
-    await MusicResolveCache.clearMusicCache(Number(songId));
+    await MusicResolveCache.clearMusicCache(songId);
   } catch (error) {
     console.warn('[playbackController] 清除URL缓存失败:', error);
   }

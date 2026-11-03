@@ -166,6 +166,12 @@ interface API {
   removeDownloadListeners: () => void;
   sendMediaPlay?: (data: any) => void;
   onMediaPauseAll?: (callback: (data: any) => void) => () => void;
+  selectDirectory: () => Promise<{ canceled: boolean; filePaths: string[] }>;
+  saveLyricFile: (params: {
+    filename: string;
+    lrcContent: string;
+    targetDir?: string;
+  }) => Promise<{ success: boolean; path?: string; error?: string }>;
   youtube: YouTubeBridge;
 }
 

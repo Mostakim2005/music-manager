@@ -260,8 +260,7 @@ import { onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
 
-import { getMusicDetail } from '@/api/music';
-import { getRecentAlbums, getRecentPlaylists, getRecentSongs } from '@/api/user';
+import { getRecentAlbums, getRecentPlaylists } from '@/api/user';
 import AlbumItem from '@/components/common/AlbumItem.vue';
 import { navigateToMusicList } from '@/components/common/MusicListNavigator';
 import PlaylistItem from '@/components/common/PlaylistItem.vue';
@@ -278,7 +277,7 @@ interface HistoryRecord extends Partial<SongResult> {
   id: string | number;
   playTime?: number;
   score?: number;
-  source?: 'netease';
+  source?: string;
   count?: number;
   recordSource?: 'local' | 'cloud';
   sources?: ('local' | 'cloud')[];
@@ -308,30 +307,7 @@ const currentPage = ref(1);
 
 // 获取云端播放记录
 const getCloudRecords = async () => {
-  if (!userStore.hasRealAuth) {
-    message.warning(t('history.needLogin'));
-    return [];
-  }
-
-  try {
-    const res = await getRecentSongs(1000);
-    if (res.data?.data?.list) {
-      return res.data.data.list.map((item: any) => ({
-        id: item.data?.id,
-        playTime: item.playTime,
-        source: 'netease',
-        count: 1,
-        data: item.data
-      }));
-    }
-    return [];
-  } catch (error: any) {
-    console.error(t('history.getCloudRecordFailed'), error);
-    if (error?.response?.status !== 301 && error?.response?.data?.code !== -2) {
-      message.error(t('history.getCloudRecordFailed'));
-    }
-    return [];
-  }
+  return [];
 };
 
 // 获取云端歌单播放记录
@@ -555,50 +531,16 @@ const loadHistoryData = async () => {
 
     // 根据分类处理不同的数据
     if (currentCategory.value === 'songs') {
-      // 区分本地歌曲和云歌曲
-      const localItems: any[] = [];
-      const neteaseItems: any[] = [];
+      // Filter out legacy Netease entries gracefully; keep local and YouTube songs
+      const validSongs: SongResult[] = [];
 
       currentPageItems.forEach((item) => {
-        if (item.playMusicUrl?.startsWith('local://') || typeof item.id === 'string') {
-          localItems.push(item);
-        } else if (item.source !== 'bilibili') {
-          neteaseItems.push(item);
+        if (typeof item.id === 'string' && item.source !== 'netease') {
+          validSongs.push(item as SongResult);
         }
       });
 
-      // 获取歌曲详情
-      let neteaseSongs: SongResult[] = [];
-      if (neteaseItems.length > 0) {
-        try {
-          const currentIds = neteaseItems.map((item) => item.id as number);
-          const res = await getMusicDetail(currentIds);
-          if (res.data.songs) {
-            neteaseSongs = res.data.songs.map((song: SongResult) => {
-              const historyItem = neteaseItems.find((item) => item.id === song.id);
-              return {
-                ...song,
-                picUrl: song.al?.picUrl || '',
-                count: historyItem?.count || 0,
-                source: 'netease'
-              };
-            });
-          }
-        } catch (error) {
-          console.error('获取歌曲详情失败:', error);
-        }
-      }
-
-      // 按原始顺序合并结果
-      const newSongs = currentPageItems
-        .map((item) => {
-          if (item.playMusicUrl?.startsWith('local://') || typeof item.id === 'string') {
-            // 本地歌曲直接使用历史记录中的数据
-            return item as SongResult;
-          }
-          return neteaseSongs.find((song) => song.id === item.id);
-        })
-        .filter((song): song is SongResult => !!song);
+      const newSongs = validSongs;
 
       if (currentPage.value === 1) {
         displayList.value = newSongs;

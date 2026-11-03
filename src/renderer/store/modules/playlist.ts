@@ -70,7 +70,7 @@ export const usePlaylistStore = defineStore(
         const detailedSongs = await Promise.all(
           songs.map(async (song: SongResult) => {
             try {
-              if (!song.playMusicUrl || (song.source === 'netease' && !song.backgroundColor)) {
+              if (!song.playMusicUrl) {
                 return await getSongDetail({ ...song });
               }
               return song;
@@ -375,7 +375,7 @@ export const usePlaylistStore = defineStore(
     const prepareSongPlayback = (song: SongResult, context: SongResult[] = []): boolean => {
       const playerCore = usePlayerCoreStore();
       const matchesSong = (item: SongResult): boolean =>
-        item.id === song.id && (item.source ?? 'netease') === (song.source ?? 'netease');
+        item.id === song.id && (item.source ?? 'youtube') === (song.source ?? 'youtube');
       const existingIndex = playList.value.findIndex(matchesSong);
 
       // 当前歌曲的播放/暂停不应丢弃用户已经编辑过的队列。
@@ -499,30 +499,8 @@ export const usePlaylistStore = defineStore(
       const isCurrent = () =>
         operation === navigationGeneration && gen === playbackRequestManager.getGeneration();
       try {
-        const { getPersonalFM } = await import('@/api/home');
-        if (!isCurrent()) return;
-        const res = await getPersonalFM();
-        if (!isCurrent()) return;
-        const songs = res.data?.data;
-        if (!Array.isArray(songs) || songs.length === 0) {
-          playerCore.setIsPlay(false);
-          return;
-        }
-        const song = songs[0];
-        const fmSong = {
-          id: song.id,
-          name: song.name,
-          picUrl: song.al?.picUrl || song.album?.picUrl,
-          ar: song.artists || song.ar,
-          al: song.al || song.album,
-          source: 'netease' as const,
-          song,
-          ...song,
-          playLoading: false
-        } as any;
-        setPlayList([fmSong], false, false);
-        playerCore.isFmPlaying = true;
-        await playAtIndex(0, true, false);
+        playerCore.setIsPlay(false);
+        return;
       } catch (error) {
         console.error('FM切换下一首失败:', error);
         if (isCurrent()) playerCore.handlePause();

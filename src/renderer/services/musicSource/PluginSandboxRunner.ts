@@ -366,7 +366,7 @@ export class PluginSandboxRunner {
     if (!runtime.methods.includes('getMediaSource')) return null;
 
     // 条目里的 platform 表示歌曲的来源平台（解析入参），与插件自身 platform 无关
-    const songPlatform = song.source || 'netease';
+    const songPlatform = song.source || 'youtube';
 
     if (this.plugin.dialect === 'musicfree') {
       const item = toMusicFreeItem(song, songPlatform);

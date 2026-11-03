@@ -33,8 +33,7 @@ const api = {
   openLyric: () => ipcRenderer.send('open-lyric'),
   sendLyric: (data) => ipcRenderer.send('send-lyric', data),
   sendSong: (data) => ipcRenderer.send('update-current-song', data),
-  unblockMusic: (id, data, enabledSources) =>
-    ipcRenderer.invoke('unblock-music', id, data, enabledSources),
+  unblockMusic: () => Promise.resolve(null),
   importCustomApiPlugin: () => ipcRenderer.invoke('import-custom-api-plugin'),
   importLxMusicScript: () => ipcRenderer.invoke('import-lx-music-script'),
   importMusicSourcePlugin: () => ipcRenderer.invoke('import-music-source-plugin'),
@@ -92,7 +91,9 @@ const api = {
       'library:export-m3u8',
       'library:import-m3u8',
       'library:export-backup-json',
-      'library:import-backup-json'
+      'library:import-backup-json',
+      'select-directory',
+      'save-lyric-file'
     ];
     if (validChannels.includes(channel)) {
       return ipcRenderer.invoke(channel, ...args);
@@ -176,7 +177,10 @@ const api = {
     const listener = (_event: IpcRendererEvent, data: any) => callback(data);
     ipcRenderer.on('media-pause-all', listener);
     return () => ipcRenderer.removeListener('media-pause-all', listener);
-  }
+  },
+  selectDirectory: () => ipcRenderer.invoke('select-directory'),
+  saveLyricFile: (params: { filename: string; lrcContent: string; targetDir?: string }) =>
+    ipcRenderer.invoke('save-lyric-file', params)
 };
 
 // YouTube 引擎与媒体代理桥接

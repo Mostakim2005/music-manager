@@ -140,7 +140,7 @@ export async function cacheTrackSource(
   trackInfo: any,
   url: string,
   bitRate: number = 320000,
-  from: string = 'netease'
+  from: string = 'youtube'
 ): Promise<{ trackID: number | string; source: ArrayBuffer; bitRate: number } | undefined> {
   if (!trackInfo?.id || !url || url.startsWith('local://') || url.startsWith('blob:')) {
     return undefined;

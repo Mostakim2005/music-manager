@@ -30,7 +30,7 @@ const CACHE_CONFIG = {
 const failedCacheMap = new Map<string, number>();
 
 export const MusicResolveCache = {
-  async getCachedMusicUrl(songId: number, sourceKeys?: string[]): Promise<CachedUrlEntry | null> {
+  async getCachedMusicUrl(songId: string | number, sourceKeys?: string[]): Promise<CachedUrlEntry | null> {
     try {
       const cached = await getData('music_url_cache', songId);
       if (
@@ -55,7 +55,7 @@ export const MusicResolveCache = {
   },
 
   async setCachedMusicUrl(
-    songId: number,
+    songId: string | number,
     entry: CachedUrlEntry,
     sourceKeys?: string[]
   ): Promise<void> {
@@ -71,7 +71,7 @@ export const MusicResolveCache = {
     }
   },
 
-  isInFailedCache(songId: number, providerKey: string): boolean {
+  isInFailedCache(songId: string | number, providerKey: string): boolean {
     const cachedTime = failedCacheMap.get(`${songId}:${providerKey}`);
     if (cachedTime && Date.now() - cachedTime < CACHE_CONFIG.FAILED_CACHE_TIME) {
       return true;
@@ -80,18 +80,18 @@ export const MusicResolveCache = {
     return false;
   },
 
-  addFailedCache(songId: number, providerKey: string): void {
+  addFailedCache(songId: string | number, providerKey: string): void {
     failedCacheMap.set(`${songId}:${providerKey}`, Date.now());
   },
 
-  clearFailedCache(songId: number): void {
+  clearFailedCache(songId: string | number): void {
     const prefix = `${songId}:`;
     for (const key of failedCacheMap.keys()) {
       if (key.startsWith(prefix)) failedCacheMap.delete(key);
     }
   },
 
-  async clearMusicCache(songId: number): Promise<void> {
+  async clearMusicCache(songId: string | number): Promise<void> {
     try {
       await deleteData('music_url_cache', songId);
     } catch (error) {

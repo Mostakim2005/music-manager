@@ -117,7 +117,7 @@ const router = useRouter();
 const searchStore = useSearchStore();
 
 const inputQuery = ref('');
-const searchHistory = ref<Array<{ keyword: string; type: number }>>([]);
+const searchHistory = ref<Array<{ keyword: string; type: string | number }>>([]);
 
 const loadSearchHistory = () => {
   try {
@@ -128,7 +128,7 @@ const loadSearchHistory = () => {
   }
 };
 
-const saveSearchHistory = (keyword: string, type: number) => {
+const saveSearchHistory = (keyword: string, type: string | number) => {
   if (!keyword.trim()) return;
   const history = searchHistory.value.filter((item) => item.keyword !== keyword);
   history.unshift({ keyword, type });
@@ -144,15 +144,15 @@ const clearSearchHistory = () => {
   localStorage.removeItem('searchHistory');
 };
 
-const removeSearchItem = (item: { keyword: string; type: number }) => {
+const removeSearchItem = (item: { keyword: string; type: string | number }) => {
   searchHistory.value = searchHistory.value.filter((h) => h.keyword !== item.keyword);
   localStorage.setItem('searchHistory', JSON.stringify(searchHistory.value));
 };
 
-const submitSearch = (keyword: string, type?: number) => {
+const submitSearch = (keyword: string, type?: string | number) => {
   const kw = keyword.trim();
   if (!kw) return;
-  const searchType = type ?? searchStore.searchType;
+  const searchType = type ?? searchStore.searchType ?? 'music';
   saveSearchHistory(kw, searchType);
   searchStore.setSearchValue(kw);
   router.push({

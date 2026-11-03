@@ -19,140 +19,151 @@
     }"
     @click="handleBarClick"
   >
-    <div
-      class="music-time custom-slider"
-      :class="{ 'has-waveform': playerStore.showWaveformSeekbar }"
-      title="Double-click to toggle Waveform Seekbar"
-      @dblclick.stop="toggleWaveformSeekbar"
-    >
+    <div class="play-bar-container w-full max-w-[1100px] mx-auto relative h-full flex items-center justify-between">
       <div
-        v-if="playerStore.showWaveformSeekbar"
-        class="waveform-bars"
-        aria-hidden="true"
+        class="music-time custom-slider"
+        :class="{ 'has-waveform': playerStore.showWaveformSeekbar }"
+        title="Double-click to toggle Waveform Seekbar"
+        @dblclick.stop="toggleWaveformSeekbar"
       >
-        <span
-          v-for="(barHeight, idx) in waveformBars"
-          :key="idx"
-          class="waveform-bar"
-          :class="{
-            'is-played': idx / waveformBars.length <= progressRatio,
-            'is-playing': play
-          }"
-          :style="{ height: `${barHeight}%` }"
-        ></span>
-      </div>
-      <n-slider
-        v-model:value="timeSlider"
-        :step="1"
-        :max="allTime"
-        :min="0"
-        :format-tooltip="formatTooltip"
-        :show-tooltip="showSliderTooltip"
-        @mouseenter="showSliderTooltip = true"
-        @mouseleave="showSliderTooltip = false"
-        @dragstart="handleSliderDragStart"
-        @dragend="handleSliderDragEnd"
-      ></n-slider>
-    </div>
-    <!-- 播放条空白区域点击进入详情页，由根节点的 handleBarClick 统一处理（#751） -->
-    <div class="play-bar-img-wrapper">
-      <n-image
-        :src="getImgUrl(playMusic?.picUrl, '100y100')"
-        class="play-bar-img"
-        lazy
-        preview-disabled
-      />
-      <div v-if="playMusic?.playLoading" class="loading-overlay">
-        <i class="ri-loader-4-line loading-icon"></i>
-      </div>
-      <div class="hover-arrow">
-        <div class="hover-content">
-          <!-- <i class="ri-arrow-up-s-line text-3xl" :class="{ 'ri-arrow-down-s-line': musicFullVisible }"></i> -->
-          <i
-            class="text-3xl"
-            :class="musicFullVisible ? 'ri-arrow-down-s-line' : 'ri-arrow-up-s-line'"
-          ></i>
-          <span class="hover-text">{{
-            musicFullVisible ? t('player.playBar.collapse') : t('player.playBar.expand')
-          }}</span>
-        </div>
-      </div>
-    </div>
-    <div class="music-content">
-      <div class="music-content-title flex items-center">
-        <n-ellipsis class="text-ellipsis" line-clamp="1">
-          <p v-html="playMusic?.name || ''"></p>
-        </n-ellipsis>
-        <span v-if="playbackRate !== 1.0" class="playback-rate-badge"> {{ playbackRate }}x </span>
-        <button
-          v-if="abLoopState.enabled"
-          type="button"
-          class="ml-2 px-2 py-0.5 rounded-full text-xs font-mono font-medium bg-emerald-500/20 text-emerald-500 hover:bg-emerald-500/30 transition flex items-center gap-1 cursor-pointer shrink-0"
-          title="A-B Loop Active. Click to adjust or cancel."
-          @click.stop="showAbLoopModal = true"
-        >
-          <i class="ri-repeat-2-line text-xs"></i>
-          <span>A-B</span>
-        </button>
         <div
-          v-if="hasVideoSupport && settingsStore.setData.showPlayBarVideoSwitcher !== false"
-          class="mode-switch-pill"
-          role="group"
-          aria-label="Playback Mode Switcher"
-          @click.stop
-        >
-          <button
-            type="button"
-            class="mode-pill-btn"
-            :class="{ active: playerStore.playbackMode === 'song' }"
-            aria-label="Song Audio Mode"
-            @click.stop="switchPlaybackMode('song')"
-          >
-            Song
-          </button>
-          <button
-            type="button"
-            class="mode-pill-btn"
-            :class="{ active: playerStore.playbackMode === 'video' }"
-            aria-label="Video MV Mode"
-            @click.stop="switchPlaybackMode('video')"
-          >
-            Video
-          </button>
-        </div>
-      </div>
-      <div class="music-content-name">
-        <n-ellipsis
-          class="text-ellipsis"
-          line-clamp="1"
-          :tooltip="{
-            contentStyle: { maxWidth: '600px' },
-            zIndex: 99999
-          }"
+          v-if="playerStore.showWaveformSeekbar"
+          class="waveform-bars"
+          aria-hidden="true"
         >
           <span
-            v-for="(artists, artistsindex) in artistList"
-            :key="artistsindex"
-            class="cursor-pointer hover:text-green-500"
-            @click.stop="handleArtistClick(artists.id)"
-          >
-            {{ artists.name }}{{ artistsindex < artistList.length - 1 ? ' / ' : '' }}
-          </span>
-        </n-ellipsis>
+            v-for="(barHeight, idx) in waveformBars"
+            :key="idx"
+            class="waveform-bar"
+            :class="{
+              'is-played': idx / waveformBars.length <= progressRatio,
+              'is-playing': play
+            }"
+            :style="{ height: `${barHeight}%` }"
+          ></span>
+        </div>
+        <n-slider
+          v-model:value="timeSlider"
+          :step="1"
+          :max="allTime"
+          :min="0"
+          :format-tooltip="formatTooltip"
+          :show-tooltip="showSliderTooltip"
+          @mouseenter="showSliderTooltip = true"
+          @mouseleave="showSliderTooltip = false"
+          @dragstart="handleSliderDragStart"
+          @dragend="handleSliderDragEnd"
+        ></n-slider>
       </div>
-    </div>
-    <div class="music-buttons">
-      <div class="music-buttons-prev" @click="handlePrev">
-        <i class="iconfont icon-prev"></i>
+
+      <!-- Left Zone: Track Info (min 200px max 280px) -->
+      <div class="play-bar-left-zone flex items-center min-w-[200px] max-w-[280px] shrink-0">
+        <!-- 播放条空白区域点击进入详情页，由根节点的 handleBarClick 统一处理（#751） -->
+        <div class="play-bar-img-wrapper shrink-0">
+          <n-image
+            :src="getImgUrl(playMusic?.picUrl, '100y100')"
+            class="play-bar-img"
+            lazy
+            preview-disabled
+          />
+          <div v-if="playMusic?.playLoading" class="loading-overlay">
+            <i class="ri-loader-4-line loading-icon"></i>
+          </div>
+          <div class="hover-arrow">
+            <div class="hover-content">
+              <i
+                class="text-3xl"
+                :class="musicFullVisible ? 'ri-arrow-down-s-line' : 'ri-arrow-up-s-line'"
+              ></i>
+              <span class="hover-text">{{
+                musicFullVisible ? t('player.playBar.collapse') : t('player.playBar.expand')
+              }}</span>
+            </div>
+          </div>
+        </div>
+        <div class="music-content flex-1 min-w-0 ml-3">
+          <div class="music-content-title flex items-center">
+            <n-ellipsis class="text-ellipsis" line-clamp="1">
+              <p v-html="playMusic?.name || ''"></p>
+            </n-ellipsis>
+            <span v-if="playbackRate !== 1.0" class="playback-rate-badge shrink-0"> {{ playbackRate }}x </span>
+            <button
+              v-if="abLoopState.enabled"
+              type="button"
+              class="ml-2 px-2 py-0.5 rounded-full text-xs font-mono font-medium bg-emerald-500/20 text-emerald-500 hover:bg-emerald-500/30 transition flex items-center gap-1 cursor-pointer shrink-0"
+              title="A-B Loop Active. Click to adjust or cancel."
+              @click.stop="showAbLoopModal = true"
+            >
+              <i class="ri-repeat-2-line text-xs"></i>
+              <span>A-B</span>
+            </button>
+            <div
+              v-if="hasVideoSupport && settingsStore.setData.showPlayBarVideoSwitcher !== false"
+              class="mode-switch-pill shrink-0"
+              role="group"
+              aria-label="Playback Mode Switcher"
+              @click.stop
+            >
+              <button
+                type="button"
+                class="mode-pill-btn"
+                :class="{ active: playerStore.playbackMode === 'song' }"
+                aria-label="Song Audio Mode"
+                @click.stop="switchPlaybackMode('song')"
+              >
+                Song
+              </button>
+              <button
+                type="button"
+                class="mode-pill-btn"
+                :class="{ active: playerStore.playbackMode === 'video' }"
+                aria-label="Video MV Mode"
+                @click.stop="switchPlaybackMode('video')"
+              >
+                Video
+              </button>
+            </div>
+          </div>
+          <div class="music-content-name">
+            <n-ellipsis
+              class="text-ellipsis"
+              line-clamp="1"
+              :tooltip="{
+                contentStyle: { maxWidth: '600px' },
+                zIndex: 99999
+              }"
+            >
+              <span
+                v-for="(artists, artistsindex) in artistList"
+                :key="artistsindex"
+                class="cursor-pointer hover:text-green-500"
+                @click.stop="handleArtistClick(artists.id)"
+              >
+                {{ artists.name }}{{ artistsindex < artistList.length - 1 ? ' / ' : '' }}
+              </span>
+            </n-ellipsis>
+          </div>
+        </div>
       </div>
-      <div class="music-buttons-play" @click="playMusicEvent">
-        <i class="iconfont icon" :class="play ? 'icon-stop' : 'icon-play'"></i>
+
+      <!-- Center Zone: Play Controls -->
+      <div class="play-bar-center-zone flex-1 flex justify-center items-center">
+        <div class="music-buttons">
+          <div class="music-buttons-prev" @click="handlePrev">
+            <i class="iconfont icon-prev"></i>
+          </div>
+          <div class="music-buttons-play" @click="playMusicEvent">
+            <i class="iconfont icon" :class="play ? 'icon-stop' : 'icon-play'"></i>
+          </div>
+          <div class="music-buttons-next" @click="handleNext">
+            <i class="iconfont icon-next"></i>
+          </div>
+        </div>
       </div>
-      <div class="music-buttons-next" @click="handleNext">
-        <i class="iconfont icon-next"></i>
-      </div>
-    </div>
-    <div class="audio-button">
+
+      <!-- Right Zone: Actions (min 200px max 280px) -->
+      <div class="play-bar-right-zone min-w-[200px] max-w-[280px] shrink-0 flex items-center justify-end">
+        <div class="audio-button">
       <div class="audio-volume custom-slider" @wheel.prevent="handleVolumeWheel">
         <div class="volume-icon" @click="mute">
           <i class="iconfont" :class="getVolumeIcon"></i>
@@ -233,6 +244,8 @@
         </template>
         {{ t('player.playBar.playList') }}
       </n-tooltip>
+        </div>
+      </div>
     </div>
     <!-- 全屏播放器 -->
     <music-full-wrapper ref="MusicFullRef" v-model="musicFullVisible" :background="background" />
@@ -520,8 +533,23 @@ const openPlayListDrawer = () => {
   /* 空白区域可点击展开详情页（#751） */
   cursor: pointer;
 
+  .play-bar-container {
+    max-width: 1100px;
+  }
+
+  .play-bar-left-zone {
+    min-width: 200px;
+    max-width: 280px;
+  }
+
+  .play-bar-right-zone {
+    min-width: 200px;
+    max-width: 280px;
+  }
+
   .music-time {
     cursor: default;
+    min-width: 360px;
   }
 
   &.play-bar-opcity {
@@ -535,8 +563,8 @@ const openPlayListDrawer = () => {
   }
 
   .music-content {
-    width: 200px;
-    @apply ml-4;
+    flex: 1;
+    min-width: 0;
 
     &-title {
       @apply text-base;
@@ -871,10 +899,13 @@ const openPlayListDrawer = () => {
 
 .music-time.has-waveform {
   position: absolute;
-  top: -8px;
+  top: -14px;
   left: 0;
   width: 100%;
-  height: 16px;
+  min-width: 360px;
+  height: 30px;
+  min-height: 28px;
+  max-height: 32px;
   display: flex;
   align-items: flex-end;
 
@@ -910,7 +941,7 @@ const openPlayListDrawer = () => {
   }
 
   .n-slider {
-    top: 8px;
+    top: 14px;
     z-index: 2;
   }
 }

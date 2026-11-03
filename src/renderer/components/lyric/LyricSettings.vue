@@ -72,6 +72,49 @@
 
       <!-- 界面设置 -->
       <div v-show="activeTab === 'interface'" class="space-y-4 pt-3">
+        <!-- Player Layout Selection -->
+        <div class="space-y-1.5">
+          <label class="text-xs font-semibold uppercase tracking-wider text-white/50">Player Layout</label>
+          <div class="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              class="py-2 px-3 rounded-xl border text-xs font-medium transition cursor-pointer flex items-center justify-center gap-1.5"
+              :class="
+                config.layoutMode !== 'stacked'
+                  ? 'border-emerald-500 bg-emerald-500/20 text-white'
+                  : 'border-white/10 bg-white/5 text-white/70 hover:bg-white/10'
+              "
+              @click="config.layoutMode = 'side-by-side'"
+            >
+              <i class="ri-layout-column-line"></i>
+              <span>Side-by-side</span>
+            </button>
+            <button
+              type="button"
+              class="py-2 px-3 rounded-xl border text-xs font-medium transition cursor-pointer flex items-center justify-center gap-1.5"
+              :class="
+                config.layoutMode === 'stacked'
+                  ? 'border-emerald-500 bg-emerald-500/20 text-white'
+                  : 'border-white/10 bg-white/5 text-white/70 hover:bg-white/10'
+              "
+              @click="config.layoutMode = 'stacked'"
+            >
+              <i class="ri-layout-top-line"></i>
+              <span>Stacked</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="setting-item">
+          <span>Compact lyrics</span>
+          <input type="checkbox" v-model="config.compactLyrics" class="toggle-switch" />
+        </div>
+
+        <div class="setting-item">
+          <span>Lyrics under artwork</span>
+          <input type="checkbox" v-model="config.lyricsUnderArtwork" class="toggle-switch" />
+        </div>
+
         <div class="setting-item">
           <span>{{ t('settings.lyricSettings.showMiniPlayBar') }}</span>
           <input type="checkbox" v-model="showMiniPlayBar" class="toggle-switch" />

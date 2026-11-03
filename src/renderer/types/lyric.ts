@@ -31,6 +31,10 @@ export interface LyricConfig {
   imageBlur: number; // 图片模糊度 (0-20px)
   imageBrightness: number; // 图片明暗度 (0-200%, 100为正常)
   customCss?: string; // 自定义 CSS 样式
+  // C5 Layouts (Side-by-side vs Stacked Namida-style)
+  layoutMode?: 'side-by-side' | 'stacked';
+  compactLyrics?: boolean;
+  lyricsUnderArtwork?: boolean;
 }
 
 export const DEFAULT_LYRIC_CONFIG: LyricConfig = {
@@ -66,7 +70,10 @@ export const DEFAULT_LYRIC_CONFIG: LyricConfig = {
   backgroundImage: undefined,
   imageBlur: 0,
   imageBrightness: 100,
-  customCss: undefined
+  customCss: undefined,
+  layoutMode: 'side-by-side',
+  compactLyrics: false,
+  lyricsUnderArtwork: false
 };
 
 export interface ILyric {

@@ -68,7 +68,7 @@ export const mapDjProgramToSongResult = (program: DjProgram): SongResult => {
       onSale: false,
       mark: 0
     },
-    source: 'netease',
+    source: 'local' as any,
     count: 0,
     isPodcast: true,
     program

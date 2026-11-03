@@ -104,7 +104,6 @@ import { initializeTray, updateCurrentSong, updatePlayState, updateTrayMenu } fr
 import { setupUpdateHandlers } from './modules/update';
 import { createMainWindow, initializeWindowManager, setAppQuitting } from './modules/window';
 import { initWindowSizeManager } from './modules/window-size';
-import { startMusicApi } from './server';
 
 // 导入所有图标
 const iconPath = app.isPackaged ? process.resourcesPath : join(__dirname, '../../resources');
@@ -161,9 +160,6 @@ function initialize(configStore: any) {
 
   // 初始化托盘
   initializeTray(iconPath, mainWindow);
-
-  // 启动音乐API
-  startMusicApi();
 
   // 初始化落雪音乐 HTTP 请求处理
   initLxMusicHttp();

@@ -123,16 +123,19 @@ export const migrateLegacyMusicSources = (): boolean => {
   const enabledSources = remapKeys((data.enabledMusicSources || []) as string[], remap);
   remapSongLevelConfigs(remap);
 
-  // 3. 初始化用户排序：默认序 = 自定义API → 网易云 → 插件（启用在前）→ GD → unblock 平台
+  // 3. Initialize user source order: YouTube default
   const pluginKeys = plugins
     .slice()
     .sort((a, b) => Number(b.enabled) - Number(a.enabled) || a.order - b.order)
     .map((p) => `plugin:${p.id}`);
-  const defaultOrder = ['customApi', 'netease', ...pluginKeys, 'gdmusic', 'pyncmd'];
+  const defaultOrder = ['youtube', ...pluginKeys];
+  const finalEnabledSources = enabledSources.includes('youtube')
+    ? enabledSources
+    : ['youtube', ...enabledSources];
 
   settingsStore.setSetData({
     musicSourcePlugins: plugins,
-    enabledMusicSources: enabledSources,
+    enabledMusicSources: finalEnabledSources,
     musicSourceOrder: defaultOrder,
     [MIGRATED_FLAG]: true
   });

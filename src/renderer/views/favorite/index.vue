@@ -165,7 +165,6 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
 
-import { getMusicDetail } from '@/api/music';
 import SongItem from '@/components/common/SongItem.vue';
 import { useDownload } from '@/hooks/useDownload';
 import { useProgressiveRender } from '@/hooks/useProgressiveRender';
@@ -292,28 +291,83 @@ const getFavoriteSongs = async () => {
   loading.value = true;
   try {
     const currentIds = getCurrentPageIds();
+    const newSongs: SongResult[] = [];
 
-    const musicIds = currentIds.filter((id) => typeof id === 'number') as number[];
+    const { useLocalMusicStore } = await import('@/store/modules/localMusic');
+    const localStore = useLocalMusicStore();
+    const { getLibraryDB } = await import('@/services/songLibrary');
+    const db = getLibraryDB();
 
-    let neteaseSongs: SongResult[] = [];
-    if (musicIds.length > 0) {
-      const res = await getMusicDetail(musicIds);
-      if (res.data.songs) {
-        neteaseSongs = res.data.songs.map((song: SongResult) => ({
-          ...song,
-          picUrl: song.al?.picUrl || '',
-          source: 'netease'
-        }));
+    for (const rawId of currentIds) {
+      if (typeof rawId === 'number') {
+        // Legacy Netease song -> filter out gracefully
+        continue;
+      }
+      const strId = String(rawId);
+      // 1. Try local music store
+      const localEntry = localStore.musicList.find((m) => m.id === strId);
+      if (localEntry) {
+        newSongs.push({
+          id: localEntry.id,
+          name: localEntry.title,
+          picUrl: localEntry.coverPath
+            ? localEntry.coverPath.startsWith('data:')
+              ? localEntry.coverPath
+              : `local://${encodeURI(localEntry.coverPath)}`
+            : '',
+          playMusicUrl: `local://${encodeURI(localEntry.filePath)}`,
+          source: 'local' as any,
+          ar: [{ id: 0, name: localEntry.artist || 'Unknown' }] as any,
+          artists: [{ id: 0, name: localEntry.artist || 'Unknown' }] as any,
+          al: { id: 0, name: localEntry.album || '', picUrl: '' } as any,
+          album: { id: 0, name: localEntry.album || '', picUrl: '' } as any,
+          duration: (localEntry.duration || 0) * 1000,
+          dt: (localEntry.duration || 0) * 1000,
+          count: 0
+        });
+        continue;
+      }
+
+      // 2. Try unified song library DB
+      const songRecord = await db.songs.get(strId);
+      if (songRecord) {
+        newSongs.push({
+          id: songRecord.id,
+          name: songRecord.title,
+          picUrl:
+            songRecord.coverPath ||
+            (songRecord.youtubeId
+              ? `https://i.ytimg.com/vi/${songRecord.youtubeId}/hqdefault.jpg`
+              : ''),
+          source: songRecord.youtubeId ? ('youtube' as any) : ('local' as any),
+          ar: [{ id: 0, name: songRecord.artist }] as any,
+          artists: [{ id: 0, name: songRecord.artist }] as any,
+          al: { id: 0, name: songRecord.album || '', picUrl: '' } as any,
+          album: { id: 0, name: songRecord.album || '', picUrl: '' } as any,
+          duration: songRecord.durationSec * 1000,
+          dt: songRecord.durationSec * 1000,
+          count: 0
+        });
+        continue;
+      }
+
+      // 3. YouTube track (11-char ID)
+      if (/^[a-zA-Z0-9_-]{11}$/.test(strId)) {
+        newSongs.push({
+          id: strId,
+          name: strId,
+          picUrl: `https://i.ytimg.com/vi/${strId}/hqdefault.jpg`,
+          source: 'youtube' as any,
+          ar: [{ id: 0, name: 'YouTube' }] as any,
+          artists: [{ id: 0, name: 'YouTube' }] as any,
+          al: { id: 0, name: '', picUrl: `https://i.ytimg.com/vi/${strId}/hqdefault.jpg` } as any,
+          album: { id: 0, name: '', picUrl: `https://i.ytimg.com/vi/${strId}/hqdefault.jpg` } as any,
+          duration: 0,
+          dt: 0,
+          count: 0
+        });
       }
     }
-
-    const newSongs = currentIds
-      .map((id) => {
-        const strId = String(id);
-        const found = neteaseSongs.find((song) => String(song.id) === strId);
-        return found;
-      })
-      .filter((song): song is SongResult => !!song);
 
     if (currentPage.value === 1) {
       favoriteSongs.value = newSongs;

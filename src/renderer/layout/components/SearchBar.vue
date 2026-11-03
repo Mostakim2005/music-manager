@@ -244,7 +244,7 @@ const search = () => {
   }
 };
 
-const selectSearchType = (key: number) => {
+const selectSearchType = (key: any) => {
   searchStore.searchType = key;
   if (searchValue.value) {
     router.push({ path: '/search-result', query: { keyword: searchValue.value, type: key } });

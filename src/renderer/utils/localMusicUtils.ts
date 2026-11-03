@@ -220,7 +220,7 @@ export function toSongResult(entry: LocalMusicEntry): SongResult {
     playMusicUrl: localMediaUrl,
     duration: entry.duration,
     dt: entry.duration,
-    source: 'netease' as const,
+    source: 'local' as any,
     count: 0,
     // 内嵌歌词（如果有）
     lyric: lyric ?? undefined,
@@ -288,4 +288,58 @@ export function removeStaleEntries(
   existsMap: Record<string, boolean>
 ): LocalMusicEntry[] {
   return entries.filter((entry) => existsMap[entry.filePath] === true);
+}
+
+/**
+ * Debounced background ingestion of local tracks into songLibrary
+ */
+let ingestTimer: any = null;
+export function debounceIngestLocalTracks(
+  entries: LocalMusicEntry[],
+  onFuzzyMatch?: (entry: LocalMusicEntry, candidate: any) => void
+): void {
+  if (ingestTimer) clearTimeout(ingestTimer);
+  ingestTimer = setTimeout(async () => {
+    try {
+      const { ingestLocalTrack } = await import('@/services/songLibrary');
+      let index = 0;
+      const CHUNK_SIZE = 15;
+
+      const processNextChunk = async () => {
+        const slice = entries.slice(index, index + CHUNK_SIZE);
+        if (slice.length === 0) return;
+
+        for (const entry of slice) {
+          try {
+            const ext = entry.filePath.split('.').pop()?.toLowerCase();
+            const res = await ingestLocalTrack({
+              path: entry.filePath,
+              title: entry.title || (entry as any).name || extractTitleFromFilename(entry.filePath),
+              artist: entry.artist || '',
+              album: entry.album || '',
+              durationSec: Math.round((entry.duration || 0) > 1000 ? entry.duration / 1000 : entry.duration || 0),
+              bitrate: (entry as any).bitrate,
+              container: ext,
+              hasVideo: /\.(mp4|mkv|webm|avi|mov)$/i.test(entry.filePath)
+            });
+
+            if (res.matched === 'fuzzy' && res.candidates?.length) {
+              onFuzzyMatch?.(entry, res.candidates[0]);
+            }
+          } catch {
+            // ignore per-track ingestion failure
+          }
+        }
+
+        index += CHUNK_SIZE;
+        if (index < entries.length) {
+          setTimeout(processNextChunk, 30);
+        }
+      };
+
+      await processNextChunk();
+    } catch (err) {
+      console.warn('[songLibrary] Batch ingest error:', err);
+    }
+  }, 400);
 }

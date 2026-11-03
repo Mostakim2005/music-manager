@@ -75,7 +75,7 @@ const hasSafeArea = inject('hasSafeArea', false);
 const searchValue = ref('');
 const searchInputRef = ref<HTMLInputElement | null>(null);
 
-const searchType = ref(searchStore.searchType || 1);
+const searchType = ref<string | number>(searchStore.searchType || 'music');
 const searchTypes = computed(() => {
   locale.value;
   return SEARCH_TYPES.map((type) => ({
@@ -116,7 +116,7 @@ const clearSearch = () => {
   searchValue.value = '';
 };
 
-const selectType = (key: number) => {
+const selectType = (key: any) => {
   searchType.value = key;
   searchStore.searchType = key;
 };

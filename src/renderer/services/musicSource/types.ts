@@ -12,12 +12,11 @@ import type { MusicSourcePlugin, PluginMediaSource } from '@/types/musicSourcePl
 export type MusicSourceKind = 'builtin' | 'plugin';
 
 export type ResolveCallOptions = {
-  /** 下载场景：netease provider 切换 VIP 下载口 */
   isDownload?: boolean;
 };
 
 export type MusicSourceProvider = {
-  /** 注册表唯一键：内置 'netease'/'gdmusic'/'customApi'/unblock 平台 key（migu…）；插件 'plugin:<id>' */
+  /** Provider key: e.g. 'youtube', or 'plugin:<id>' */
   key: string;
   name: string;
   kind: MusicSourceKind;

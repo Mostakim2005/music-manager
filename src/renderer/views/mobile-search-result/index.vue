@@ -36,8 +36,8 @@
 
       <!-- 搜索结果 -->
       <div v-else-if="results.length" class="result-list">
-        <!-- 歌曲搜索 -->
-        <template v-if="searchType === SEARCH_TYPE.MUSIC">
+        <!-- 搜索结果列表 -->
+        <template v-if="searchType === 'music' || searchType === SEARCH_TYPE.MUSIC">
           <song-item
             v-for="item in results"
             :key="item.id"
@@ -47,9 +47,15 @@
           />
         </template>
 
-        <!-- 专辑/歌单/MV 搜索 -->
+        <!-- 视频搜索 -->
         <template v-else>
-          <search-item v-for="item in results" :key="item.id" :item="item" class="mb-3" />
+          <song-item
+            v-for="item in results"
+            :key="item.id"
+            :item="item"
+            :is-next="true"
+            @play="handlePlay"
+          />
         </template>
 
         <!-- 加载更多 -->
@@ -79,7 +85,6 @@ import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 
 import { getSearch } from '@/api/search';
-import SearchItem from '@/components/common/SearchItem.vue';
 import SongItem from '@/components/common/SongItem.vue';
 import { SEARCH_TYPE, SEARCH_TYPES } from '@/const/bar-const';
 import { usePlayerStore } from '@/store/modules/player';
@@ -98,7 +103,9 @@ const hasSafeArea = inject('hasSafeArea', false);
 const keyword = ref((route.query.keyword as string) || '');
 
 // 搜索类型
-const searchType = ref(Number(route.query.type) || searchStore.searchType || 1);
+const searchType = ref<string | number>(
+  route.query.type ? (route.query.type as string) : searchStore.searchType || 'music'
+);
 const searchTypes = computed(() => {
   locale.value;
   return SEARCH_TYPES.map((type) => ({
@@ -132,103 +139,22 @@ const performSearch = async (isLoadMore = false) => {
   }
 
   try {
-    // 歌曲搜索
-    if (searchType.value === SEARCH_TYPE.MUSIC) {
-      const { data } = await getSearch({
-        keywords: keyword.value,
-        type: searchType.value,
-        limit: ITEMS_PER_PAGE,
-        offset: (page.value - 1) * ITEMS_PER_PAGE
-      });
+    const { data } = await getSearch({
+      keywords: keyword.value,
+      type: searchType.value,
+      limit: ITEMS_PER_PAGE,
+      offset: (page.value - 1) * ITEMS_PER_PAGE
+    });
 
-      const songs = (data.result.songs || []).map((item: any) => ({
-        ...item,
-        picUrl: item.al?.picUrl,
-        artists: item.ar
-      }));
+    const songs = data.result.songs || [];
 
-      if (isLoadMore) {
-        results.value = [...results.value, ...songs];
-      } else {
-        results.value = songs;
-      }
-
-      hasMore.value = songs.length === ITEMS_PER_PAGE;
-    }
-    // 专辑搜索
-    else if (searchType.value === SEARCH_TYPE.ALBUM) {
-      const { data } = await getSearch({
-        keywords: keyword.value,
-        type: searchType.value,
-        limit: ITEMS_PER_PAGE,
-        offset: (page.value - 1) * ITEMS_PER_PAGE
-      });
-
-      const albums = (data.result.albums || []).map((item: any) => ({
-        ...item,
-        desc: `${item.artist?.name || ''} ${item.company || ''}`,
-        type: 'album'
-      }));
-
-      if (isLoadMore) {
-        results.value = [...results.value, ...albums];
-      } else {
-        results.value = albums;
-      }
-
-      hasMore.value = albums.length === ITEMS_PER_PAGE;
-    }
-    // 歌单搜索
-    else if (searchType.value === SEARCH_TYPE.PLAYLIST) {
-      const { data } = await getSearch({
-        keywords: keyword.value,
-        type: searchType.value,
-        limit: ITEMS_PER_PAGE,
-        offset: (page.value - 1) * ITEMS_PER_PAGE
-      });
-
-      const playlists = (data.result.playlists || []).map((item: any) => ({
-        ...item,
-        picUrl: item.coverImgUrl,
-        playCount: item.playCount,
-        desc: item.creator?.nickname || '',
-        type: 'playlist'
-      }));
-
-      if (isLoadMore) {
-        results.value = [...results.value, ...playlists];
-      } else {
-        results.value = playlists;
-      }
-
-      hasMore.value = playlists.length === ITEMS_PER_PAGE;
-    }
-    // MV 搜索
-    else if (searchType.value === SEARCH_TYPE.MV) {
-      const { data } = await getSearch({
-        keywords: keyword.value,
-        type: searchType.value,
-        limit: ITEMS_PER_PAGE,
-        offset: (page.value - 1) * ITEMS_PER_PAGE
-      });
-
-      const mvs = (data.result.mvs || []).map((item: any) => ({
-        ...item,
-        picUrl: item.cover,
-        playCount: item.playCount,
-        desc: item.artists?.map((artist: any) => artist.name).join('/') || '',
-        type: 'mv'
-      }));
-
-      if (isLoadMore) {
-        results.value = [...results.value, ...mvs];
-      } else {
-        results.value = mvs;
-      }
-
-      hasMore.value = mvs.length === ITEMS_PER_PAGE;
+    if (isLoadMore) {
+      results.value = [...results.value, ...songs];
+    } else {
+      results.value = songs;
     }
 
+    hasMore.value = songs.length === ITEMS_PER_PAGE;
     page.value++;
   } catch (error) {
     console.error('搜索失败:', error);
@@ -239,7 +165,7 @@ const performSearch = async (isLoadMore = false) => {
 };
 
 // 选择搜索类型
-const selectType = (type: number) => {
+const selectType = (type: any) => {
   if (searchType.value === type) return;
 
   searchType.value = type;

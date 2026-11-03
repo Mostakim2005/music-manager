@@ -1,8 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 
-import { getDayRecommend } from '@/api/home';
-import type { IDayRecommend } from '@/types/day_recommend';
 import type { SongResult } from '@/types/music';
 
 // 获取当前日期字符串 YYYY-MM-DD
@@ -24,21 +22,7 @@ export const useRecommendStore = defineStore('recommend', () => {
   };
 
   const fetchDailyRecommendSongs = async () => {
-    try {
-      const { data } = await getDayRecommend();
-      const recommendData = data.data as unknown as IDayRecommend;
-
-      if (recommendData && Array.isArray(recommendData.dailySongs)) {
-        dailyRecommendSongs.value = recommendData.dailySongs as any;
-        lastFetchDate.value = getTodayDateString();
-        console.log(`[Recommend Store] 已加载 ${recommendData.dailySongs.length} 首每日推荐歌曲。`);
-      } else {
-        dailyRecommendSongs.value = [];
-      }
-    } catch (error) {
-      console.error('[Recommend Store] 获取每日推荐失败:', error);
-      dailyRecommendSongs.value = [];
-    }
+    dailyRecommendSongs.value = [];
   };
 
   // 如果数据过期则刷新

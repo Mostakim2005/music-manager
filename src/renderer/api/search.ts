@@ -1,86 +1,82 @@
-import { isElectron } from '@/utils';
-import request from '@/utils/request';
+import youtubeService, { type YtSearchResult } from '@/services/youtubeService';
+import type { SongResult } from '@/types/music';
 
-interface IParams {
+export function ytResultToSong(item: YtSearchResult): SongResult {
+  const videoId = item.id;
+  const channel = item.channel || 'YouTube';
+  const durationSec = item.durationSec || 0;
+  const durationMs = durationSec * 1000;
+  const thumbnail = item.thumbnail || `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+
+  return {
+    id: videoId,
+    name: item.title,
+    picUrl: thumbnail,
+    source: 'youtube' as any,
+    ar: [{ id: 0, name: channel }] as any,
+    artists: [{ id: 0, name: channel }] as any,
+    al: { id: 0, name: channel, picUrl: thumbnail } as any,
+    album: { id: 0, name: channel, picUrl: thumbnail } as any,
+    duration: durationMs,
+    dt: durationMs,
+    count: 0
+  };
+}
+
+export interface SearchParams {
   keywords: string;
-  type: number;
+  type?: 'music' | 'video' | number | string;
   limit?: number;
   offset?: number;
 }
-// 搜索内容
-export const getSearch = (params: IParams) => {
-  return request.get<any>('/cloudsearch', {
-    params
-  });
-};
 
-/**
- * 搜索建议接口返回的数据结构
- */
-interface Suggestion {
-  keyword: string;
-}
-
-interface KugouSuggestionResponse {
-  data: Suggestion[];
-}
-
-// 搜索建议返回的数据结构（部分字段）
-interface NeteaseSuggestResult {
-  result?: {
-    songs?: Array<{ name: string }>;
-    artists?: Array<{ name: string }>;
-    albums?: Array<{ name: string }>;
-  };
-  code?: number;
-}
-
-/**
- * 获取搜索建议
- * @param keyword 搜索关键词
- */
-export const getSearchSuggestions = async (keyword: string) => {
-  console.log('[API] getSearchSuggestions: 开始执行');
-
-  if (!keyword || !keyword.trim()) {
-    return Promise.resolve([]);
-  }
-
-  console.log(`[API] getSearchSuggestions: 准备请求，关键词: "${keyword}"`);
+export const getSearch = async (params: SearchParams) => {
+  const searchType =
+    params.type === 'video' || params.type === 1004 || params.type === '1004'
+      ? 'video'
+      : 'music';
 
   try {
-    let responseData: KugouSuggestionResponse;
-    if (isElectron) {
-      console.log('[API] Running in Electron, using IPC proxy.');
-      responseData = await window.api.getSearchSuggestions(keyword);
-    } else {
-      // 非 Electron 环境下，使用接口
-      const res = await request.get<NeteaseSuggestResult>('/search/suggest', {
-        params: { keywords: keyword }
-      });
+    const rawResults = await youtubeService.search(params.keywords, {
+      type: searchType,
+      limit: params.limit || 30
+    });
 
-      const result = res?.data?.result || {};
-      const names: string[] = [];
-      if (Array.isArray(result.songs)) names.push(...result.songs.map((s) => s.name));
-      if (Array.isArray(result.artists)) names.push(...result.artists.map((a) => a.name));
-      if (Array.isArray(result.albums)) names.push(...result.albums.map((al) => al.name));
-
-      // 去重并截取前10个
-      const unique = Array.from(new Set(names)).slice(0, 10);
-      console.log('[API] getSearchSuggestions: 解析成功:', unique);
-      return unique;
-    }
-
-    if (responseData && Array.isArray(responseData.data)) {
-      const suggestions = responseData.data.map((item) => item.keyword).slice(0, 10);
-      console.log('[API] getSearchSuggestions: 成功解析建议:', suggestions);
-      return suggestions;
-    }
-
-    console.warn('[API] getSearchSuggestions: 响应数据格式不正确，返回空数组。');
-    return [];
+    const songs = (rawResults || []).map(ytResultToSong);
+    return {
+      data: {
+        code: 200,
+        result: {
+          songs,
+          rawResults
+        }
+      }
+    };
   } catch (error) {
-    console.error('[API] getSearchSuggestions: 请求失败，错误信息:', error);
+    console.error('[API] getSearch failed:', error);
+    return {
+      data: {
+        code: 500,
+        result: {
+          songs: [],
+          rawResults: []
+        }
+      }
+    };
+  }
+};
+
+export const getSearchSuggestions = async (keyword: string): Promise<string[]> => {
+  if (!keyword || !keyword.trim()) return [];
+  try {
+    if (typeof window !== 'undefined' && window.api?.getSearchSuggestions) {
+      const responseData = await window.api.getSearchSuggestions(keyword);
+      if (responseData && Array.isArray(responseData.data)) {
+        return responseData.data.map((item: any) => item.keyword).slice(0, 10);
+      }
+    }
+    return [];
+  } catch {
     return [];
   }
 };

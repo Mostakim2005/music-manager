@@ -152,26 +152,6 @@
       </setting-item>
     </setting-section>
 
-    <div
-      class="mt-6 p-4 rounded-2xl bg-white dark:bg-neutral-900 border border-gray-100 dark:border-gray-800"
-    >
-      <div class="text-sm font-medium text-gray-500 mb-3">支持正版</div>
-      <div class="text-base text-gray-900 dark:text-white mb-4">
-        大家还是需要支持正版，本软件只做开源探讨。各大音乐会员购买链接：
-      </div>
-      <div class="flex gap-3 flex-wrap">
-        <a
-          v-for="link in memberLinks"
-          :key="link.url"
-          class="px-4 py-2 rounded-xl bg-gray-50 dark:bg-black/20 text-primary hover:text-green-500 transition-colors"
-          :href="link.url"
-          target="_blank"
-        >
-          {{ link.name }} <i class="ri-external-link-line ml-1"></i>
-        </a>
-      </div>
-    </div>
-
     <music-source-settings
       v-if="isElectron"
       v-model:show="showMusicSourcesModal"
@@ -198,13 +178,7 @@ import SettingItem from '../SettingItem.vue';
 import SettingSection from '../SettingSection.vue';
 import SSelect from '../SSelect.vue';
 
-const ALL_PLATFORMS: Platform[] = ['migu', 'kugou', 'kuwo', 'pyncmd'];
-
-const memberLinks = [
-  { name: '网易云音乐会员', url: 'https://music.163.com/store/vip' },
-  { name: 'QQ音乐会员', url: 'https://y.qq.com/portal/vipportal/' },
-  { name: '酷狗音乐会员', url: 'https://vip.kugou.com/' }
-];
+const ALL_PLATFORMS: Platform[] = ['youtube'];
 
 const { t } = useI18n();
 const playerStore = usePlayerStore();
@@ -267,7 +241,7 @@ const singleSongPlayModeOptions = computed(() => [
 
 const musicSources = computed({
   get: () => {
-    if (!setData.value.enabledMusicSources) return ALL_PLATFORMS;
+    if (!setData.value?.enabledMusicSources) return ALL_PLATFORMS;
     return setData.value.enabledMusicSources as Platform[];
   },
   set: (newValue: Platform[]) => {

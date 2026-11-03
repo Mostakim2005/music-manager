@@ -199,7 +199,63 @@ export const youtubeService = {
    */
   async updateBinary(): Promise<{ success: boolean; output: string; version: string | null }> {
     return getBridge().updateBinary();
+  },
+
+  /**
+   * Initializes global download listener to automatically ingest completed downloads into songLibrary
+   */
+  initGlobalDownloadWatcher(): () => void {
+    try {
+      return this.onDownloadProgress(async (data: YtDownloadProgress) => {
+        if (data.state === 'completed' && data.filePath) {
+          try {
+            const filePath = data.filePath;
+            const ext = filePath.split('.').pop()?.toLowerCase();
+            const isVideo = ['mp4', 'mkv', 'webm', 'mov'].includes(ext || '');
+            const basename =
+              filePath.replace(/\\/g, '/').split('/').pop()?.replace(/\.[^.]+$/, '') || '';
+            let [title, artist] = basename.split(' - ').map((s) => s.trim());
+            if (!artist) {
+              artist = 'YouTube';
+            }
+
+            const { ingestLocalTrack, linkVariant } = await import('@/services/songLibrary');
+            const ingestRes = await ingestLocalTrack({
+              path: filePath,
+              title: title || basename,
+              artist,
+              durationSec: 0,
+              container: ext,
+              hasVideo: isVideo
+            });
+
+            if (ingestRes.songId) {
+              await linkVariant(ingestRes.songId, {
+                kind: isVideo ? 'video' : 'audio',
+                source: 'download',
+                path: filePath,
+                container: ext,
+                addedAt: Date.now()
+              });
+            }
+          } catch (err) {
+            console.error('[youtubeService] Failed to ingest completed download:', err);
+          }
+        }
+      });
+    } catch {
+      return () => {};
+    }
   }
 };
+
+// Start watching download completions in renderer context
+if (typeof window !== 'undefined') {
+  try {
+    youtubeService.initGlobalDownloadWatcher();
+  } catch {
+    // Ignore in SSR / testing environments
+  }
+}
 
 export default youtubeService;

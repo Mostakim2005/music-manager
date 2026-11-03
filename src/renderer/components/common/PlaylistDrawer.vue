@@ -148,18 +148,12 @@
 import { useMessage } from 'naive-ui';
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
-
-import { createPlaylist, updatePlaylistTracks } from '@/api/music';
-import { getUserPlaylist } from '@/api/user';
-import { useUserStore } from '@/store';
 import { getImgUrl } from '@/utils';
-import { getLoginErrorMessage, hasPermission } from '@/utils/auth';
 
-const store = useUserStore();
 const { t } = useI18n();
 const props = defineProps<{
   modelValue: boolean;
-  songId?: number;
+  songId?: number | string;
 }>();
 
 const emit = defineEmits(['update:modelValue']);
@@ -187,59 +181,42 @@ const toggleCreateForm = () => {
   }
 };
 
+const getLocalPlaylists = () => {
+  try {
+    const raw = localStorage.getItem('local_playlists');
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+};
+
+const saveLocalPlaylists = (list: any[]) => {
+  localStorage.setItem('local_playlists', JSON.stringify(list));
+};
+
 // 获取用户歌单
 const fetchUserPlaylists = async () => {
-  try {
-    const { user } = store;
-    if (!user?.userId) {
-      message.error(t('comp.playlistDrawer.loginFirst'));
-      emit('update:modelValue', false);
-      return;
-    }
-
-    // 检查是否有真实登录权限
-    if (!hasPermission(true)) {
-      message.error(getLoginErrorMessage(true));
-      emit('update:modelValue', false);
-      return;
-    }
-
-    const res = await getUserPlaylist(user.userId, 999);
-    if (res.data?.playlist) {
-      playlists.value = res.data.playlist.filter((item: any) => item.userId === user.userId);
-    }
-  } catch (error) {
-    console.error('获取歌单失败:', error);
-    message.error(t('comp.playlistDrawer.getPlaylistFailed'));
-  }
+  playlists.value = getLocalPlaylists();
 };
 
 // 添加到歌单
 const handleAddToPlaylist = async (playlist: any) => {
   if (!props.songId) return;
 
-  // 检查是否有真实登录权限
-  if (!hasPermission(true)) {
-    message.error(getLoginErrorMessage(true));
-    return;
-  }
-
   try {
-    const res = await updatePlaylistTracks({
-      op: 'add',
-      pid: playlist.id,
-      tracks: props.songId.toString()
-    });
-    console.log('res.data', res.data);
-
-    if (res.status === 200) {
-      message.success(t('comp.playlistDrawer.addSuccess'));
-      emit('update:modelValue', false);
-      // 刷新用户歌单列表，让用户页/详情页的歌曲总数(trackCount)及时更新（#508）
-      store.initializePlaylist().catch(() => {});
-    } else {
-      throw new Error(res.data?.msg || t('comp.playlistDrawer.addFailed'));
+    const list = getLocalPlaylists();
+    const target = list.find((p: any) => p.id === playlist.id);
+    if (target) {
+      target.tracks = target.tracks || [];
+      const sid = String(props.songId);
+      if (!target.tracks.includes(sid)) {
+        target.tracks.push(sid);
+        target.trackCount = target.tracks.length;
+        saveLocalPlaylists(list);
+      }
     }
+    message.success(t('comp.playlistDrawer.addSuccess'));
+    emit('update:modelValue', false);
   } catch (error: any) {
     console.error('添加到歌单失败:', error);
     message.error(error.message || t('comp.playlistDrawer.addFailed'));
@@ -253,27 +230,24 @@ const handleCreatePlaylist = async () => {
     return;
   }
 
-  // 检查是否有真实登录权限
-  if (!hasPermission(true)) {
-    message.error(getLoginErrorMessage(true));
-    return;
-  }
-
   try {
     creating.value = true;
-
-    const res = await createPlaylist({
+    const list = getLocalPlaylists();
+    const newPlaylist = {
+      id: Date.now(),
       name: formValue.value.name,
-      privacy: formValue.value.privacy ? 10 : 0
-    });
+      trackCount: 0,
+      tracks: [],
+      coverImgUrl: ''
+    };
+    list.push(newPlaylist);
+    saveLocalPlaylists(list);
 
-    if (res.data?.id) {
-      message.success(t('comp.playlistDrawer.createSuccess'));
-      isCreating.value = false;
-      formValue.value.name = '';
-      formValue.value.privacy = false;
-      await fetchUserPlaylists();
-    }
+    message.success(t('comp.playlistDrawer.createSuccess'));
+    isCreating.value = false;
+    formValue.value.name = '';
+    formValue.value.privacy = false;
+    await fetchUserPlaylists();
   } catch (error) {
     console.error('创建歌单失败:', error);
     message.error(t('comp.playlistDrawer.createFailed'));

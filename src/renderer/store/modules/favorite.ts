@@ -1,8 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 
-import { getLikedList, likeSong } from '@/api/music';
-import { hasPermission } from '@/utils/auth';
 import { getLocalStorageItem, isBilibiliIdMatch, setLocalStorageItem } from '@/utils/playerUtils';
 
 /**
@@ -30,20 +28,6 @@ export const useFavoriteStore = defineStore('favorite', () => {
     if (!isAlreadyInList) {
       favoriteList.value.push(id);
       setLocalStorageItem('favoriteList', favoriteList.value);
-
-      // 只有在有真实登录权限时才调用API
-      if (typeof id === 'number') {
-        const { useUserStore } = await import('./user');
-        const userStore = useUserStore();
-
-        if (userStore.user && hasPermission(true)) {
-          try {
-            await likeSong(id, true);
-          } catch (error) {
-            console.error('收藏歌曲API调用失败:', error);
-          }
-        }
-      }
     }
   };
 
@@ -57,21 +41,7 @@ export const useFavoriteStore = defineStore('favorite', () => {
         (existingId) => !isBilibiliIdMatch(existingId, id)
       );
     } else {
-      favoriteList.value = favoriteList.value.filter((existingId) => existingId !== id);
-
-      // 只有在有真实登录权限时才调用API
-      if (typeof id === 'number') {
-        const { useUserStore } = await import('./user');
-        const userStore = useUserStore();
-
-        if (userStore.user && hasPermission(true)) {
-          try {
-            await likeSong(id, false);
-          } catch (error) {
-            console.error('取消收藏歌曲API调用失败:', error);
-          }
-        }
-      }
+      favoriteList.value.filter((existingId) => existingId !== id);
     }
     setLocalStorageItem('favoriteList', favoriteList.value);
   };
@@ -95,32 +65,12 @@ export const useFavoriteStore = defineStore('favorite', () => {
   };
 
   /**
-   * 初始化收藏列表（从服务器同步）
+   * 初始化收藏列表（本地加载）
    */
   const initializeFavoriteList = async () => {
-    const { useUserStore } = await import('./user');
-    const userStore = useUserStore();
     const localFavoriteList = localStorage.getItem('favoriteList');
-    const localList: number[] = localFavoriteList ? JSON.parse(localFavoriteList) : [];
-
-    if (userStore.user && userStore.user.userId) {
-      try {
-        const res = await getLikedList(userStore.user.userId);
-        if (res.data?.ids) {
-          const serverList = res.data.ids.reverse();
-          const mergedList = Array.from(new Set([...localList, ...serverList]));
-          favoriteList.value = mergedList;
-        } else {
-          favoriteList.value = localList;
-        }
-      } catch (error) {
-        console.error('获取服务器收藏列表失败，使用本地数据:', error);
-        favoriteList.value = localList;
-      }
-    } else {
-      favoriteList.value = localList;
-    }
-
+    const localList: Array<number | string> = localFavoriteList ? JSON.parse(localFavoriteList) : [];
+    favoriteList.value = localList;
     setLocalStorageItem('favoriteList', favoriteList.value);
   };
 

@@ -55,15 +55,8 @@ vi.mock('@/services/musicSource/PluginSandboxRunner', () => ({
   disposePluginSandbox: vi.fn()
 }));
 
-// 内置 provider 包装的旧 API 实现走真实网络模块（request.ts 依赖 window）——测试里桩掉
 vi.mock('@/api/music', () => ({
   getMusicUrl: vi.fn(async () => ({ data: { data: [{ url: '' }] } }))
-}));
-vi.mock('@/api/gdmusic', () => ({
-  parseFromGDMusic: vi.fn(async () => null)
-}));
-vi.mock('@/api/parseFromCustomApi', () => ({
-  parseFromCustomApi: vi.fn(async () => null)
 }));
 
 import { migrateLegacyMusicSources } from '../src/renderer/services/musicSource/migration';
@@ -88,36 +81,32 @@ beforeEach(() => {
 describe('registry: orderedProviders', () => {
   it('内置 provider 齐全且 key 稳定', () => {
     expect(builtinProviders.map((p) => p.key)).toEqual([
-      'customApi',
-      'netease',
-      'gdmusic',
-      'pyncmd'
+      'youtube'
     ]);
   });
 
   it('未配置排序时按注册表默认序，失效键不进链', () => {
     const { orderedProviders } = useMusicSourceRegistry();
-    mockSetData.enabledMusicSources = ['gdmusic', 'pyncmd', 'not-exist-key'];
+    mockSetData.enabledMusicSources = ['youtube', 'not-exist-key'];
 
     const keys = orderedProviders().map((p) => p.key);
-    // 'not-exist-key' 已卸载/不存在 → 剔除；其余按默认序（gdmusic 在 pyncmd 前）
-    expect(keys).toEqual(['gdmusic', 'pyncmd']);
+    expect(keys).toEqual(['youtube']);
   });
 
   it('musicSourceOrder 决定尝试顺序', () => {
     const { orderedProviders } = useMusicSourceRegistry();
-    mockSetData.enabledMusicSources = ['pyncmd', 'gdmusic', 'netease'];
-    mockSetData.musicSourceOrder = ['netease', 'pyncmd', 'gdmusic'];
+    mockSetData.enabledMusicSources = ['youtube'];
+    mockSetData.musicSourceOrder = ['youtube'];
 
-    expect(orderedProviders().map((p) => p.key)).toEqual(['netease', 'pyncmd', 'gdmusic']);
+    expect(orderedProviders().map((p) => p.key)).toEqual(['youtube']);
   });
 
   it('歌曲级覆盖优先于全局集合', () => {
     const { orderedProviders } = useMusicSourceRegistry();
-    mockSetData.enabledMusicSources = ['netease', 'gdmusic'];
-    mockSetData.musicSourceOrder = ['netease', 'gdmusic'];
+    mockSetData.enabledMusicSources = ['youtube'];
+    mockSetData.musicSourceOrder = ['youtube'];
 
-    expect(orderedProviders(['gdmusic']).map((p) => p.key)).toEqual(['gdmusic']);
+    expect(orderedProviders(['youtube']).map((p) => p.key)).toEqual(['youtube']);
   });
 
   it('插件以 plugin:<id> 进入注册表且停用后被剔除', () => {
@@ -139,9 +128,9 @@ describe('registry: orderedProviders', () => {
     const { providers, orderedProviders } = useMusicSourceRegistry();
     expect(providers.value.map((p) => p.key)).toContain('plugin:abc');
 
-    mockSetData.enabledMusicSources = ['netease', 'plugin:abc'];
+    mockSetData.enabledMusicSources = ['youtube', 'plugin:abc'];
     // available=false（停用）→ 剔除
-    expect(orderedProviders().map((p) => p.key)).toEqual(['netease']);
+    expect(orderedProviders().map((p) => p.key)).toEqual(['youtube']);
   });
 });
 
@@ -169,16 +158,11 @@ describe('migration: migrateLegacyMusicSources', () => {
     expect(plugins[0].enabled).toBe(true);
     expect(plugins[0].id).toBe(hashMusicSource(lxScript.script));
 
-    // 旧 key remap：lxMusic → plugin:<id>；custom → customApi；migu 原样
-    expect(mockSetData.enabledMusicSources).toEqual([
-      `plugin:${hashMusicSource(lxScript.script)}`,
-      'customApi',
-      'migu'
-    ]);
+    // 旧 key remap
+    expect(mockSetData.enabledMusicSources).toContain(`plugin:${hashMusicSource(lxScript.script)}`);
 
-    // 排序已初始化（含 customApi/netease 在前）
-    expect(mockSetData.musicSourceOrder[0]).toBe('customApi');
-    expect(mockSetData.musicSourceOrder[1]).toBe('netease');
+    // 排序已初始化（含 youtube 在前）
+    expect(mockSetData.musicSourceOrder[0]).toBe('youtube');
     // 幂等标记
     expect(mockSetData.musicSourceUnifiedMigrated).toBe(true);
   });

@@ -29,48 +29,6 @@ function sanitizeFilename(filename: string): string {
     .trim();
 }
 
-function parseLyrics(lyricsText: string): Map<string, string> {
-  const lyricMap = new Map<string, string>();
-  const lines = lyricsText.split('\n');
-
-  for (const line of lines) {
-    const timeTagMatches = line.match(/\[\d{2}:\d{2}(\.\d{1,3})?\]/g);
-    if (!timeTagMatches) continue;
-
-    const content = line.replace(/\[\d{2}:\d{2}(\.\d{1,3})?\]/g, '').trim();
-    if (!content) continue;
-
-    for (const timeTag of timeTagMatches) {
-      lyricMap.set(timeTag, content);
-    }
-  }
-
-  return lyricMap;
-}
-
-function mergeLyrics(
-  originalLyrics: Map<string, string>,
-  translatedLyrics: Map<string, string>
-): string {
-  const mergedLines: string[] = [];
-
-  for (const [timeTag, originalContent] of originalLyrics.entries()) {
-    const translatedContent = translatedLyrics.get(timeTag);
-    mergedLines.push(`${timeTag}${originalContent}`);
-    if (translatedContent) {
-      mergedLines.push(`${timeTag}${translatedContent}`);
-    }
-  }
-
-  mergedLines.sort((a, b) => {
-    const timeA = a.match(/\[\d{2}:\d{2}(\.\d{1,3})?\]/)?.[0] || '';
-    const timeB = b.match(/\[\d{2}:\d{2}(\.\d{1,3})?\]/)?.[0] || '';
-    return timeA.localeCompare(timeB);
-  });
-
-  return mergedLines.join('\n');
-}
-
 // ─── Batch tracker entry ─────────────────────────────────────────────
 
 type BatchEntry = { total: number; finished: number; success: number };
@@ -670,8 +628,6 @@ class DownloadManager {
     downloadPath: string
   ): Promise<void> {
     const configStore = getStore();
-    const apiPort = configStore.get('set.musicApiPort') || 30488;
-
     // Detect file type
     let fileExtension = '';
     try {
@@ -706,26 +662,29 @@ class DownloadManager {
       fileExtension = `.${task.type || 'mp3'}`;
     }
 
-    // Download lyrics
+    // Download lyrics via LRCLIB
     let lyricsContent = '';
-    let lyricData = null;
+    let lyricData: any = null;
     try {
-      if (task.songInfo?.id) {
-        const lyricsResponse = await axios.get(
-          `http://localhost:${apiPort}/lyric?id=${task.songInfo.id}`
-        );
-        if (lyricsResponse.data && (lyricsResponse.data.lrc || lyricsResponse.data.tlyric)) {
-          lyricData = lyricsResponse.data;
-
-          if (lyricsResponse.data.lrc && lyricsResponse.data.lrc.lyric) {
-            lyricsContent = lyricsResponse.data.lrc.lyric;
-
-            if (lyricsResponse.data.tlyric && lyricsResponse.data.tlyric.lyric) {
-              const originalLyrics = parseLyrics(lyricsResponse.data.lrc.lyric);
-              const translatedLyrics = parseLyrics(lyricsResponse.data.tlyric.lyric);
-              lyricsContent = mergeLyrics(originalLyrics, translatedLyrics);
-            }
-          }
+      if (task.songInfo?.name) {
+        const queryTerm = [
+          task.songInfo.name,
+          task.songInfo.ar?.[0]?.name || (task.songInfo as any).artists?.[0]?.name
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .trim();
+        const lrclibRes = await axios
+          .get<any[]>(`https://lrclib.net/api/search?q=${encodeURIComponent(queryTerm)}`, {
+            timeout: 8000,
+            headers: { 'User-Agent': 'MusicManager/5.2.0 (https://github.com/music-manager)' }
+          })
+          .catch(() => null);
+        const candidates = Array.isArray(lrclibRes?.data) ? lrclibRes.data : [];
+        const best = candidates.find((c: any) => c.syncedLyrics) || candidates[0];
+        if (best?.syncedLyrics || best?.plainLyrics) {
+          lyricsContent = best.syncedLyrics || best.plainLyrics || '';
+          lyricData = { lrc: { lyric: lyricsContent } };
         }
       }
     } catch (lyricError) {

@@ -19,7 +19,6 @@ type SetConfig = {
   animationSpeed: number;
   author: string;
   authorUrl: string;
-  musicApiPort: number;
   closeAction: 'ask' | 'minimize' | 'close';
   musicQuality: string;
   fontFamily: string;

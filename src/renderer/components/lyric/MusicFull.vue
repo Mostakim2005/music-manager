@@ -51,15 +51,34 @@
           <span class="text-xs font-semibold">Roma</span>
         </div>
 
-        <!-- 译 翻译快捷开关 -->
+        <!-- Tr 翻译快捷开关 -->
         <div
           v-if="hasTranslation"
           class="control-btn control-btn-pill"
           :class="{ 'is-active': config.showTranslation }"
-          title="Toggle Translated Lyrics (译)"
+          title="Toggle Translated Lyrics (Tr)"
           @click="toggleTranslation"
         >
-          <span class="text-xs font-semibold">译</span>
+          <span class="text-xs font-semibold">Tr</span>
+        </div>
+
+        <!-- Layout Toggle (Side-by-side vs Stacked) -->
+        <div
+          v-if="!isMobile"
+          class="control-btn"
+          :title="config.layoutMode === 'stacked' ? 'Switch to Side-by-side layout' : 'Switch to Stacked layout'"
+          @click="toggleLayoutMode"
+        >
+          <i :class="config.layoutMode === 'stacked' ? 'ri-layout-column-line' : 'ri-layout-top-line'"></i>
+        </div>
+
+        <!-- Save to Disk -->
+        <div
+          class="control-btn"
+          title="Save to disk (Audio, Video, .lrc)"
+          @click="showSaveToDiskModal = true"
+        >
+          <i class="ri-download-2-line"></i>
         </div>
 
         <!-- 歌词微调面板显隐开关 -->
@@ -142,14 +161,68 @@
         </div>
       </transition>
 
-      <div class="content-wrapper" :style="{ width: `${config.contentWidth}%` }">
-        <!-- 左侧：封面区域 -->
+      <!-- C5 Stacked (Namida) Layout -->
+      <div
+        v-if="config.layoutMode === 'stacked'"
+        class="stacked-wrapper w-full flex-1 flex items-center justify-center py-6 overflow-y-auto"
+      >
+        <namida-stacked-player
+          :song="playMusic"
+          :is-video-mode="playerStore.playbackMode === 'video'"
+          :video-src="activeVideoSrc"
+          :is-playing="playerStore.isPlay"
+          :current-time="nowTime"
+          :duration="allTime"
+          :current-lyric-line="currentLyricItem"
+          :next-lyric-line="nextLyricItem"
+          :is-favorite="isFavorite"
+          :play-mode="playMode"
+          @toggle-play="handleTogglePlay"
+          @prev="handlePrev"
+          @next="handleNext"
+          @seek="handleSeekTime"
+          @toggle-favorite="toggleFavorite"
+          @toggle-play-mode="togglePlayMode"
+          @artist-click="handleArtistClick"
+          @video-ref="onStackedVideoRef"
+          @video-time-update="onVideoTimeUpdate"
+          @video-ended="handleNext"
+          @video-play="onVideoPlay"
+          @video-pause="onVideoPause"
+        />
+      </div>
+
+      <!-- Side-by-side Layout (Default, tightened) -->
+      <div
+        v-else
+        class="content-wrapper"
+        :class="{ 'compact-mode': config.compactLyrics }"
+        :style="{ width: `${config.contentWidth}%` }"
+      >
+        <!-- 左侧：封面区域或视频 -->
         <div
           v-if="!config.hideCover"
           class="left-side"
           :class="{ 'only-cover': config.hideLyrics }"
         >
-          <div class="img-container">
+          <!-- Video Element (when video mode is active) -->
+          <div
+            v-if="playerStore.playbackMode === 'video'"
+            class="video-container relative w-full aspect-video rounded-2xl overflow-hidden bg-black shadow-2xl ring-1 ring-white/10 flex items-center justify-center mb-6"
+          >
+            <video
+              ref="sideVideoRef"
+              class="w-full h-full object-contain"
+              :src="activeVideoSrc"
+              playsinline
+              @timeupdate="onVideoTimeUpdate"
+              @ended="handleNext"
+              @play="onVideoPlay"
+              @pause="onVideoPause"
+            ></video>
+          </div>
+          <!-- 3D Cover (when in audio mode) -->
+          <div v-else class="img-container">
             <cover3-d
               ref="PicImgRef"
               :src="getImgUrl(playMusic?.picUrl, '500y500')"
@@ -159,6 +232,23 @@
               :shine-intensity="0.25"
             />
           </div>
+
+          <!-- Single Lyric Line Under Artwork (if lyricsUnderArtwork enabled) -->
+          <div
+            v-if="config.lyricsUnderArtwork"
+            class="single-lyric-under-art my-3 text-center px-4 select-none"
+          >
+            <div class="text-sm font-semibold text-white/95 line-clamp-1">
+              {{ currentLyricItem?.text || '♫ ♫ ♫' }}
+            </div>
+            <div
+              v-if="currentLyricItem?.trText || currentLyricItem?.romaText"
+              class="text-xs text-emerald-400 font-medium line-clamp-1 mt-0.5"
+            >
+              {{ currentLyricItem?.trText || currentLyricItem?.romaText }}
+            </div>
+          </div>
+
           <div class="music-info">
             <div class="music-content-name" v-html="playMusic.name"></div>
             <div class="music-content-singer">
@@ -282,6 +372,68 @@
         </div>
       </div>
 
+      <!-- C1 Video Pill (bottom-left of fullscreen player) -->
+      <div
+        class="video-pill-wrapper absolute bottom-8 left-8 z-[9999] flex items-center"
+        :class="{ 'pure-mode': config.pureModeEnabled }"
+      >
+        <div
+          class="flex items-center bg-black/40 hover:bg-black/60 backdrop-blur-xl border border-white/10 rounded-full p-1 shadow-lg transition"
+        >
+          <button
+            type="button"
+            class="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition cursor-pointer select-none"
+            :class="
+              playerStore.playbackMode === 'video'
+                ? 'bg-emerald-500 text-white shadow-sm'
+                : 'text-white/80 hover:text-white'
+            "
+            title="Toggle Audio ⇄ Video mode"
+            @click="toggleAudioVideoMode"
+          >
+            <span class="text-sm leading-none">🎬</span>
+            <span>Video</span>
+            <span class="text-[10px] opacity-75">•</span>
+            <span class="text-[11px] font-mono opacity-90">{{ videoPillBadge }}</span>
+          </button>
+          <button
+            type="button"
+            class="w-7 h-7 rounded-full flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 transition cursor-pointer"
+            title="Video source options & qualities"
+            @click="openVideoSourcePopover"
+          >
+            <i class="ri-more-line text-sm"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- C2 Video Source Popover -->
+      <video-source-popover
+        v-model:visible="videoPopoverVisible"
+        :initial-tab="videoPopoverInitialTab"
+        :song="playMusic"
+        :is-video-mode="playerStore.playbackMode === 'video'"
+        :selected-height="selectedVideoHeight"
+        :current-youtube-id="currentYoutubeId"
+        :variants="currentVariants"
+        :song-record="currentSongRecord"
+        @set-mode="handleSetMode"
+        @select-quality="handleSelectQuality"
+        @linked-youtube="handleLinkedYoutube"
+        @play-variant="handlePlayVariant"
+        @variants-updated="refreshSongVariants"
+      />
+
+      <!-- C6 Save to Disk Modal -->
+      <save-to-disk-modal
+        v-model:visible="showSaveToDiskModal"
+        :song="playMusic"
+        :youtube-id="currentYoutubeId"
+        :lrc-string="rawLrcString"
+        :song-id="currentSongRecord?.id"
+        @saved-media="refreshSongVariants"
+      />
+
       <!-- 关闭确认弹窗：与标题栏共用同一组件与逻辑（#492） -->
       <close-app-confirm-modal
         v-model:show="showCloseModal"
@@ -293,7 +445,7 @@
 </template>
 
 <script setup lang="ts">
-import { useDebounceFn } from '@vueuse/core';
+import { useDebounceFn, useThrottleFn } from '@vueuse/core';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 
@@ -301,9 +453,13 @@ import CloseAppConfirmModal from '@/components/common/CloseAppConfirmModal.vue';
 import Cover3D from '@/components/cover/Cover3D.vue';
 import LyricCorrectionControl from '@/components/lyric/LyricCorrectionControl.vue';
 import LyricSettings from '@/components/lyric/LyricSettings.vue';
+import NamidaStackedPlayer from '@/components/player/NamidaStackedPlayer.vue';
+import SaveToDiskModal from '@/components/player/SaveToDiskModal.vue';
 import SimplePlayBar from '@/components/player/SimplePlayBar.vue';
+import VideoSourcePopover from '@/components/player/VideoSourcePopover.vue';
 import {
   adjustCorrectionTime,
+  allTime,
   artistList,
   correctionTime,
   lrcArray,
@@ -315,14 +471,31 @@ import {
   useLyricProgress
 } from '@/hooks/MusicHook';
 import { useArtist } from '@/hooks/useArtist';
+import { useFavorite } from '@/hooks/useFavorite';
 import { useLyricBackground } from '@/hooks/useLyricBackground';
+import { usePlaybackControl } from '@/hooks/usePlaybackControl';
+import { usePlayMode } from '@/hooks/usePlayMode';
 import { useWindowControls } from '@/hooks/useWindowControls';
+import { audioService } from '@/services/audioService';
+import { mediaCoordinator } from '@/services/mediaCoordinator';
+import {
+  findSongByPath,
+  getSong,
+  getSongKey,
+  getVariants,
+  savePosition,
+  setYoutubeId,
+  type Song,
+  type Variant
+} from '@/services/songLibrary';
+import { youtubeService } from '@/services/youtubeService';
 import { usePlayerStore } from '@/store/modules/player';
 import { useSettingsStore } from '@/store/modules/settings';
 import { DEFAULT_LYRIC_CONFIG, LyricConfig } from '@/types/lyric';
 import { getImgUrl, isElectron, isMobile } from '@/utils';
 import { getTextColors } from '@/utils/linearColor';
 import { LYRIC_CONFIG_CHANGE_EVENT, readLyricConfig, writeLyricConfig } from '@/utils/lyricConfig';
+import { formatVideoTime } from '@/utils/videoQualityHelpers';
 
 const { t } = useI18n();
 // 定义 refs
@@ -405,6 +578,16 @@ const toggleTranslation = () => {
     ...config.value,
     showTranslation: !config.value.showTranslation
   };
+};
+
+const toggleLayoutMode = () => {
+  const current = config.value.layoutMode || 'side-by-side';
+  const newMode = current === 'stacked' ? 'side-by-side' : 'stacked';
+  config.value = {
+    ...config.value,
+    layoutMode: newMode
+  };
+  writeLyricConfig(config.value);
 };
 
 watch(
@@ -788,6 +971,347 @@ const handleScroll = () => {
 
 const playerStore = usePlayerStore();
 
+// Playback & mode hooks
+const { isFavorite, toggleFavorite } = useFavorite();
+const { playMode, togglePlayMode } = usePlayMode();
+const { handlePrev, handleNext } = usePlaybackControl();
+
+// Video & Popover state
+const sideVideoRef = ref<HTMLVideoElement | null>(null);
+const stackedVideoRef = ref<HTMLVideoElement | null>(null);
+
+const onStackedVideoRef = (el: HTMLVideoElement | null) => {
+  stackedVideoRef.value = el;
+};
+
+const activeVideoElement = computed<HTMLVideoElement | null>(() => {
+  if (config.value.layoutMode === 'stacked') {
+    return stackedVideoRef.value;
+  }
+  return sideVideoRef.value;
+});
+
+const activeVideoSrc = ref<string>('');
+const selectedVideoHeight = ref<number>(720);
+const currentYoutubeId = ref<string>('');
+const currentVariants = ref<Variant[]>([]);
+const currentSongRecord = ref<Song | undefined>(undefined);
+
+const videoPopoverVisible = ref(false);
+const videoPopoverInitialTab = ref<'playback' | 'search' | 'link' | 'qualities' | 'linked'>('playback');
+const showSaveToDiskModal = ref(false);
+
+const videoPillBadge = computed(() => {
+  if (playerStore.playbackMode !== 'video') {
+    return '×';
+  }
+  if (selectedVideoHeight.value) {
+    return `${selectedVideoHeight.value}p`;
+  }
+  return 'Active';
+});
+
+// Lyric line accessors for stacked/single-line modes
+const currentLyricItem = computed(() => {
+  if (!lrcArray.value || nowIndex.value < 0 || nowIndex.value >= lrcArray.value.length) {
+    return null;
+  }
+  return lrcArray.value[nowIndex.value];
+});
+
+const nextLyricItem = computed(() => {
+  if (!lrcArray.value || nowIndex.value + 1 >= lrcArray.value.length) {
+    return null;
+  }
+  return lrcArray.value[nowIndex.value + 1];
+});
+
+const rawLrcString = computed(() => {
+  if (!lrcArray.value || lrcArray.value.length === 0) return '';
+  return lrcArray.value
+    .map((item) => {
+      const timeStr = formatVideoTime(item.startTime ?? 0);
+      return `[${timeStr}] ${item.text || ''}`;
+    })
+    .join('\n');
+});
+
+// Video Media Coordinator registration & exclusivity
+let unregisterVideo: (() => void) | null = null;
+
+watch(
+  activeVideoElement,
+  (el) => {
+    if (unregisterVideo) {
+      unregisterVideo();
+      unregisterVideo = null;
+    }
+    if (el) {
+      unregisterVideo = mediaCoordinator.registerMediaElement(el, 'fullscreen-video', () => {
+        el.pause();
+      });
+    }
+  },
+  { immediate: true }
+);
+
+onBeforeUnmount(() => {
+  if (unregisterVideo) {
+    unregisterVideo();
+    unregisterVideo = null;
+  }
+});
+
+// Video events
+const onVideoPlay = () => {
+  const videoEl = activeVideoElement.value;
+  if (videoEl) {
+    mediaCoordinator.claimPlayback('fullscreen-video', videoEl);
+  }
+  playerStore.setIsPlay(true);
+};
+
+const onVideoPause = () => {
+  playerStore.setIsPlay(false);
+};
+
+const onVideoTimeUpdate = (e: Event) => {
+  const video = e.target as HTMLVideoElement;
+  if (!video) return;
+  nowTime.value = video.currentTime;
+  saveVideoPositionThrottled(video.currentTime);
+};
+
+const saveVideoPositionThrottled = useThrottleFn((time: number) => {
+  const key = getSongKey(playMusic.value);
+  if (key) {
+    savePosition(key, time);
+  }
+}, 3000);
+
+// Toggle play in video mode or audio mode
+const handleTogglePlay = () => {
+  if (playerStore.playbackMode === 'video') {
+    const video = activeVideoElement.value;
+    if (video) {
+      if (video.paused) {
+        mediaCoordinator.claimPlayback('fullscreen-video', video);
+        video.play().catch(() => {});
+        playerStore.setIsPlay(true);
+      } else {
+        video.pause();
+        playerStore.setIsPlay(false);
+      }
+    }
+  } else {
+    if (playerStore.isPlay) {
+      audioService.pause();
+    } else {
+      audioService.play();
+    }
+  }
+};
+
+const handleSeekTime = (time: number) => {
+  if (playerStore.playbackMode === 'video') {
+    const video = activeVideoElement.value;
+    if (video) {
+      video.currentTime = time;
+    }
+    nowTime.value = time;
+    const key = getSongKey(playMusic.value);
+    if (key) {
+      savePosition(key, time);
+    }
+  } else {
+    audioService.seek(time);
+    nowTime.value = time;
+  }
+};
+
+// C1: Audio ⇄ Video Mode Switching
+const toggleAudioVideoMode = async () => {
+  if (playerStore.playbackMode === 'video') {
+    switchBackToAudio();
+    return;
+  }
+  await switchForwardToVideo();
+};
+
+const switchBackToAudio = () => {
+  const videoEl = activeVideoElement.value;
+  const time = videoEl ? videoEl.currentTime : nowTime.value;
+
+  if (videoEl) {
+    videoEl.pause();
+  }
+
+  playerStore.setPlaybackMode('song', time);
+  audioService.seek(time);
+  audioService.play();
+  mediaCoordinator.claimPlayback('audioService');
+};
+
+const switchForwardToVideo = async () => {
+  const song = playMusic.value;
+  if (!song) return;
+
+  const carryTime = audioService.getCurrentTime();
+
+  // 1. Resolution order 1: local video variant
+  await refreshSongVariants();
+  const localVideo = currentVariants.value.find((v) => v.kind === 'video' && Boolean(v.path));
+  if (localVideo && localVideo.path) {
+    activeVideoSrc.value = `local://${encodeURI(localVideo.path.replace(/\\/g, '/'))}`;
+    startVideoPlayback(carryTime);
+    return;
+  }
+
+  // 2. Resolution order 2: stored youtubeId
+  let ytId = currentYoutubeId.value || currentSongRecord.value?.youtubeId || (song as any).youtubeId;
+  if (!ytId) {
+    const localPath = (song as any).localPath || (song as any).path;
+    if (localPath) {
+      const readYt = await youtubeService.readLink(localPath);
+      if (readYt) {
+        ytId = youtubeService.extractVideoId(readYt) || undefined;
+        if (ytId && currentSongRecord.value) {
+          await setYoutubeId(currentSongRecord.value.id, ytId);
+        }
+      }
+    }
+  }
+
+  if (ytId) {
+    currentYoutubeId.value = ytId;
+    try {
+      const streamRes = await youtubeService.getStreamUrl(ytId, {
+        kind: 'video',
+        height: selectedVideoHeight.value
+      });
+      activeVideoSrc.value = streamRes.videoUrl;
+      startVideoPlayback(carryTime);
+      return;
+    } catch (err) {
+      console.error('[MusicFull] Stream resolution error:', err);
+      window.$message?.error?.('Failed to resolve video stream');
+    }
+  }
+
+  // 3. Resolution order 3: open popover on Search
+  videoPopoverInitialTab.value = 'search';
+  videoPopoverVisible.value = true;
+};
+
+const startVideoPlayback = (carryTime: number) => {
+  playerStore.setPlaybackMode('video', carryTime);
+  audioService.pause(true);
+
+  nextTick(() => {
+    const videoEl = activeVideoElement.value;
+    if (videoEl) {
+      if (unregisterVideo) {
+        unregisterVideo();
+      }
+      unregisterVideo = mediaCoordinator.registerMediaElement(videoEl, 'fullscreen-video', () => {
+        videoEl.pause();
+      });
+
+      videoEl.currentTime = carryTime;
+      mediaCoordinator.claimPlayback('fullscreen-video', videoEl);
+      videoEl.play().catch((err) => {
+        console.warn('[MusicFull] Autoplay error:', err);
+      });
+    }
+  });
+};
+
+const openVideoSourcePopover = () => {
+  videoPopoverInitialTab.value = 'playback';
+  videoPopoverVisible.value = true;
+};
+
+const handleSetMode = (mode: 'song' | 'video') => {
+  if (mode === 'song') {
+    switchBackToAudio();
+  } else {
+    switchForwardToVideo();
+  }
+};
+
+const handleSelectQuality = async (height: number) => {
+  selectedVideoHeight.value = height;
+  if (currentYoutubeId.value && playerStore.playbackMode === 'video') {
+    const carryTime = activeVideoElement.value ? activeVideoElement.value.currentTime : nowTime.value;
+    try {
+      const streamRes = await youtubeService.getStreamUrl(currentYoutubeId.value, {
+        kind: 'video',
+        height
+      });
+      activeVideoSrc.value = streamRes.videoUrl;
+      nextTick(() => {
+        const videoEl = activeVideoElement.value;
+        if (videoEl) {
+          videoEl.currentTime = carryTime;
+          videoEl.play();
+        }
+      });
+    } catch (err) {
+      console.error('[MusicFull] Stream change error:', err);
+    }
+  }
+};
+
+const handleLinkedYoutube = async (id: string) => {
+  currentYoutubeId.value = id;
+  if (currentSongRecord.value) {
+    await setYoutubeId(currentSongRecord.value.id, id);
+  }
+  await refreshSongVariants();
+};
+
+const handlePlayVariant = (v: Variant) => {
+  if (v.kind === 'video' && v.path) {
+    activeVideoSrc.value = `local://${encodeURI(v.path.replace(/\\/g, '/'))}`;
+    startVideoPlayback(audioService.getCurrentTime());
+  } else if (v.kind === 'audio' && v.path) {
+    switchBackToAudio();
+  }
+};
+
+const refreshSongVariants = async () => {
+  const song = playMusic.value;
+  if (!song) return;
+
+  const localPath = (song as any).localPath || (song as any).path;
+  if (localPath) {
+    const found = await findSongByPath(localPath);
+    if (found) {
+      currentSongRecord.value = found.song;
+      currentVariants.value = await getVariants(found.song.id);
+      if (found.song.youtubeId) currentYoutubeId.value = found.song.youtubeId;
+      return;
+    }
+  } else if (song.id) {
+    const songId = String(song.id);
+    const rec = await getSong(songId);
+    if (rec) {
+      currentSongRecord.value = rec;
+      currentVariants.value = await getVariants(rec.id);
+      if (rec.youtubeId) currentYoutubeId.value = rec.youtubeId;
+      return;
+    }
+  }
+};
+
+watch(
+  () => playMusic.value,
+  () => {
+    refreshSongVariants();
+  },
+  { immediate: true, deep: true }
+);
+
 const closeMusicFull = () => {
   // 退出全屏模式
   if (isElectron) {
@@ -978,16 +1502,41 @@ defineExpose({
   .content-wrapper {
     @apply grid items-center mx-auto h-full;
     grid-template-columns: minmax(300px, 40%) 1fr;
-    gap: 4rem;
-    max-width: 1600px;
+    gap: 3rem;
+    max-width: 1500px;
     padding: 2rem;
     transition: width 0.3s ease;
 
     @media (max-width: 1024px) {
       grid-template-columns: 1fr;
       grid-template-rows: auto 1fr;
-      gap: 2rem;
+      gap: 1.5rem;
     }
+
+    &.compact-mode {
+      gap: 2rem;
+
+      .right-side {
+        max-width: 520px;
+        margin-left: auto;
+        margin-right: auto;
+
+        .music-lrc-text {
+          font-size: calc(var(--lyric-font-size, 22px) * 0.85) !important;
+          padding-top: 6px !important;
+          padding-bottom: 6px !important;
+          line-height: 1.6 !important;
+        }
+      }
+    }
+  }
+
+  .stacked-wrapper {
+    height: calc(100vh - 100px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
   }
 
   .left-side {

@@ -1,5 +1,6 @@
 // 音乐平台类型
 export type Platform =
+  | 'youtube'
   | 'qq'
   | 'migu'
   | 'kugou'
@@ -9,10 +10,11 @@ export type Platform =
   | 'gdmusic'
   | 'lxMusic'
   | 'custom'
-  | `plugin:${string}`;
+  | `plugin:${string}`
+  | string;
 
 // 默认平台列表
-export const DEFAULT_PLATFORMS: Platform[] = ['pyncmd'];
+export const DEFAULT_PLATFORMS: Platform[] = ['youtube'];
 
 export interface IRecommendMusic {
   code: number;
@@ -69,7 +71,7 @@ export interface SongResult {
   lyric?: ILyric;
   backgroundColor?: string;
   primaryColor?: string;
-  source?: 'netease';
+  source?: string;
   // 过期时间
   expiredAt?: number;
   // 获取时间

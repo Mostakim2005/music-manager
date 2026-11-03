@@ -49,6 +49,14 @@ const verifyMediaUrl = async (
   headers?: Record<string, string>,
   depth = 0
 ): Promise<string | null> => {
+  if (!url) return null;
+  if (
+    url.includes('googlevideo.com') ||
+    url.includes('127.0.0.1') ||
+    url.includes('localhost')
+  ) {
+    return url;
+  }
   if (!isElectron || typeof window.api?.lxMusicHttpRequest !== 'function') return url;
   if (depth > 2) return url;
 
@@ -91,9 +99,12 @@ const verifyMediaUrl = async (
 // ─── 主入口 ──────────────────────────────────────────────────────────────
 
 /** 参与键：歌曲级覆盖优先，否则全局启用集合 */
-const effectiveSourceKeys = (songId: number): string[] | undefined => {
-  const songConfig = SongSourceConfigManager.getConfig(songId);
-  if (songConfig && songConfig.sources.length > 0) return songConfig.sources;
+const effectiveSourceKeys = (songId: string | number): string[] | undefined => {
+  const numericId = typeof songId === 'number' ? songId : parseInt(songId, 10);
+  if (!Number.isNaN(numericId)) {
+    const songConfig = SongSourceConfigManager.getConfig(numericId);
+    if (songConfig && songConfig.sources.length > 0) return songConfig.sources;
+  }
   return undefined;
 };
 
@@ -116,11 +127,11 @@ export const resolveSong = async (
   const settingsStore = useSettingsStore();
   const { orderedProviders } = useMusicSourceRegistry();
 
-  const sourceKeys = options.sourceKeys ?? effectiveSourceKeys(song.id as number);
+  const sourceKeys = options.sourceKeys ?? effectiveSourceKeys(song.id);
   const quality = options.quality || settingsStore.setData?.musicQuality || 'higher';
   const globalKeys: string[] = settingsStore.setData?.enabledMusicSources || [];
 
-  const songId = Number(song.id);
+  const songId = song.id;
 
   // URL 缓存（键含参与音源集合，配置变化自动失效）
   if (!options.force) {

@@ -40,7 +40,7 @@ const warnIfNoSourceConfigured = (): void => {
     const settingsStore = useSettingsStore();
     const { orderedProviders } = useMusicSourceRegistry();
     const enabled = settingsStore.setData?.enabledMusicSources || [];
-    const hasResolvable = orderedProviders(enabled).some((p) => p.key !== 'netease');
+    const hasResolvable = orderedProviders(enabled).length > 0;
     if (!hasResolvable) {
       noSourceHintAt = Date.now();
       message.warning(i18n.global.t('player.reparse.noSourceConfigured'), { duration: 6000 });
@@ -155,7 +155,7 @@ export const getSongUrl = async (
         songData,
         finalUrl,
         result.media.br || 320000,
-        result.providerName || 'netease'
+        result.providerName || 'youtube'
       );
     }
     cacheTrackDetail(songData);
@@ -223,34 +223,37 @@ const parseLyrics = (lyricsString: string): { lyrics: ILyricText[]; times: numbe
 /**
  * 加载歌词（独立函数）
  */
-export const loadLrc = async (id: string | number): Promise<ILyric> => {
+export const loadLrc = async (
+  id: string | number,
+  song?: SongResult
+): Promise<ILyric> => {
   try {
-    const numericId = typeof id === 'string' ? parseInt(id, 10) : id;
+    const cacheKey = id;
     let lyricData: any;
 
     if (isElectron) {
       try {
-        lyricData = await window.electron.ipcRenderer.invoke('get-cached-lyric', numericId);
+        lyricData = await window.electron.ipcRenderer.invoke('get-cached-lyric', cacheKey);
       } catch (error) {
         console.warn('读取磁盘歌词缓存失败:', error);
       }
     }
 
     if (!lyricData) {
-      lyricData = await getLyricFromCache(numericId);
+      lyricData = await getLyricFromCache(cacheKey as any);
     }
 
     if (!lyricData) {
-      const { data } = await getMusicLrc(numericId);
+      const { data } = await getMusicLrc(cacheKey, song);
       lyricData = data;
 
       if (lyricData) {
-        cacheLyric(numericId, lyricData);
+        cacheLyric(cacheKey as any, lyricData);
       }
 
       if (isElectron && lyricData) {
         void window.electron.ipcRenderer
-          .invoke('cache-lyric', numericId, lyricData)
+          .invoke('cache-lyric', cacheKey, lyricData)
           .catch((error) => console.warn('写入磁盘歌词缓存失败:', error));
       }
     }

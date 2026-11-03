@@ -18,11 +18,17 @@ export default {
   error: {
     searchFailed: 'Search failed'
   },
+  tab: {
+    songs: 'Songs',
+    videos: 'Videos'
+  },
   search: {
-    single: 'Single',
+    songs: 'Songs',
+    videos: 'Videos',
+    single: 'Songs',
     album: 'Album',
     playlist: 'Playlist',
-    mv: 'MV',
+    mv: 'Videos',
     djradio: 'Podcast',
     bilibili: 'Bilibili'
   },
