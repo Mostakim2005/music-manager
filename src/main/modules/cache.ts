@@ -209,7 +209,7 @@ class DiskCacheManager {
       fs.mkdirSync(this.getMusicCacheDir(currentConfig.directory), { recursive: true });
       fs.mkdirSync(this.getLyricCacheDir(currentConfig.directory), { recursive: true });
     } catch (error) {
-      console.error('创建缓存目录失败:', error);
+      console.error('Failed to create cache directory:', error);
     }
   }
 
@@ -279,7 +279,7 @@ class DiskCacheManager {
           };
           migratedCount++;
         } catch (error) {
-          console.error(`迁移音乐缓存失败: ${key}`, error);
+          console.error(`Failed to migrate music cache: ${key}`, error);
         }
       }
       this.setMusicEntries(entries);
@@ -311,7 +311,7 @@ class DiskCacheManager {
         };
         migratedCount++;
       } catch (error) {
-        console.error(`迁移歌词缓存失败: ${key}`, error);
+        console.error(`Failed to migrate lyric cache: ${key}`, error);
       }
     }
     this.setLyricEntries(entries);
@@ -333,7 +333,7 @@ class DiskCacheManager {
           try {
             await fs.promises.unlink(entry.filePath);
           } catch (error) {
-            console.error(`删除音乐缓存文件失败: ${entry.filePath}`, error);
+            console.error(`Failed to delete music cache file: ${entry.filePath}`, error);
           }
         }
 
@@ -354,7 +354,7 @@ class DiskCacheManager {
         try {
           await fs.promises.unlink(entry.filePath);
         } catch (error) {
-          console.error(`删除歌词缓存文件失败: ${entry.filePath}`, error);
+          console.error(`Failed to delete lyric cache file: ${entry.filePath}`, error);
         }
       }
 
@@ -381,8 +381,7 @@ class DiskCacheManager {
           await fs.promises.rmdir(targetDir);
         }
       } catch (error) {
-        // 目录不为空或权限不足时忽略
-        console.warn(`清理缓存目录失败: ${targetDir}`, error);
+        console.warn(`Failed to purge cache directory: ${targetDir}`, error);
       }
     }
   }
@@ -413,9 +412,6 @@ class DiskCacheManager {
       cleanupPolicy
     };
 
-    // 注意：getCacheConfig 是纯读取，处于播放/下载/歌词等多个热路径。
-    // 此处不再落盘（electron-store.set 每次整文件写 config.json，会造成写放大与文件争用），
-    // 持久化交由 updateCacheConfig / setCacheDirectory 等真正的写操作完成。
     return normalizedConfig;
   }
 
@@ -498,7 +494,7 @@ class DiskCacheManager {
         destroyedFiles
       };
     } catch (error) {
-      console.error('切换缓存目录失败:', error);
+      console.error('Failed to switch cache directory:', error);
       return {
         success: false,
         config: currentConfig,
@@ -553,7 +549,7 @@ class DiskCacheManager {
         return ext;
       }
     } catch {
-      // 忽略 URL 解析错误，回退到默认扩展名
+      // Ignore URL parse errors, fall back to the default extension
     }
     return '';
   }
@@ -676,7 +672,7 @@ class DiskCacheManager {
         try {
           await fs.promises.unlink(entry.filePath);
         } catch (error) {
-          console.error('删除音乐缓存文件失败:', error);
+          console.error('Failed to delete music cache file:', error);
         }
       }
 
@@ -693,7 +689,7 @@ class DiskCacheManager {
       try {
         await fs.promises.unlink(entry.filePath);
       } catch (error) {
-        console.error('删除歌词缓存文件失败:', error);
+        console.error('Failed to delete lyric cache file:', error);
       }
     }
 
@@ -858,12 +854,12 @@ class DiskCacheManager {
 
       await this.enforceCacheLimit();
     } catch (error) {
-      console.error(`缓存音乐失败: ${payload.songId}`, error);
+      console.error(`Failed to cache music: ${payload.songId}`, error);
       if (fs.existsSync(tempFilePath)) {
         try {
           await fs.promises.unlink(tempFilePath);
         } catch {
-          // 忽略临时文件清理错误
+          // Ignore missing files
         }
       }
     }
@@ -955,7 +951,7 @@ class DiskCacheManager {
       await this.enforceCacheLimit();
       return true;
     } catch (error) {
-      console.error('缓存歌词失败:', error);
+      console.error('Failed to cache lyrics:', error);
       return false;
     }
   }
@@ -984,7 +980,7 @@ class DiskCacheManager {
       this.updateLyricAccess(key);
       return JSON.parse(content);
     } catch (error) {
-      console.error('读取缓存歌词失败:', error);
+      console.error('Failed to read cached lyrics:', error);
       return undefined;
     }
   }
@@ -1014,7 +1010,7 @@ class DiskCacheManager {
       }
       return true;
     } catch (error) {
-      console.error('清理缓存失败:', error);
+      console.error('Failed to clear cache:', error);
       return false;
     }
   }

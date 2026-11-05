@@ -44,7 +44,11 @@ function getStorageItem(key: string): string | null {
     if (typeof window !== 'undefined' && window.localStorage) {
       return window.localStorage.getItem(key);
     }
-    if (typeof localStorage !== 'undefined' && localStorage && typeof localStorage.getItem === 'function') {
+    if (
+      typeof localStorage !== 'undefined' &&
+      localStorage &&
+      typeof localStorage.getItem === 'function'
+    ) {
       return localStorage.getItem(key);
     }
   } catch {
@@ -59,7 +63,11 @@ function setStorageItem(key: string, value: string): void {
       window.localStorage.setItem(key, value);
       return;
     }
-    if (typeof localStorage !== 'undefined' && localStorage && typeof localStorage.setItem === 'function') {
+    if (
+      typeof localStorage !== 'undefined' &&
+      localStorage &&
+      typeof localStorage.setItem === 'function'
+    ) {
       localStorage.setItem(key, value);
       return;
     }
@@ -120,11 +128,20 @@ function extractSongMetadata(song: any): {
 
   let artist = '';
   if (Array.isArray(song.ar) && song.ar.length > 0) {
-    artist = song.ar.map((a: any) => a?.name).filter(Boolean).join(', ');
+    artist = song.ar
+      .map((a: any) => a?.name)
+      .filter(Boolean)
+      .join(', ');
   } else if (Array.isArray(song.artists) && song.artists.length > 0) {
-    artist = song.artists.map((a: any) => a?.name).filter(Boolean).join(', ');
+    artist = song.artists
+      .map((a: any) => a?.name)
+      .filter(Boolean)
+      .join(', ');
   } else if (Array.isArray(song.song?.artists) && song.song.artists.length > 0) {
-    artist = song.song.artists.map((a: any) => a?.name).filter(Boolean).join(', ');
+    artist = song.song.artists
+      .map((a: any) => a?.name)
+      .filter(Boolean)
+      .join(', ');
   } else if (typeof song.artist === 'string' && song.artist.trim()) {
     artist = song.artist.trim();
   } else if (typeof song.singer === 'string' && song.singer.trim()) {
@@ -134,12 +151,7 @@ function extractSongMetadata(song: any): {
   }
 
   const picUrl =
-    song.al?.picUrl ||
-    song.album?.picUrl ||
-    song.picUrl ||
-    song.cover ||
-    song.pic ||
-    '';
+    song.al?.picUrl || song.album?.picUrl || song.picUrl || song.cover || song.pic || '';
 
   return { id, name, artist, picUrl };
 }

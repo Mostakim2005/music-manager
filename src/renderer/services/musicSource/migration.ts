@@ -1,20 +1,11 @@
 /**
- * 存量数据迁移（一次性、幂等）
  *
- * 旧三套存储收敛到统一模型：
- *  - lxMusicScripts + activeLxMusicApiId → 插件库（lxmusic 方言），
- *    旧 key 'lxMusic' 在全局勾选/歌曲级配置中 remap 为 plugin:<id>
- *  - customApiPlugin → customApi 内置 provider（配置字段沿用 customApiPlugin*）
- *  - enabledMusicSources 里的 'custom' → 'customApi'
- *  - 初始化 musicSourceOrder（用户排序），此后排序只有一个模型
  *
- * 旧字段保留不删（可回滚），消费方全部停用。
  */
 import { useSettingsStore } from '@/store';
 import type { MusicSourcePlugin } from '@/types/musicSourcePlugin';
 import { hashMusicSource, sanitizeMusicSourcePlatform } from '@/utils/musicSourcePlugin';
 
-/** 迁移标记（写入 set 配置） */
 const MIGRATED_FLAG = 'musicSourceUnifiedMigrated';
 
 type LegacyLxScript = {
@@ -25,7 +16,6 @@ type LegacyLxScript = {
   createdAt?: number;
 };
 
-/** 全局勾选与歌曲级配置里的旧 key remap 表（含 lxMusic → 激活插件） */
 export const buildLegacyKeyRemap = (): Record<string, string> => {
   const remap: Record<string, string> = { custom: 'customApi' };
   const settingsStore = useSettingsStore();
@@ -52,7 +42,6 @@ const remapKeys = (keys: string[], remap: Record<string, string>): string[] => {
   return out;
 };
 
-/** 歌曲级音源配置（localStorage song_source_*）里的旧 key 同步 remap */
 const remapSongLevelConfigs = (remap: Record<string, string>): void => {
   const entries = Object.entries(remap).filter(([from]) => from !== to(remap, from));
   if (!entries.length) return;
@@ -70,7 +59,7 @@ const remapSongLevelConfigs = (remap: Record<string, string>): void => {
         localStorage.setItem(key, JSON.stringify(remapped));
       }
     } catch {
-      // 损坏的条目跳过，不阻塞迁移
+      // Ignore legacy entries that cannot be parsed
     }
   }
 };
@@ -78,8 +67,6 @@ const remapSongLevelConfigs = (remap: Record<string, string>): void => {
 const to = (remap: Record<string, string>, from: string): string => remap[from] ?? from;
 
 /**
- * 启动时调用（App 初始化）。幂等：标记存在即跳过。
- * @returns 本次是否执行了迁移（false = 已迁移过或无旧数据）
  */
 export const migrateLegacyMusicSources = (): boolean => {
   const settingsStore = useSettingsStore();
@@ -94,7 +81,6 @@ export const migrateLegacyMusicSources = (): boolean => {
   ];
   const now = Date.now();
 
-  // 1. LX 脚本 → 插件库（hash 幂等，已导入的跳过）
   let order = plugins.length ? Math.max(...plugins.map((p) => p.order)) + 1 : 0;
   for (const script of scripts) {
     if (!script?.script) continue;
@@ -110,7 +96,6 @@ export const migrateLegacyMusicSources = (): boolean => {
       source: script.script,
       vars: [],
       userVars: {},
-      // 旧模型只有一个激活脚本；迁移后只有它是启用的
       enabled: script.id === activeId,
       order: order++,
       createdAt: script.createdAt ?? now,
@@ -118,7 +103,6 @@ export const migrateLegacyMusicSources = (): boolean => {
     });
   }
 
-  // 2. 旧 key remap（全局勾选 + 歌曲级配置）
   const remap = buildLegacyKeyRemap();
   const enabledSources = remapKeys((data.enabledMusicSources || []) as string[], remap);
   remapSongLevelConfigs(remap);
@@ -142,7 +126,7 @@ export const migrateLegacyMusicSources = (): boolean => {
 
   const migratedCount = plugins.length;
   console.log(
-    `[migration] 音源统一迁移完成：LX 脚本 ${scripts.length} 个入库（激活 ${activeId ? 1 : 0}），remap ${JSON.stringify(remap)}`
+    `[migration] Source migration complete: ${scripts.length} LX scripts stored (${activeId ? 1 : 0} active), remap ${JSON.stringify(remap)}`
   );
   return migratedCount > 0 || scripts.length > 0;
 };

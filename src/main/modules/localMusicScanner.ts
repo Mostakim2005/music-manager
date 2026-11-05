@@ -1,16 +1,12 @@
-// 本地音乐扫描模块
-// 负责文件系统递归扫描和音乐文件元数据提取，通过 IPC 暴露给渲染进程
-
 import * as crypto from 'crypto';
 import { app, ipcMain } from 'electron';
 import * as fs from 'fs';
 import * as mm from 'music-metadata';
-
-import { computeAudioFingerprint } from './audioFingerprint';
 import * as os from 'os';
 import * as path from 'path';
 
-/** 支持的音视频文件格式（含统一音视频队列支持） */
+import { computeAudioFingerprint } from './audioFingerprint';
+
 const SUPPORTED_AUDIO_FORMATS = [
   '.mp3',
   '.flac',
@@ -22,11 +18,15 @@ const SUPPORTED_AUDIO_FORMATS = [
   '.mp4',
   '.webm'
 ] as const;
-const DEFAULT_EXCLUDED_DIRS = new Set(['node_modules', '.git', '$RECYCLE.BIN', 'System Volume Information']);
+const DEFAULT_EXCLUDED_DIRS = new Set([
+  'node_modules',
+  '.git',
+  '$RECYCLE.BIN',
+  'System Volume Information'
+]);
 const METADATA_PARSE_CONCURRENCY = Math.min(8, Math.max(2, os.cpus().length));
 const MAX_COVER_BYTES = 8 * 1024 * 1024;
 
-/** 封面缓存目录：userData/AudioCovers/<hash>.<ext> */
 const COVER_DIR_NAME = 'AudioCovers';
 let cachedCoverDir: string | null = null;
 
@@ -36,13 +36,12 @@ function getCoverDir(): string {
   try {
     fs.mkdirSync(dir, { recursive: true });
   } catch (error) {
-    console.error('创建封面目录失败:', error);
+    console.error('Failed to create cover directory:', error);
   }
   cachedCoverDir = dir;
   return dir;
 }
 
-/** 从 mime 类型推断文件扩展名 */
 function extFromMime(mime: string | undefined): string {
   if (!mime) return 'jpg';
   const clean = mime.toLowerCase();
@@ -52,7 +51,6 @@ function extFromMime(mime: string | undefined): string {
   return 'jpg';
 }
 
-/** 常见外部封面文件名（不区分大小写匹配） */
 const FOLDER_COVER_NAMES = [
   'cover.jpg',
   'cover.jpeg',
@@ -68,7 +66,6 @@ const FOLDER_COVER_NAMES = [
   'front.webp'
 ];
 
-/** 从 native metadata 提取可能的封面（兼容 MP4 covr 及 Vorbis/FLAC PICTURE 块） */
 function extractNativePicture(metadata: mm.IAudioMetadata): mm.IPicture | undefined {
   if (metadata.common.picture && metadata.common.picture.length > 0) {
     return metadata.common.picture[0];
@@ -116,7 +113,6 @@ function extractNativePicture(metadata: mm.IAudioMetadata): mm.IPicture | undefi
   return undefined;
 }
 
-/** 寻找音频同级目录下的封面图片文件 */
 async function findFolderCoverFile(audioFilePath: string): Promise<string | null> {
   try {
     const dir = path.dirname(audioFilePath);
@@ -132,33 +128,22 @@ async function findFolderCoverFile(audioFilePath: string): Promise<string | null
       }
     }
   } catch {
-    // 忽略目录扫描异常
+    // Ignore unreadable directories
   }
   return null;
 }
 
 /**
- * 主进程返回的原始音乐元数据
- * 与渲染进程 LocalMusicMeta 类型保持一致
  */
 type LocalMusicMeta = {
-  /** 文件绝对路径 */
   filePath: string;
-  /** 歌曲标题 */
   title: string;
-  /** 艺术家名称 */
   artist: string;
-  /** 专辑名称 */
   album: string;
-  /** 时长（毫秒） */
   duration: number;
-  /** 封面图片缓存文件绝对路径，无封面时为 null */
   coverPath: string | null;
-  /** LRC 格式歌词文本，无歌词时为 null */
   lyrics: string | null;
-  /** 文件大小（字节） */
   fileSize: number;
-  /** 文件修改时间戳 */
   modifiedTime: number;
   /** Acoustic fingerprint (loudness envelope) for cross-format matching. */
   fingerprint?: string;
@@ -172,18 +157,12 @@ type ScannedMusicFile = {
 };
 
 /**
- * 判断文件扩展名是否为支持的音频格式
- * @param ext 文件扩展名（含点号，如 .mp3）
- * @returns 是否为支持的格式
  */
 function isSupportedFormat(ext: string): boolean {
   return (SUPPORTED_AUDIO_FORMATS as readonly string[]).includes(ext.toLowerCase());
 }
 
 /**
- * 从文件路径中提取歌曲标题（去除目录和扩展名）
- * @param filePath 文件路径
- * @returns 歌曲标题
  */
 function extractTitleFromFilename(filePath: string): string {
   const basename = path.basename(filePath);
@@ -195,12 +174,6 @@ function extractTitleFromFilename(filePath: string): string {
 }
 
 /**
- * 将封面图片落盘到 userData/AudioCovers/，返回绝对路径
- * 文件名按 sourceFilePath 的 sha256 + 推断扩展名拼成，幂等可覆盖
- * 若音频自身未内嵌封面，自动 fallback 到音频同级目录下的 cover/folder/front 图片
- * @param picture music-metadata 解析出的封面图片对象
- * @param sourceFilePath 音乐源文件绝对路径，用于生成稳定的封面文件名
- * @returns 封面文件绝对路径，无封面或写入失败返回 null
  */
 async function extractCoverToFile(
   picture: mm.IPicture | undefined,
@@ -209,12 +182,11 @@ async function extractCoverToFile(
   const hash = crypto.createHash('sha256').update(sourceFilePath).digest('hex');
   const coverDir = getCoverDir();
 
-  // 1. 若音频内嵌了封面（ID3 / FLAC / MP4 covr）
   if (picture && picture.data && picture.data.length > 0) {
     try {
       if (picture.data.length > MAX_COVER_BYTES) {
         console.warn(
-          `封面超过大小上限被跳过: ${sourceFilePath} (${picture.data.length} bytes > ${MAX_COVER_BYTES})`
+          `Cover skipped for exceeding size limit: ${sourceFilePath} (${picture.data.length} bytes > ${MAX_COVER_BYTES})`
         );
       } else {
         const ext = extFromMime(picture.format);
@@ -223,11 +195,10 @@ async function extractCoverToFile(
         return coverFile;
       }
     } catch (error) {
-      console.error('内嵌封面落盘失败:', error);
+      console.error('Failed to write embedded cover:', error);
     }
   }
 
-  // 2. Fallback: 检查音频同级目录是否存在 cover.jpg / folder.jpg / front.png 等图片
   const folderCover = await findFolderCoverFile(sourceFilePath);
   if (folderCover) {
     try {
@@ -236,7 +207,7 @@ async function extractCoverToFile(
       await fs.promises.copyFile(folderCover, coverFile);
       return coverFile;
     } catch (err) {
-      console.warn('复制目录封面失败:', folderCover, err);
+      console.warn('Failed to copy folder cover:', folderCover, err);
       return folderCover;
     }
   }
@@ -245,46 +216,35 @@ async function extractCoverToFile(
 }
 
 /**
- * 从 music-metadata 解析结果中提取歌词文本
- * @param lyrics music-metadata 解析出的歌词数组
- * @returns 歌词文本，提取失败返回 null
  */
 function extractLyrics(lyrics: mm.ILyricsTag[] | undefined): string | null {
   if (!lyrics || lyrics.length === 0) {
     return null;
   }
   try {
-    // 优先取第一条歌词的文本内容
     const firstLyric = lyrics[0];
     return firstLyric?.text ?? null;
   } catch (error) {
-    console.error('歌词提取失败:', error);
+    console.error('Failed to extract lyrics:', error);
     return null;
   }
 }
 
 /**
- * 递归扫描指定文件夹，返回所有支持格式的音乐文件路径
- * @param folderPath 要扫描的文件夹路径
- * @returns 音乐文件绝对路径列表
  */
 async function scanMusicFiles(folderPath: string): Promise<string[]> {
   const results: string[] = [];
 
-  // 检查文件夹是否存在
   if (!fs.existsSync(folderPath)) {
-    throw new Error(`文件夹不存在: ${folderPath}`);
+    throw new Error(`Folder does not exist: ${folderPath}`);
   }
 
-  // 检查是否为目录
   const stat = await fs.promises.stat(folderPath);
   if (!stat.isDirectory()) {
-    throw new Error(`路径不是文件夹: ${folderPath}`);
+    throw new Error(`Path is not a folder: ${folderPath}`);
   }
 
   /**
-   * 递归遍历目录
-   * @param dirPath 当前目录路径
    */
   async function walkDirectory(dirPath: string): Promise<void> {
     try {
@@ -297,10 +257,8 @@ async function scanMusicFiles(folderPath: string): Promise<string[]> {
           if (DEFAULT_EXCLUDED_DIRS.has(entry.name)) {
             continue;
           }
-          // 递归扫描子目录
           await walkDirectory(fullPath);
         } else if (entry.isFile()) {
-          // 检查文件扩展名是否为支持的音频格式
           const ext = path.extname(entry.name);
           if (isSupportedFormat(ext)) {
             results.push(fullPath);
@@ -308,8 +266,7 @@ async function scanMusicFiles(folderPath: string): Promise<string[]> {
         }
       }
     } catch (error) {
-      // 单个目录读取失败不中断整体扫描，记录错误后继续
-      console.error(`扫描目录失败: ${dirPath}`, error);
+      console.error(`Failed to scan directory: ${dirPath}`, error);
     }
   }
 
@@ -318,20 +275,17 @@ async function scanMusicFiles(folderPath: string): Promise<string[]> {
 }
 
 /**
- * 递归扫描指定文件夹，返回包含修改时间的音乐文件信息
- * @param folderPath 要扫描的文件夹路径
- * @returns 音乐文件信息列表
  */
 async function scanMusicFilesWithStats(folderPath: string): Promise<ScannedMusicFile[]> {
   const results: ScannedMusicFile[] = [];
 
   if (!fs.existsSync(folderPath)) {
-    throw new Error(`文件夹不存在: ${folderPath}`);
+    throw new Error(`Folder does not exist: ${folderPath}`);
   }
 
   const stat = await fs.promises.stat(folderPath);
   if (!stat.isDirectory()) {
-    throw new Error(`路径不是文件夹: ${folderPath}`);
+    throw new Error(`Path is not a folder: ${folderPath}`);
   }
 
   async function walkDirectory(dirPath: string): Promise<void> {
@@ -359,12 +313,12 @@ async function scanMusicFilesWithStats(folderPath: string): Promise<ScannedMusic
               modifiedTime: fileStat.mtimeMs
             });
           } catch (error) {
-            console.error(`读取文件信息失败: ${fullPath}`, error);
+            console.error(`Failed to read file info: ${fullPath}`, error);
           }
         }
       }
     } catch (error) {
-      console.error(`扫描目录失败: ${dirPath}`, error);
+      console.error(`Failed to scan directory: ${dirPath}`, error);
     }
   }
 
@@ -373,13 +327,8 @@ async function scanMusicFilesWithStats(folderPath: string): Promise<ScannedMusic
 }
 
 /**
- * 解析单个音乐文件的元数据
- * 解析失败时使用 fallback 默认值（文件名作标题），不抛出异常
- * @param filePath 音乐文件绝对路径
- * @returns 音乐元数据对象
  */
 async function parseMetadata(filePath: string): Promise<LocalMusicMeta> {
-  // 获取文件信息（大小和修改时间）
   let fileSize = 0;
   let modifiedTime = 0;
   try {
@@ -390,7 +339,6 @@ async function parseMetadata(filePath: string): Promise<LocalMusicMeta> {
     console.error(`Failed to read file info: ${filePath}`, error);
   }
 
-  // 构建 fallback 默认值
   const fallback: LocalMusicMeta = {
     filePath,
     title: extractTitleFromFilename(filePath),
@@ -434,7 +382,6 @@ async function parseMetadata(filePath: string): Promise<LocalMusicMeta> {
       fingerprintDurationSec
     };
   } catch (error) {
-    // 解析失败使用 fallback + 尝试目录封面，不中断流程
     console.warn(`Metadata parse failed, using fallback and folder cover: ${filePath}`, error);
     const folderCover = await findFolderCoverFile(filePath);
     return {
@@ -445,10 +392,6 @@ async function parseMetadata(filePath: string): Promise<LocalMusicMeta> {
 }
 
 /**
- * 批量解析音乐文件元数据
- * 内部逐个调用 parseMetadata，单文件失败不影响其他文件
- * @param filePaths 音乐文件路径列表
- * @returns 元数据对象列表
  */
 async function batchParseMetadata(filePaths: string[]): Promise<LocalMusicMeta[]> {
   if (filePaths.length === 0) {
@@ -472,33 +415,28 @@ async function batchParseMetadata(filePaths: string[]): Promise<LocalMusicMeta[]
 }
 
 /**
- * 初始化本地音乐扫描模块
- * 注册 IPC handler，供渲染进程调用
  */
 export function initializeLocalMusicScanner(): void {
-  // 扫描指定文件夹中的音乐文件
   ipcMain.handle('scan-local-music', async (_, folderPath: string) => {
     try {
       const files = await scanMusicFiles(folderPath);
       return { files, count: files.length };
     } catch (error: any) {
-      console.error('扫描本地音乐失败:', error);
-      return { error: error.message || '扫描失败' };
+      console.error('Failed to scan local music:', error);
+      return { error: error.message || 'Scan failed' };
     }
   });
 
-  // 扫描指定文件夹中的音乐文件（包含修改时间）
   ipcMain.handle('scan-local-music-with-stats', async (_, folderPath: string) => {
     try {
       const files = await scanMusicFilesWithStats(folderPath);
       return { files, count: files.length };
     } catch (error: any) {
-      console.error('扫描本地音乐(含文件信息)失败:', error);
-      return { error: error.message || '扫描失败' };
+      console.error('Failed to scan local music (with file info):', error);
+      return { error: error.message || 'Scan failed' };
     }
   });
 
-  // 批量解析音乐文件元数据
   ipcMain.handle('local-music:fingerprint', async (_, filePath: string) => {
     try {
       return await computeAudioFingerprint(filePath);
@@ -513,7 +451,7 @@ export function initializeLocalMusicScanner(): void {
       const metadataList = await batchParseMetadata(filePaths);
       return metadataList;
     } catch (error: any) {
-      console.error('解析本地音乐元数据失败:', error);
+      console.error('Failed to parse local music metadata: ', error);
       return [];
     }
   });

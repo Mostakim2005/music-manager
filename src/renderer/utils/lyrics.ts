@@ -126,7 +126,9 @@ export function alignSubLyrics(
   }
 
   if (subLyrics.length === primaryTimes.length) {
-    return primaryTexts.map((text, index) => (text && subLyrics[index] ? subLyrics[index].content : ''));
+    return primaryTexts.map((text, index) =>
+      text && subLyrics[index] ? subLyrics[index].content : ''
+    );
   }
 
   const subMap = new Map<number, string>();
@@ -304,5 +306,3 @@ export function shiftLinesTimestamps(
     text: l.text
   }));
 }
-
-

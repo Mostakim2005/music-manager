@@ -231,7 +231,7 @@ const refreshDiskCacheStats = async (silent: boolean = true) => {
       diskCacheStats.value = stats;
     }
   } catch (error) {
-    console.error('读取磁盘缓存统计失败:', error);
+    console.error('Failed to read disk cache stats:', error);
     if (!silent) {
       message.error(t('settings.system.messages.diskCacheStatsLoadFailed'));
     }
@@ -255,7 +255,7 @@ const loadDiskCacheConfig = async () => {
       };
     }
   } catch (error) {
-    console.error('读取磁盘缓存配置失败:', error);
+    console.error('Failed to read disk cache config:', error);
   }
 };
 
@@ -281,7 +281,7 @@ const applyDiskCacheConfig = async () => {
     }
     await refreshDiskCacheStats();
   } catch (error) {
-    console.error('更新磁盘缓存配置失败:', error);
+    console.error('Failed to update disk cache config:', error);
   } finally {
     applyingDiskCacheConfig.value = false;
   }
@@ -403,7 +403,7 @@ const selectCacheDirectory = async () => {
     }
     message.success(t('settings.system.messages.switchDirectorySuccess'));
   } catch (error) {
-    console.error('切换缓存目录失败:', error);
+    console.error('Failed to switch cache directory:', error);
     message.error(t('settings.system.messages.switchDirectoryFailed'));
   } finally {
     switchingCacheDirectory.value = false;
@@ -427,7 +427,7 @@ const clearDiskCacheByScope = async (scope: DiskCacheScope) => {
     }
     message.error(t('settings.system.messages.diskCacheClearFailed'));
   } catch (error) {
-    console.error('手动清理磁盘缓存失败:', error);
+    console.error('Failed to clear disk cache manually:', error);
     message.error(t('settings.system.messages.diskCacheClearFailed'));
   }
 };
@@ -436,9 +436,6 @@ const clearCache = async (selectedCacheTypes: string[]) => {
   const clearTasks = selectedCacheTypes.map(async (type) => {
     switch (type) {
       case 'history':
-        // 与旧版本行为对齐：只清音乐历史，不动 podcast/playlist/album/podcastRadio。
-        // 数据已迁到 pinia store（key=play-history-store），老 musicHistory key 由
-        // cleanupLegacyPlayHistoryStorage 在启动时清掉，这里不再需要 removeItem
         usePlayHistoryStore().clearMusicHistory();
         break;
       case 'favorite':
@@ -474,7 +471,7 @@ const clearCache = async (selectedCacheTypes: string[]) => {
             const keys = await cache.keys();
             keys.forEach((key) => cache.delete(key));
           } catch (error) {
-            console.error('清除图片缓存失败:', error);
+            console.error('Failed to clear image cache:', error);
           }
         }
         break;

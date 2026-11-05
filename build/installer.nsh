@@ -1,13 +1,13 @@
-# 设置 Windows 7 兼容性
+# Set Windows 7 compatibility
 ManifestDPIAware true
 ManifestSupportedOS all
 
 !macro customInit
-  # 检查系统版本
+  # Check the OS version
   ${If} ${AtLeastWin7}
-    # Windows 7 或更高版本
+    # Windows 7 or newer
   ${Else}
-    MessageBox MB_OK|MB_ICONSTOP "此应用程序需要 Windows 7 或更高版本。"
+    MessageBox MB_OK|MB_ICONSTOP "This application requires Windows 7 or newer."
     Abort
   ${EndIf}
 !macroend 

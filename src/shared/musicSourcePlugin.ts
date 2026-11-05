@@ -6,8 +6,6 @@ export type PluginMediaSource = {
 };
 
 /**
- * 本地音源插件音频代理协议。HTML audio 元素无法携带自定义请求头，
- * 带头的直链由主进程协议代理请求；下载队列复用同一编码携带请求头。
  */
 export const PLUGIN_MEDIA_SCHEME = 'pluginmedia';
 

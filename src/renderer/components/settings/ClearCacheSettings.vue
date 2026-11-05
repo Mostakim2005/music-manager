@@ -88,7 +88,6 @@ const clearCacheOptions = ref([
   }
 ]);
 
-// 同步外部show属性变化
 watch(
   () => props.show,
   (newVal) => {
@@ -96,7 +95,6 @@ watch(
   }
 );
 
-// 同步内部visible变化
 watch(
   () => visible.value,
   (newVal) => {

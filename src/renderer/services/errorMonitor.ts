@@ -130,8 +130,7 @@ export function initRendererErrorMonitor(app?: any): void {
         stack,
         context: {
           info,
-          componentName:
-            instance?.$options?.name || instance?._?.type?.name || 'AnonymousComponent'
+          componentName: instance?.$options?.name || instance?._?.type?.name || 'AnonymousComponent'
         }
       });
       if (typeof prevHandler === 'function') {

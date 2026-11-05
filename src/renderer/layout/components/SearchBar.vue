@@ -411,7 +411,9 @@ const isDark = computed({
 /* Search wrap */
 .search-wrap {
   position: relative;
-  transition: flex 0.25s ease, width 0.25s ease;
+  transition:
+    flex 0.25s ease,
+    width 0.25s ease;
 }
 .search-wrap--idle {
   width: 200px;

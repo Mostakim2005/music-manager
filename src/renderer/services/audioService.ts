@@ -1,10 +1,10 @@
-import type { AudioOutputDevice } from '@/types/audio';
-import type { SongResult } from '@/types/music';
-import { toPlayableMediaUrl } from '@/utils/localMediaUrl';
-import { getImgUrl, isElectron } from '@/utils';
 import { addListeningSeconds, recordTrackPlay } from '@/services/listeningStatsService';
 import { mediaCoordinator, setAudioServiceInstance } from '@/services/mediaCoordinator';
 import { getSongKey, savePosition } from '@/services/songLibrary';
+import type { AudioOutputDevice } from '@/types/audio';
+import type { SongResult } from '@/types/music';
+import { getImgUrl, isElectron } from '@/utils';
+import { toPlayableMediaUrl } from '@/utils/localMediaUrl';
 
 /** Smooth play/pause volume fade duration in milliseconds (ported from YesPlayMusic Player.js) */
 export const PLAY_PAUSE_FADE_DURATION = 200;
@@ -44,7 +44,6 @@ class AudioService {
   private operationLock = false;
   private operationLockTimer: ReturnType<typeof setTimeout> | null = null;
 
-  // 取消整轮加载（包括重试等待），并结算旧 Promise，防止旧歌曲抢回共享 audio。
   private pendingLoadCleanup: (() => void) | null = null;
 
   private readonly frequencies = [31, 62, 125, 250, 500, 1000, 2000, 4000, 8000, 16000];
@@ -237,8 +236,6 @@ class AudioService {
         ? track.ar.map((a) => a.name)
         : track.song?.artists?.map((a) => a.name);
       const album = track.al ? track.al.name : track.song?.album?.name;
-      // 上限提到 1024 提升 SMTC/AMLL 等系统媒体控件的封面清晰度（#595）；
-      // 走 getImgUrl 以正确处理 data:/local:// 封面与已带参数的 URL
       const artwork = ['96', '128', '192', '256', '384', '512', '1024'].map((size) => ({
         src: getImgUrl(track.picUrl, `${size}y${size}`),
         type: 'image/jpg',
@@ -252,7 +249,7 @@ class AudioService {
         artwork
       });
     } catch (error) {
-      console.error('更新媒体会话元数据时出错:', error);
+      console.error('Error updating media session metadata:', error);
     }
   }
 
@@ -275,7 +272,7 @@ class AudioService {
         });
       }
     } catch (error) {
-      console.error('更新媒体会话位置状态时出错:', error);
+      console.error('Error updating media session position:', error);
     }
   }
 
@@ -320,7 +317,7 @@ class AudioService {
     if (this.sourceNode) return; // Already initialized
 
     if (!isElectron) {
-      console.log('Web环境中跳过EQ设置，避免CORS问题');
+      console.log('Skipping EQ setup on web to avoid CORS issues');
       this.bypass = true;
       return;
     }
@@ -497,7 +494,7 @@ class AudioService {
 
     if (this.operationLockTimer) clearTimeout(this.operationLockTimer);
     this.operationLockTimer = setTimeout(() => {
-      console.warn('操作锁超时自动释放');
+      console.warn('Operation lock released after timeout');
       this.releaseOperationLock();
     }, 5000);
 
@@ -669,10 +666,6 @@ class AudioService {
           console.error('Audio load error:', error?.code, error?.message);
           this.emit('loaderror', { track, error });
 
-          // MEDIA_ERR_SRC_NOT_SUPPORTED(4)：源本身无效（URL 已失效/返回了
-          // 非音频内容），用同一 URL 重试毫无意义。此处只跳过重试并把失败抛给
-          // 调用方，由 playTrack 清解析缓存后重新取 URL；加载期间不发 url_expired，
-          // 避免与调用方的失败恢复同时抢占播放。播放中才失效的源由 bindAudioEvents 发事件。
           const isSrcNotSupported = error?.code === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED;
 
           if (!isSrcNotSupported && retryCount < maxRetries) {
@@ -683,7 +676,6 @@ class AudioService {
               tryPlay();
             }, 1000 * retryCount);
           } else {
-            // 初次加载失败交给调用方恢复，避免与切歌失败处理同时抢占播放。
             failLoad(new Error('Audio failed to load. Try another track.'));
           }
         };
@@ -831,11 +823,11 @@ class AudioService {
           this.audio.pause();
           this.applyVolume(this.volume);
         } catch (err) {
-          console.error('暂停音频失败:', err);
+          console.error('Failed to pause audio:', err);
         }
       }, durationMs);
     } catch (error) {
-      console.error('暂停音频失败:', error);
+      console.error('Failed to pause audio:', error);
     }
   }
 
@@ -851,7 +843,6 @@ class AudioService {
         // ignore
       }
     }
-    // 移除尚未结算的加载监听器，避免 stop 后旧的 canplay/error 仍触发过期回调
     if (this.pendingLoadCleanup) {
       this.pendingLoadCleanup();
       this.pendingLoadCleanup = null;
@@ -862,7 +853,7 @@ class AudioService {
       this.audio.removeAttribute('src');
       this.audio.load(); // Reset the element
     } catch (error) {
-      console.error('停止音频失败:', error);
+      console.error('Failed to stop audio:', error);
     }
     this.currentTrack = null;
     if ('mediaSession' in navigator) {
@@ -910,7 +901,7 @@ class AudioService {
       this.emit('seek_start', target);
       this.updateMediaSessionPositionState();
     } catch (error) {
-      console.error('Seek操作失败:', error);
+      console.error('Seek failed:', error);
     }
   }
 
@@ -935,7 +926,7 @@ class AudioService {
     try {
       localStorage.setItem('volume', normalizedVolume.toString());
     } catch (error) {
-      console.warn('保存音量失败:', error);
+      console.warn('Failed to save volume:', error);
     }
   }
 
@@ -970,9 +961,13 @@ class AudioService {
       remaining <= this.crossfadeDuration &&
       remaining > 0.05
     ) {
-      const progress = Math.min(1, Math.max(0, (this.crossfadeDuration - remaining) / this.crossfadeDuration));
+      const progress = Math.min(
+        1,
+        Math.max(0, (this.crossfadeDuration - remaining) / this.crossfadeDuration)
+      );
       // Equal-power cosine fade-out curve: cos(progress * pi / 2)
-      const equalPowerGain = Math.cos(progress * 0.5 * Math.PI) * this.getEffectiveVolume(this.volume);
+      const equalPowerGain =
+        Math.cos(progress * 0.5 * Math.PI) * this.getEffectiveVolume(this.volume);
       if (this.gainNode && this.context) {
         this.gainNode.gain.setValueAtTime(equalPowerGain, this.context.currentTime);
       } else if (typeof this.audio.volume === 'number') {
@@ -1163,7 +1158,9 @@ class AudioService {
     return { ...this.abLoop };
   }
 
-  public getBookmarks(trackId: string | number): Array<{ id: string; time: number; label: string }> {
+  public getBookmarks(
+    trackId: string | number
+  ): Array<{ id: string; time: number; label: string }> {
     if (!trackId) return [];
     try {
       const raw = JSON.parse(localStorage.getItem('music_manager_bookmarks_v1') || '{}');
@@ -1189,7 +1186,9 @@ class AudioService {
       list.push({
         id: `${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
         time: Math.round(time * 100) / 100,
-        label: label?.trim() || `Bookmark @ ${Math.floor(time / 60)}:${String(Math.floor(time % 60)).padStart(2, '0')}`
+        label:
+          label?.trim() ||
+          `Bookmark @ ${Math.floor(time / 60)}:${String(Math.floor(time % 60)).padStart(2, '0')}`
       });
       list.sort((a, b) => a.time - b.time);
       raw[key] = list;
@@ -1251,7 +1250,7 @@ class AudioService {
       const contextOk = !this.context || this.context.state === 'running';
       return isPlaying && !this._isLoading && contextOk;
     } catch (error) {
-      console.error('检查播放状态出错:', error);
+      console.error('Error checking playback state:', error);
       return false;
     }
   }
@@ -1269,7 +1268,7 @@ class AudioService {
         isDefault: device.deviceId === 'default' || device.deviceId === ''
       }));
     } catch (error) {
-      console.error('枚举音频设备失败:', error);
+      console.error('Failed to enumerate audio devices:', error);
       return [{ deviceId: 'default', label: 'Default', isDefault: true }];
     }
   }
@@ -1280,14 +1279,14 @@ class AudioService {
         await (this.context as any).setSinkId(deviceId);
         this.currentSinkId = deviceId;
         localStorage.setItem('audioOutputDeviceId', deviceId);
-        console.log('音频输出设备已切换:', deviceId);
+        console.log('Audio output device switched:', deviceId);
         return true;
       } else {
-        console.warn('AudioContext.setSinkId 不可用');
+        console.warn('AudioContext.setSinkId is not available');
         return false;
       }
     } catch (error) {
-      console.error('设置音频输出设备失败:', error);
+      console.error('Failed to set audio output device:', error);
       return false;
     }
   }
@@ -1302,7 +1301,7 @@ class AudioService {
       try {
         await this.setAudioOutputDevice(savedDeviceId);
       } catch (error) {
-        console.warn('恢复音频输出设备失败，回退到默认设备:', error);
+        console.warn('Failed to restore audio output device, falling back to default:', error);
         localStorage.removeItem('audioOutputDeviceId');
         this.currentSinkId = 'default';
       }

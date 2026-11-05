@@ -123,16 +123,12 @@
         title="Skip silence"
         description="Detects silent gaps below -50 dBFS at the start and end of a track and skips them"
       >
-        <n-switch
-          v-model:value="setData.enableSkipSilence"
-          @update:value="handleSkipSilenceChange"
-        >
+        <n-switch v-model:value="setData.enableSkipSilence" @update:value="handleSkipSilenceChange">
           <template #checked>{{ t('common.on') }}</template>
           <template #unchecked>{{ t('common.off') }}</template>
         </n-switch>
       </setting-item>
 
-      <!-- 纯净模式常驻开关：为播放页的隐式悬停唤出提供显式退出入口（#758） -->
       <setting-item
         :title="t('settings.playback.pureMode')"
         :description="t('settings.playback.pureModeDesc')"
@@ -203,7 +199,6 @@ const handleSkipSilenceChange = (enabled: boolean) => {
   audioService.setSkipSilence(enabled);
 };
 
-// 纯净模式开关：与播放页共享 localStorage 配置，通过自定义事件双向实时同步
 const pureModeEnabled = ref(readLyricConfig().pureModeEnabled);
 
 const handleLyricConfigChange = () => {

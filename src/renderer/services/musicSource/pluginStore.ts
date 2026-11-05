@@ -1,12 +1,5 @@
 /**
- * 插件库（重构后的唯一插件存储）
  *
- * 取代旧的三套并存：lxMusicScripts（LX 单脚本）、musicSourcePlugins（旧版）、
- * 以及散落在 UI 里的脚本管理逻辑。职责：
- *  - 安装（文件/URL/粘贴源码）：方言检测 → 元数据解析 → hash 幂等 →
- *    安装期沙箱探测（坏脚本拒绝入库，对齐 Flutter probe 的「探测即运行环境」原则）
- *  - CRUD / 启停 / 排序 / 用户变量
- *  - srcUrl 更新检查
  */
 import { useSettingsStore } from '@/store';
 import type {
@@ -43,7 +36,6 @@ const writePlugins = (plugins: MusicSourcePlugin[]): void => {
 export type PluginInstallResult = {
   plugin: MusicSourcePlugin;
   replaced: boolean;
-  /** 安装期探测结果（方法集 / 运行时变量 / LX 源表） */
   abilities: { methods: string[]; userVariables: MusicSourcePluginVar[] };
 };
 
@@ -63,9 +55,6 @@ export const MusicSourcePluginStore = {
   },
 
   /**
-   * 安装/更新插件。相同源码（hash 相同）重复导入视为更新，
-   * 保留启用状态、变量与排序。安装期跑一次真实沙箱探测：
-   * 脚本装载失败（语法错误/初始化超时）直接拒绝，坏脚本进不了库。
    */
   async installFromSource(
     source: string,
@@ -76,8 +65,6 @@ export const MusicSourcePluginStore = {
       throw new Error('Source script must not exceed 2 MB.');
     }
     if (!dialect) {
-      // 重度混淆脚本（lx 等标识符被编码，静态特征不可见）：试 LX 装载兜底，
-      // 注册了 request handler 即按 lxmusic 处理（对齐 Flutter probeLx 语义）
       const probe = new PluginSandboxRunner({
         id: `probe_${Date.now()}`,
         platform: 'probe',
@@ -95,7 +82,7 @@ export const MusicSourcePluginStore = {
         const meta = await probe.initialize();
         if (meta.methods.includes('getMediaSource')) dialect = 'lxmusic';
       } catch {
-        // 不是可装载的 LX 脚本
+        // Not a loadable LX script
       } finally {
         probe.dispose();
       }
@@ -108,7 +95,7 @@ export const MusicSourcePluginStore = {
 
     const existing = readPlugins();
     if (existing.length >= MAX_PLUGIN_COUNT) {
-      throw new Error(`音源插件数量已达上限（${MAX_PLUGIN_COUNT} 个）。`);
+      throw new Error(`Source plugin limit reached（${MAX_PLUGIN_COUNT} max).`);
     }
 
     const meta = parseMusicSourcePluginMeta(source);
@@ -142,7 +129,6 @@ export const MusicSourcePluginStore = {
       updatedAt: now
     };
 
-    // 安装期探测：起一次真实沙箱装载（与运行环境同形，网络由宿主桥接）
     disposePluginSandbox(id);
     let abilities: PluginInstallResult['abilities'];
     try {
@@ -151,7 +137,6 @@ export const MusicSourcePluginStore = {
       if (!runtime?.methods.length) {
         throw new Error('Script does not export any capability methods');
       }
-      // 运行时声明的变量（MusicFree userVariables）合并进插件条目
       if (runtime.userVariables.length) {
         plugin.vars = this.mergeVars(plugin.vars, runtime.userVariables);
         plugin.userVars = this.mergeUserVars(plugin.userVars, plugin.vars);
@@ -159,7 +144,9 @@ export const MusicSourcePluginStore = {
       abilities = { methods: runtime.methods, userVariables: runtime.userVariables };
     } catch (error) {
       disposePluginSandbox(id);
-      throw new Error(`脚本装载失败：${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(
+        `Script load failed: ${error instanceof Error ? error.message : String(error)}`
+      );
     }
 
     const next = prev
@@ -203,7 +190,6 @@ export const MusicSourcePluginStore = {
     writePlugins(sorted.map((plugin, order) => ({ ...plugin, order })));
   },
 
-  /** srcUrl 更新检查：拉最新源码与本地 hash 比对 */
   async checkUpdate(id: string): Promise<{ hasUpdate: boolean; latestSource?: string }> {
     const plugin = this.getPlugin(id);
     if (!plugin?.sourceUrl) return { hasUpdate: false };
@@ -212,7 +198,7 @@ export const MusicSourcePluginStore = {
       const remoteId = hashMusicSource(fetched.content);
       return { hasUpdate: remoteId !== plugin.id, latestSource: fetched.content };
     } catch (error) {
-      console.warn('[pluginStore] 检查更新失败:', error);
+      console.warn('[pluginStore] Update check failed:', error);
       return { hasUpdate: false };
     }
   },

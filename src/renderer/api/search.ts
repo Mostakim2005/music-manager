@@ -32,9 +32,7 @@ export interface SearchParams {
 
 export const getSearch = async (params: SearchParams) => {
   const searchType =
-    params.type === 'video' || params.type === 1004 || params.type === '1004'
-      ? 'video'
-      : 'music';
+    params.type === 'video' || params.type === 1004 || params.type === '1004' ? 'video' : 'music';
 
   try {
     const rawResults = await youtubeService.search(params.keywords, {

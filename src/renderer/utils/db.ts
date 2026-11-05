@@ -185,9 +185,7 @@ export async function cacheTrackSource(
 /**
  * Retrieve a cached audio binary source from IndexedDB in sub-millisecond time.
  */
-export async function getTrackSource(
-  id: number | string
-): Promise<TrackSourceRecord | null> {
+export async function getTrackSource(id: number | string): Promise<TrackSourceRecord | null> {
   try {
     const lookupId = Number.isNaN(Number(id)) ? id : Number(id);
     const track = await db.trackSources.get(lookupId);

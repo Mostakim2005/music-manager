@@ -6,10 +6,7 @@
 import Dexie, { type Table } from 'dexie';
 
 import { compareFingerprints } from '../../shared/acousticFingerprint';
-import {
-  findFingerprintDuplicatePairs,
-  type DuplicatePair
-} from '../../shared/duplicateDetection';
+import { type DuplicatePair, findFingerprintDuplicatePairs } from '../../shared/duplicateDetection';
 
 export interface Song {
   id: string; // uuid
@@ -312,9 +309,7 @@ export async function ingestLocalTrack(
   }
 
   const sameKeySongs = await db.songs.where('normKey').equals(normKey).toArray();
-  const exactCandidate = sameKeySongs.find(
-    (s) => Math.abs(s.durationSec - track.durationSec) <= 3
-  );
+  const exactCandidate = sameKeySongs.find((s) => Math.abs(s.durationSec - track.durationSec) <= 3);
 
   if (exactCandidate) {
     await linkVariant(exactCandidate.id, {
@@ -413,10 +408,7 @@ export async function linkVariant(
  */
 export async function mergeSongs(keepId: string, dropId: string): Promise<void> {
   const db = getLibraryDB();
-  const [keepSong, dropSong] = await Promise.all([
-    db.songs.get(keepId),
-    db.songs.get(dropId)
-  ]);
+  const [keepSong, dropSong] = await Promise.all([db.songs.get(keepId), db.songs.get(dropId)]);
   if (!keepSong || !dropSong) return;
 
   const dropVariants = await db.variants.where('songId').equals(dropId).toArray();

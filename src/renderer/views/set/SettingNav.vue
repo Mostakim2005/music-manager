@@ -29,9 +29,7 @@ export interface NavSection {
 }
 
 interface Props {
-  /** 导航项列表 */
   sections: NavSection[];
-  /** 当前激活的分组 ID */
   currentSection: string;
 }
 

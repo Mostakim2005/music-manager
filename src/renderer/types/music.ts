@@ -1,4 +1,3 @@
-// 音乐平台类型
 export type Platform =
   | 'youtube'
   | 'qq'
@@ -13,7 +12,6 @@ export type Platform =
   | `plugin:${string}`
   | string;
 
-// 默认平台列表
 export const DEFAULT_PLATFORMS: Platform[] = ['youtube'];
 
 export interface IRecommendMusic {
@@ -21,7 +19,6 @@ export interface IRecommendMusic {
   category: number;
   result: SongResult[];
 }
-// 逐字歌词单词数据
 export interface IWordData {
   text: string;
   startTime: number;
@@ -42,7 +39,6 @@ export interface ILyricText {
 export interface ILyric {
   lrcTimeArray: number[];
   lrcArray: ILyricText[];
-  // 新增字段标识是否包含逐字歌词
   hasWordByWord?: boolean;
 }
 
@@ -61,9 +57,7 @@ export interface SongResult {
   artists?: Artist[];
   al: Album;
   album?: Album;
-  /** 翻译名（外语歌曲的中文译名等，来自网易 API） */
   tns?: string[];
-  /** 别名 */
   alia?: string[];
   count: number;
   playMusicUrl?: string;
@@ -72,11 +66,8 @@ export interface SongResult {
   backgroundColor?: string;
   primaryColor?: string;
   source?: string;
-  // 过期时间
   expiredAt?: number;
-  // 获取时间
   createdAt?: number;
-  // 时长
   duration?: number;
   dt?: number;
   mv?: number;
@@ -282,7 +273,6 @@ export interface IArtists {
   trans: null;
 }
 
-// 音乐源类型定义
 export type MusicSourceType =
   | 'tencent'
   | 'kugou'
@@ -294,5 +284,3 @@ export type MusicSourceType =
   | 'qobuz'
   | 'deezer'
   | 'gdmusic';
-
-// 更多音乐相关的类型可以在这里定义

@@ -9,15 +9,15 @@ import vueScopedCss from 'eslint-plugin-vue-scoped-css';
 import globals from 'globals';
 
 export default [
-  // 忽略文件配置
+  // Ignored files
   {
     ignores: ['node_modules/**', '**/dist/**', 'out/**', '.gitignore']
   },
 
-  // 基础 JavaScript 配置
+  // Base JavaScript config
   js.configs.recommended,
 
-  // JavaScript 文件配置
+  // JavaScript file config
   {
     files: ['**/*.js', '**/*.cjs', '**/*.mjs'],
     languageOptions: {
@@ -34,7 +34,7 @@ export default [
     }
   },
 
-  // TypeScript 文件配置
+  // TypeScript file config
   {
     files: ['**/*.ts', '**/*.tsx'],
     languageOptions: {
@@ -50,10 +50,10 @@ export default [
       globals: {
         ...globals.node,
         ...globals.browser,
-        // Vue 3 特定全局变量
+        // Vue 3 specific globals
         defineProps: 'readonly',
         defineEmits: 'readonly',
-        // TypeScript 全局类型
+        // TypeScript global types
         NodeJS: 'readonly',
         ScrollBehavior: 'readonly',
         ScrollToOptions: 'readonly'
@@ -116,7 +116,7 @@ export default [
     }
   },
 
-  // Vue 文件配置
+  // Vue file config
   {
     files: ['**/*.vue'],
     languageOptions: {
@@ -129,10 +129,10 @@ export default [
       },
       globals: {
         ...globals.browser,
-        // Vue 3 特定全局变量
+        // Vue 3 specific globals
         defineProps: 'readonly',
         defineEmits: 'readonly',
-        // Vue 3 Composition API (如果使用了 unplugin-auto-import)
+        // Vue 3 Composition API (when unplugin-auto-import is used)
         ref: 'readonly',
         reactive: 'readonly',
         computed: 'readonly',
@@ -144,10 +144,10 @@ export default [
         nextTick: 'readonly',
         inject: 'readonly',
         provide: 'readonly',
-        // Naive UI (如果使用了 unplugin-auto-import)
+        // Naive UI (when unplugin-auto-import is used)
         useDialog: 'readonly',
         useMessage: 'readonly',
-        // TypeScript 全局类型
+        // TypeScript global types
         NodeJS: 'readonly',
         ScrollBehavior: 'readonly',
         ScrollToOptions: 'readonly'
@@ -161,7 +161,7 @@ export default [
       'vue-scoped-css': vueScopedCss
     },
     rules: {
-      // Vue 3 推荐规则
+      // Vue 3 recommended rules
       'vue/no-unused-vars': 'error',
       'vue/no-unused-components': 'error',
       'vue/no-multiple-template-root': 'off',
@@ -187,7 +187,7 @@ export default [
     }
   },
 
-  // TypeScript 类型定义文件配置
+  // TypeScript declaration file config
   {
     files: ['**/*.d.ts'],
     rules: {
@@ -198,7 +198,7 @@ export default [
     }
   },
 
-  // JavaScript 第三方库文件配置
+  // JavaScript third-party library file config
   {
     files: ['**/assets/**/*.js', '**/vendor/**/*.js', '**/lib/**/*.js'],
     rules: {
@@ -209,7 +209,7 @@ export default [
     }
   },
 
-  // 通用规则
+  // Shared rules
   {
     files: ['**/*.js', '**/*.ts', '**/*.vue'],
     rules: {

@@ -1,16 +1,16 @@
 /**
- * 音源注册表与迁移测试
+ * Music source registry and migration tests
  *
- * 覆盖重构后的两个核心决策：
- *  - orderedProviders：用户排序（musicSourceOrder）+ 歌曲级覆盖 + 失效键剔除
- *  - migrateLegacyMusicSources：LX 脚本入库、旧 key remap（全局/歌曲级）、排序初始化
+ * Covers the two core decisions of the refactor:
+ *  - orderedProviders: user ordering (musicSourceOrder) + per-song override + stale key removal
+ *  - migrateLegacyMusicSources: LX script ingest, legacy key remap (global/per-song), order init
  */
 import { createPinia, setActivePinia } from 'pinia';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { MusicSourcePlugin } from '../src/renderer/types/musicSourcePlugin';
 
-// node 环境无 localStorage：migration 与测试要用，挂最小实现
+// No localStorage in the node env: attach a minimal implementation for migration and tests
 const localStorageStub = (() => {
   let store = new Map<string, string>();
   return {
@@ -26,7 +26,7 @@ const localStorageStub = (() => {
 })();
 (globalThis as any).localStorage = localStorageStub;
 
-// —— 测试环境最小 stub ——————————————————————————————
+// ---- minimal test-environment stubs ----
 
 const mockSetData: Record<string, any> = {};
 
@@ -45,7 +45,7 @@ vi.mock('@/store', () => ({
   usePlayerStore: () => ({})
 }));
 
-// store/modules/settings 的真实模块也依赖 '@/store' barrel —— 直接拦截
+// The real store/modules/settings module also depends on the '@/store' barrel -- intercept it directly
 vi.mock('@/store/modules/settings', () => ({
   useSettingsStore: () => settingsStoreMock
 }));
@@ -79,13 +79,13 @@ beforeEach(() => {
 });
 
 describe('registry: orderedProviders', () => {
-  it('内置 provider 齐全且 key 稳定', () => {
+  it('ships every built-in provider with stable keys', () => {
     expect(builtinProviders.map((p) => p.key)).toEqual([
       'youtube'
     ]);
   });
 
-  it('未配置排序时按注册表默认序，失效键不进链', () => {
+  it('uses registry default order when unconfigured; stale keys stay out of the chain', () => {
     const { orderedProviders } = useMusicSourceRegistry();
     mockSetData.enabledMusicSources = ['youtube', 'not-exist-key'];
 
@@ -93,7 +93,7 @@ describe('registry: orderedProviders', () => {
     expect(keys).toEqual(['youtube']);
   });
 
-  it('musicSourceOrder 决定尝试顺序', () => {
+  it('musicSourceOrder decides the attempt order', () => {
     const { orderedProviders } = useMusicSourceRegistry();
     mockSetData.enabledMusicSources = ['youtube'];
     mockSetData.musicSourceOrder = ['youtube'];
@@ -101,7 +101,7 @@ describe('registry: orderedProviders', () => {
     expect(orderedProviders().map((p) => p.key)).toEqual(['youtube']);
   });
 
-  it('歌曲级覆盖优先于全局集合', () => {
+  it('per-song override wins over the global set', () => {
     const { orderedProviders } = useMusicSourceRegistry();
     mockSetData.enabledMusicSources = ['youtube'];
     mockSetData.musicSourceOrder = ['youtube'];
@@ -109,7 +109,7 @@ describe('registry: orderedProviders', () => {
     expect(orderedProviders(['youtube']).map((p) => p.key)).toEqual(['youtube']);
   });
 
-  it('插件以 plugin:<id> 进入注册表且停用后被剔除', () => {
+  it('registers plugins as plugin:<id> and drops them once disabled', () => {
     mockSetData.musicSourcePlugins = [
       {
         id: 'abc',
@@ -129,7 +129,7 @@ describe('registry: orderedProviders', () => {
     expect(providers.value.map((p) => p.key)).toContain('plugin:abc');
 
     mockSetData.enabledMusicSources = ['youtube', 'plugin:abc'];
-    // available=false（停用）→ 剔除
+    // available=false (disabled) -> removed
     expect(orderedProviders().map((p) => p.key)).toEqual(['youtube']);
   });
 });
@@ -144,7 +144,7 @@ describe('migration: migrateLegacyMusicSources', () => {
     createdAt: 1700000000000
   };
 
-  it('LX 脚本入库 + 激活脚本启用 + 旧 key remap', async () => {
+  it('ingests LX scripts, enables the active one, and remaps legacy keys', async () => {
     const { hashMusicSource } = await import('../src/renderer/utils/musicSourcePlugin');
     mockSetData.lxMusicScripts = [lxScript];
     mockSetData.activeLxMusicApiId = 'lx_1';
@@ -158,16 +158,16 @@ describe('migration: migrateLegacyMusicSources', () => {
     expect(plugins[0].enabled).toBe(true);
     expect(plugins[0].id).toBe(hashMusicSource(lxScript.script));
 
-    // 旧 key remap
+    // legacy key remap
     expect(mockSetData.enabledMusicSources).toContain(`plugin:${hashMusicSource(lxScript.script)}`);
 
-    // 排序已初始化（含 youtube 在前）
+    // ordering initialized (youtube first)
     expect(mockSetData.musicSourceOrder[0]).toBe('youtube');
-    // 幂等标记
+    // idempotency flag
     expect(mockSetData.musicSourceUnifiedMigrated).toBe(true);
   });
 
-  it('非激活的 LX 脚本入库但停用', () => {
+  it('ingests inactive LX scripts but leaves them disabled', () => {
     mockSetData.lxMusicScripts = [lxScript];
     mockSetData.activeLxMusicApiId = null;
 
@@ -175,7 +175,7 @@ describe('migration: migrateLegacyMusicSources', () => {
     expect((mockSetData.musicSourcePlugins as MusicSourcePlugin[])[0].enabled).toBe(false);
   });
 
-  it('歌曲级配置里的旧 key 同步 remap', async () => {
+  it('remaps legacy keys in per-song config too', async () => {
     const { hashMusicSource } = await import('../src/renderer/utils/musicSourcePlugin');
     mockSetData.lxMusicScripts = [lxScript];
     mockSetData.activeLxMusicApiId = 'lx_1';
@@ -189,7 +189,7 @@ describe('migration: migrateLegacyMusicSources', () => {
     expect(localStorage.getItem('song_source_type_123')).toBe('manual');
   });
 
-  it('幂等：已迁移过直接跳过', () => {
+  it('is idempotent: skips when already migrated', () => {
     mockSetData.musicSourceUnifiedMigrated = true;
     mockSetData.lxMusicScripts = [lxScript];
 

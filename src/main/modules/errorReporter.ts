@@ -254,7 +254,9 @@ function startDiagnosticsHttpServer(port = 41820): Promise<void> {
         actualPort = address.port;
       }
       activeDiagnosticsUrl = `http://127.0.0.1:${actualPort}/api/diagnostics`;
-      console.log(`[ErrorReporter] Diagnostics HTTP Watch API listening at ${activeDiagnosticsUrl}`);
+      console.log(
+        `[ErrorReporter] Diagnostics HTTP Watch API listening at ${activeDiagnosticsUrl}`
+      );
       httpServer = server;
       resolve();
     });
@@ -320,8 +322,7 @@ export function initializeErrorReporter(): void {
         filters: [{ name: 'JSON Files', extensions: ['json'] }]
       });
 
-      const targetPath =
-        !result.canceled && result.filePath ? result.filePath : defaultExportPath;
+      const targetPath = !result.canceled && result.filePath ? result.filePath : defaultExportPath;
       const dir = path.dirname(targetPath);
       if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });

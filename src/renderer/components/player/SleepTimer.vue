@@ -25,7 +25,6 @@
     </div>
 
     <div v-else class="sleep-timer-options">
-      <!-- 按时间定时 -->
       <div class="option-section">
         <h4 class="option-title">{{ t('player.sleepTimer.timeMode') }}</h4>
         <div class="time-options">
@@ -62,7 +61,6 @@
         </div>
       </div>
 
-      <!-- 按歌曲数定时 -->
       <div class="option-section">
         <h4 class="option-title">{{ t('player.sleepTimer.songsMode') }}</h4>
         <div class="songs-options">
@@ -99,7 +97,6 @@
         </div>
       </div>
 
-      <!-- 播放完列表后关闭 -->
       <div class="option-section playlist-end-section">
         <n-button block class="playlist-end-btn" @click="handleSetPlaylistEndTimer" round>
           {{ t('player.sleepTimer.playlistEnd') }}
@@ -119,16 +116,12 @@ import { usePlayerStore } from '@/store/modules/player';
 const { t } = useI18n();
 const playerStore = usePlayerStore();
 
-// 从store获取所有相关状态
 const { sleepTimer } = storeToRefs(playerStore);
 
-// 本地状态，用于UI展示
 const customMinutes = ref(30);
 const customSongs = ref(5);
-// 添加一个刷新触发变量，用于强制更新倒计时
 const refreshTrigger = ref(0);
 
-// 计算属性，判断定时器状态
 const hasTimerActive = computed(() => {
   return playerStore.hasSleepTimerActive;
 });
@@ -137,34 +130,27 @@ const timerType = computed(() => {
   return sleepTimer.value.type;
 });
 
-// 剩余歌曲数
 const remainingSongs = computed(() => {
   return playerStore.sleepTimerRemainingSongs;
 });
 
-// 处理设置时间定时器
 function handleSetTimeTimer(minutes: number) {
   playerStore.setSleepTimerByTime(minutes);
 }
 
-// 处理设置歌曲数定时器
 function handleSetSongsTimer(songs: number) {
   playerStore.setSleepTimerBySongs(songs);
 }
 
-// 处理设置播放列表结束定时器
 function handleSetPlaylistEndTimer() {
   playerStore.setSleepTimerAtPlaylistEnd();
 }
 
-// 处理取消定时器
 function handleCancelTimer() {
   playerStore.clearSleepTimer();
 }
 
-// 格式化剩余时间为 HH:MM:SS
 const formattedRemainingTime = computed(() => {
-  // 依赖刷新触发器强制更新
   void refreshTrigger.value;
 
   if (timerType.value !== 'time' || !sleepTimer.value.endTime) {
@@ -185,16 +171,13 @@ const formattedRemainingTime = computed(() => {
   return `${formattedHours}:${formattedMinutes}:${formattedSeconds}`;
 });
 
-// 监听剩余时间变化
 let timerInterval: number | null = null;
 
 onMounted(() => {
-  // 如果当前有定时器，开始更新UI
   if (hasTimerActive.value && timerType.value === 'time') {
     startTimerUpdate();
   }
 
-  // 监听定时器状态变化
   watch(
     () => [hasTimerActive.value, timerType.value],
     ([newHasTimer, newType]) => {
@@ -207,18 +190,14 @@ onMounted(() => {
   );
 });
 
-// 启动定时器更新UI
 function startTimerUpdate() {
-  stopTimerUpdate(); // 先停止之前的计时器
+  stopTimerUpdate();
 
-  // 每秒更新UI
   timerInterval = window.setInterval(() => {
-    // 更新刷新触发器，强制重新计算
     refreshTrigger.value = Date.now();
   }, 500) as unknown as number;
 }
 
-// 停止定时器更新UI
 function stopTimerUpdate() {
   if (timerInterval) {
     clearInterval(timerInterval);
@@ -239,11 +218,9 @@ onUnmounted(() => {
     @apply text-lg font-medium mb-4 text-center;
   }
 
-  // 激活状态显示
   .sleep-timer-active {
     @apply flex flex-col items-center;
 
-    // 定时状态卡片
     .timer-status {
       @apply flex flex-col items-center justify-center p-8 mb-5 w-full rounded-2xl dark:bg-gray-800 dark:bg-opacity-40 dark:shadow-gray-900/20;
       background-color: rgba(255, 255, 255, 0.5);
@@ -252,7 +229,6 @@ onUnmounted(() => {
         0 0 0 1px rgba(255, 255, 255, 0.1);
       transition: all 0.3s ease;
 
-      // 定时值显示
       .timer-value {
         @apply text-4xl font-semibold mb-2 text-green-500;
 
@@ -262,13 +238,11 @@ onUnmounted(() => {
         }
       }
 
-      // 标签文本
       .timer-label {
         @apply text-base text-gray-600 dark:text-gray-300;
       }
     }
 
-    // 取消按钮
     .cancel-timer-btn {
       @apply w-full py-3 text-base rounded-full transition-all duration-200;
 
@@ -282,26 +256,21 @@ onUnmounted(() => {
     }
   }
 
-  // 定时器选项区域
   .sleep-timer-options {
     @apply flex flex-col;
 
-    // 选项部分
     .option-section {
       @apply mb-7;
 
-      // 选项标题
       .option-title {
         @apply text-base font-medium mb-4 text-gray-700 dark:text-gray-200;
         letter-spacing: 0.3px;
       }
 
-      // 时间/歌曲选项容器
       .time-options,
       .songs-options {
         @apply flex flex-wrap gap-2;
 
-        // 选项按钮共享样式
         .time-option-btn,
         .songs-option-btn {
           @apply px-4 py-2 rounded-full text-gray-800 dark:text-gray-200 transition-all duration-200;
@@ -321,18 +290,15 @@ onUnmounted(() => {
           }
         }
 
-        // 自定义输入区域
         .custom-time,
         .custom-songs {
           @apply flex items-center space-x-2 mt-4 w-full;
 
-          // 输入框
           .custom-time-input,
           .custom-songs-input {
             @apply flex-1;
           }
 
-          // 设置按钮
           .custom-time-btn,
           .custom-songs-btn {
             @apply py-2 px-4 rounded-full transition-all duration-200;
@@ -341,7 +307,6 @@ onUnmounted(() => {
       }
     }
 
-    // 播放列表结束选项
     .playlist-end-section {
       @apply mt-2;
 

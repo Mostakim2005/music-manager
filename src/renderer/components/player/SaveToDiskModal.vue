@@ -14,9 +14,7 @@
       <div class="flex items-center justify-between px-6 py-4 border-b border-white/10">
         <div class="flex items-center gap-2">
           <i class="ri-download-cloud-2-line text-emerald-400 text-xl"></i>
-          <h2 id="save-modal-title" class="text-base font-semibold text-white">
-            Save to Disk
-          </h2>
+          <h2 id="save-modal-title" class="text-base font-semibold text-white">Save to Disk</h2>
         </div>
         <button
           type="button"
@@ -35,7 +33,9 @@
             Destination Folder
           </label>
           <div class="flex gap-2">
-            <div class="flex-1 px-3 py-2 bg-black/40 border border-white/10 rounded-xl text-xs font-mono text-white/80 truncate flex items-center">
+            <div
+              class="flex-1 px-3 py-2 bg-black/40 border border-white/10 rounded-xl text-xs font-mono text-white/80 truncate flex items-center"
+            >
               {{ destinationFolder || 'Resolving download folder...' }}
             </div>
             <button
@@ -51,7 +51,9 @@
 
         <!-- Track Info Preview -->
         <div class="p-3 rounded-xl bg-white/5 border border-white/5 flex items-center gap-3">
-          <div class="w-10 h-10 rounded-lg bg-black/40 overflow-hidden shrink-0 flex items-center justify-center">
+          <div
+            class="w-10 h-10 rounded-lg bg-black/40 overflow-hidden shrink-0 flex items-center justify-center"
+          >
             <img v-if="trackThumb" :src="trackThumb" alt="" class="w-full h-full object-cover" />
             <i v-else class="ri-music-2-line text-white/40"></i>
           </div>
@@ -64,10 +66,14 @@
         <!-- 3 Save Options -->
         <div class="space-y-3">
           <!-- 1. Save Audio -->
-          <div class="p-4 rounded-xl bg-white/5 border border-white/5 hover:border-emerald-500/40 transition">
+          <div
+            class="p-4 rounded-xl bg-white/5 border border-white/5 hover:border-emerald-500/40 transition"
+          >
             <div class="flex items-center justify-between">
               <div class="flex items-center gap-3">
-                <div class="w-9 h-9 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-lg">
+                <div
+                  class="w-9 h-9 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-lg"
+                >
                   <i class="ri-music-fill"></i>
                 </div>
                 <div>
@@ -88,10 +94,14 @@
           </div>
 
           <!-- 2. Save Video -->
-          <div class="p-4 rounded-xl bg-white/5 border border-white/5 hover:border-blue-500/40 transition space-y-3">
+          <div
+            class="p-4 rounded-xl bg-white/5 border border-white/5 hover:border-blue-500/40 transition space-y-3"
+          >
             <div class="flex items-center justify-between">
               <div class="flex items-center gap-3">
-                <div class="w-9 h-9 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center text-lg">
+                <div
+                  class="w-9 h-9 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center text-lg"
+                >
                   <i class="ri-video-fill"></i>
                 </div>
                 <div>
@@ -129,10 +139,14 @@
           </div>
 
           <!-- 3. Save Lyrics (.lrc) -->
-          <div class="p-4 rounded-xl bg-white/5 border border-white/5 hover:border-purple-500/40 transition">
+          <div
+            class="p-4 rounded-xl bg-white/5 border border-white/5 hover:border-purple-500/40 transition"
+          >
             <div class="flex items-center justify-between">
               <div class="flex items-center gap-3">
-                <div class="w-9 h-9 rounded-lg bg-purple-500/20 text-purple-400 flex items-center justify-center text-lg">
+                <div
+                  class="w-9 h-9 rounded-lg bg-purple-500/20 text-purple-400 flex items-center justify-center text-lg"
+                >
                   <i class="ri-file-text-line"></i>
                 </div>
                 <div>
@@ -348,7 +362,9 @@ const saveVideo = async () => {
         kind: 'video',
         height,
         targetDir: destinationFolder.value,
-        fileBaseName: sanitizeFilename(`${props.song?.name || 'video'} - ${songArtist.value} (${height}p)`),
+        fileBaseName: sanitizeFilename(
+          `${props.song?.name || 'video'} - ${songArtist.value} (${height}p)`
+        ),
         embedLink: true
       },
       async (progress) => {

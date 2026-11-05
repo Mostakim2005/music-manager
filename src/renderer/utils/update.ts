@@ -47,15 +47,12 @@ export interface UpdateResult {
   } | null;
 }
 
-// 缓存相关配置
 const CACHE_KEY = 'github_proxy_nodes';
-const CACHE_EXPIRE_TIME = 1000 * 60 * 10; // 10分钟过期
+const CACHE_EXPIRE_TIME = 1000 * 60 * 10;
 
-// 请求配置
-const REQUEST_TIMEOUT = 2000; // 2秒超时
+const REQUEST_TIMEOUT = 2000;
 
 /**
- * 从缓存获取代理节点
  */
 const getCachedProxyNodes = (): { nodes: string[]; timestamp: number } | null => {
   const cached = localStorage.getItem(CACHE_KEY);
@@ -69,7 +66,6 @@ const getCachedProxyNodes = (): { nodes: string[]; timestamp: number } | null =>
 };
 
 /**
- * 缓存代理节点
  */
 const cacheProxyNodes = (nodes: string[]) => {
   localStorage.setItem(
@@ -82,36 +78,30 @@ const cacheProxyNodes = (nodes: string[]) => {
 };
 
 /**
- * 获取代理节点列表
  */
 export const getProxyNodes = async (): Promise<string[]> => {
-  // 尝试从缓存获取
   const cached = getCachedProxyNodes();
   if (cached) {
     return cached.nodes;
   }
 
   try {
-    // 获取最新代理节点
     const { data } = await axios.get<ProxyResponse>('https://api.akams.cn/github', {
       timeout: REQUEST_TIMEOUT
     });
     if (data.code === 200) {
-      // 按速度排序并获取前10个节点
       const nodes = data.data
         .sort((a, b) => b.speed - a.speed)
         .slice(0, 10)
         .map((node) => node.url);
 
-      // 缓存节点
       cacheProxyNodes(nodes);
       return nodes;
     }
   } catch (error) {
-    console.error('获取代理节点失败:', error);
+    console.error('Failed to fetch proxy node:', error);
   }
 
-  // 使用备用节点
   return [
     'https://gh.lk.cc',
     'https://ghproxy.cn',
@@ -123,18 +113,14 @@ export const getProxyNodes = async (): Promise<string[]> => {
 };
 
 /**
- * 获取 GitHub 最新发布版本信息
  */
 export const getLatestReleaseInfo = async (): Promise<GithubReleaseInfo | null> => {
   try {
     const token = import.meta.env.VITE_GITHUB_TOKEN;
     const headers = {};
-    // 构建 API URL 列表
     const apiUrls = [
-      // 原始地址
       'https://api.github.com/repos/algerkong/AlgerMusicPlayer/releases/latest',
 
-      // 使用代理节点
       'http://music.alger.fun/package.json'
     ];
 
@@ -150,7 +136,6 @@ export const getLatestReleaseInfo = async (): Promise<GithubReleaseInfo | null> 
         });
 
         if (url.includes('package.json')) {
-          // 如果是 package.json，获取对应的 CHANGELOG
           const changelogUrl = url.replace('package.json', 'CHANGELOG.md');
           const changelogResponse = await axios.get(changelogUrl, {
             timeout: REQUEST_TIMEOUT
@@ -165,29 +150,24 @@ export const getLatestReleaseInfo = async (): Promise<GithubReleaseInfo | null> 
         }
         return response.data;
       } catch (err) {
-        console.warn(`尝试访问 ${url} 失败:`, err);
+        console.warn(`Failed to reach ${url}`, err);
         continue;
       }
     }
-    throw new Error('所有 API 地址均无法访问');
+    throw new Error('None of the API endpoints are reachable');
   } catch (error) {
-    console.error('获取 GitHub Release 信息失败:', error);
+    console.error('Failed to fetch GitHub release info:', error);
     return null;
   }
 };
 
 /**
- * 格式化时间
  */
 export const formatDate = (dateStr: string): string => {
   return useDateFormat(new Date(dateStr), 'YYYY-MM-DD HH:mm').value;
 };
 
 /**
- * 比较两个版本号
- * @param v1 版本号1
- * @param v2 版本号2
- * @returns 如果v1大于v2返回1，如果v1小于v2返回-1，如果相等返回0
  */
 export const compareVersions = (v1: string, v2: string): number => {
   const v1Parts = v1.split('.').map(Number);
@@ -205,7 +185,6 @@ export const compareVersions = (v1: string, v2: string): number => {
 };
 
 /**
- * 检查更新
  */
 export const checkUpdate = async (
   currentVersion: string = config.version
@@ -218,7 +197,6 @@ export const checkUpdate = async (
     }
 
     const latestVersion = releaseInfo.tag_name.replace('v', '');
-    // 比较版本号，只有当新版本大于当前版本时才返回更新信息
     if (compareVersions(latestVersion, currentVersion) <= 0) {
       return null;
     }
@@ -231,7 +209,7 @@ export const checkUpdate = async (
       currentVersion,
       releaseInfo: {
         tag_name: latestVersion,
-        body: `## 更新内容\n\n- 版本: ${latestVersion}\n${releaseInfo.body}`,
+        body: `## Release notes\n\n- Version: ${latestVersion}\n${releaseInfo.body}`,
         html_url: releaseInfo.html_url,
         assets: releaseInfo.assets.map((asset) => ({
           browser_download_url: asset.browser_download_url,
@@ -240,7 +218,7 @@ export const checkUpdate = async (
       }
     };
   } catch (error) {
-    console.error('检查更新失败:', error);
+    console.error('Update check failed:', error);
     return null;
   }
 };

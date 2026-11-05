@@ -151,7 +151,7 @@ const parsedReleaseNotes = computed(() => {
   try {
     return marked.parse(releaseNotes) as string;
   } catch (error) {
-    console.error('Markdown 解析失败:', error);
+    console.error('Markdown failed to resolve:', error);
     return releaseNotes;
   }
 });
@@ -244,7 +244,7 @@ const handlePrimaryAction = async () => {
         break;
     }
   } catch (error) {
-    console.error('执行更新操作失败:', error);
+    console.error('Update failed:', error);
     message.error(t('comp.update.autoUpdateFailed'));
   }
 };
@@ -258,7 +258,7 @@ const initializeUpdateState = async () => {
       await window.api.checkAppUpdate(false);
     }
   } catch (error) {
-    console.error('初始化更新状态失败:', error);
+    console.error('Failed to initialize update state:', error);
     settingsStore.setAppUpdateState(createDefaultAppUpdateState());
   }
 };

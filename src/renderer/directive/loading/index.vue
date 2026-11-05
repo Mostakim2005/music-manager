@@ -17,7 +17,7 @@ defineProps({
   tip: {
     type: String,
     default() {
-      return '加载中...';
+      return 'Loading...';
     }
   },
   maskBackground: {

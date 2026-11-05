@@ -1,10 +1,5 @@
 /**
- * 音源注册表：一切音源（内置 + 插件）的唯一身份来源
  *
- * UI（音源勾选/管理/重解析弹窗）与解析器（resolver）都从这里取
- * provider 列表；音源顺序与启停只有一个模型 —— musicSourceOrder
- * （有序 key 数组）+ enabledMusicSources（启用集合），不再有
- * 策略 priority × 插件 order 的双层排序。
  */
 import { computed } from 'vue';
 
@@ -25,7 +20,6 @@ const PLUGIN_ICON_NAMES = [
   'ri-magic-fill'
 ];
 
-/** 插件 → provider（解析统一走沙箱 Runner，方言差异已收敛在 worker） */
 export const pluginToProvider = (plugin: MusicSourcePlugin, index = 0): MusicSourceProvider => ({
   key: `plugin:${plugin.id}`,
   name: plugin.name,
@@ -46,7 +40,6 @@ export const pluginToProvider = (plugin: MusicSourcePlugin, index = 0): MusicSou
 export const useMusicSourceRegistry = () => {
   const settingsStore = useSettingsStore();
 
-  /** 全部 provider：内置 + 已安装插件（按插件 order） */
   const providers = computed<MusicSourceProvider[]>(() => {
     const plugins = ((settingsStore.setData.musicSourcePlugins || []) as MusicSourcePlugin[])
       .slice()
@@ -59,9 +52,6 @@ export const useMusicSourceRegistry = () => {
     providers.value.find((provider) => provider.key === key);
 
   /**
-   * 参与解析的 provider（按用户排序）。
-   * @param sourceKeys 歌曲级覆盖（重解析弹窗/单歌音源配置）；缺省用全局启用集合。
-   *   与 Flutter 的 resolveKeys 语义一致：失效键（已卸载/停用的插件）不进链。
    */
   const orderedProviders = (sourceKeys?: string[]): MusicSourceProvider[] => {
     const enabledKeys = sourceKeys ?? (settingsStore.setData.enabledMusicSources || []);
@@ -75,7 +65,6 @@ export const useMusicSourceRegistry = () => {
         const ia = orderIndex.has(a.key) ? orderIndex.get(a.key)! : Number.MAX_SAFE_INTEGER;
         const ib = orderIndex.has(b.key) ? orderIndex.get(b.key)! : Number.MAX_SAFE_INTEGER;
         if (ia !== ib) return ia - ib;
-        // 未入排序表的按默认序（注册表声明顺序）
         return providers.value.indexOf(a) - providers.value.indexOf(b);
       });
   };

@@ -1,4 +1,4 @@
-import { spawn, execFileSync } from 'child_process';
+import { execFileSync, spawn } from 'child_process';
 import crypto from 'crypto';
 import { app, BrowserWindow, ipcMain } from 'electron';
 import fs from 'fs';
@@ -82,7 +82,9 @@ let proxyServerPort = 0;
  */
 export function getYtDlpPath(): string {
   const binaryName = process.platform === 'win32' ? 'yt-dlp.exe' : 'yt-dlp';
-  const resourceRoot = app.isPackaged ? process.resourcesPath : path.join(__dirname, '../../resources');
+  const resourceRoot = app.isPackaged
+    ? process.resourcesPath
+    : path.join(__dirname, '../../resources');
 
   const binPath = path.join(resourceRoot, 'bin', binaryName);
   if (fs.existsSync(binPath)) {
@@ -103,7 +105,9 @@ export function getYtDlpPath(): string {
  */
 export function getFfmpegPath(): string {
   const binaryName = process.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg';
-  const resourceRoot = app.isPackaged ? process.resourcesPath : path.join(__dirname, '../../resources');
+  const resourceRoot = app.isPackaged
+    ? process.resourcesPath
+    : path.join(__dirname, '../../resources');
 
   const binPath = path.join(resourceRoot, 'bin', binaryName);
   if (fs.existsSync(binPath)) {
@@ -252,7 +256,7 @@ export function ensureProxyServer(): Promise<number> {
         'Content-Type': 'video/mp4',
         'Accept-Ranges': 'none',
         'Transfer-Encoding': 'chunked',
-        'Connection': 'keep-alive',
+        Connection: 'keep-alive',
         'Access-Control-Allow-Origin': '*'
       });
 
@@ -394,7 +398,9 @@ async function runYtDlp(args: string[]): Promise<string> {
  */
 export async function getYtDlpJson(idOrUrl: string): Promise<any> {
   const videoId = extractVideoId(idOrUrl) || idOrUrl;
-  const target = videoId.startsWith('http') ? videoId : `https://www.youtube.com/watch?v=${videoId}`;
+  const target = videoId.startsWith('http')
+    ? videoId
+    : `https://www.youtube.com/watch?v=${videoId}`;
 
   const baseArgs = [target, '-J'];
 
@@ -424,9 +430,7 @@ export async function getYtDlpJson(idOrUrl: string): Promise<any> {
 
       const formats: any[] = Array.isArray(parsed.formats) ? parsed.formats : [];
       const heights = new Set(
-        formats
-          .filter((f) => f.vcodec && f.vcodec !== 'none' && f.height > 0)
-          .map((f) => f.height)
+        formats.filter((f) => f.vcodec && f.vcodec !== 'none' && f.height > 0).map((f) => f.height)
       );
 
       if (heights.size >= 4) {
@@ -556,7 +560,10 @@ export async function getStreamUrl(
     );
     audioFormats.sort((a, b) => (b.abr || b.tbr || 0) - (a.abr || a.tbr || 0));
 
-    const bestAudio = audioFormats[0] || validFormats.find((f) => f.acodec && f.acodec !== 'none') || validFormats[0];
+    const bestAudio =
+      audioFormats[0] ||
+      validFormats.find((f) => f.acodec && f.acodec !== 'none') ||
+      validFormats[0];
     if (!bestAudio || !bestAudio.url) {
       throw new Error(`No audio stream available for ${idOrUrl}`);
     }
@@ -602,7 +609,9 @@ export async function getStreamUrl(
       let chosenVideo: any = null;
       if (reqHeight) {
         const matches = videoFormats.filter((f) => Math.abs((f.height || 0) - reqHeight) <= 4);
-        matches.sort((a, b) => (b.fps || 0) - (a.fps || 0) || (b.vbr || b.tbr || 0) - (a.vbr || a.tbr || 0));
+        matches.sort(
+          (a, b) => (b.fps || 0) - (a.fps || 0) || (b.vbr || b.tbr || 0) - (a.vbr || a.tbr || 0)
+        );
         chosenVideo = matches[0];
       }
       if (!chosenVideo) {
@@ -615,7 +624,8 @@ export async function getStreamUrl(
         (f) => (f.vcodec === 'none' || !f.vcodec) && f.acodec && f.acodec !== 'none'
       );
       audioFormats.sort((a, b) => (b.abr || b.tbr || 0) - (a.abr || a.tbr || 0));
-      const chosenAudio = audioFormats[0] || validFormats.find((f) => f.acodec && f.acodec !== 'none');
+      const chosenAudio =
+        audioFormats[0] || validFormats.find((f) => f.acodec && f.acodec !== 'none');
 
       if (chosenVideo && chosenAudio && chosenVideo.url && chosenAudio.url) {
         // Start proxy server and create streaming session
@@ -625,7 +635,12 @@ export async function getStreamUrl(
             ? crypto.randomUUID()
             : `sess_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
-        registerStreamSession(sessionId, chosenVideo.url, chosenAudio.url, chosenVideo.http_headers);
+        registerStreamSession(
+          sessionId,
+          chosenVideo.url,
+          chosenAudio.url,
+          chosenVideo.http_headers
+        );
         const proxyUrl = `http://127.0.0.1:${port}/stream?sessionId=${sessionId}`;
 
         result = {
@@ -906,7 +921,10 @@ export async function downloadMedia(idOrUrl: string, options: YtDownloadOptions)
 
   if (options.kind === 'video') {
     if (options.height) {
-      args.push('-f', `bestvideo[height<=${options.height}]+bestaudio/best[height<=${options.height}]/best`);
+      args.push(
+        '-f',
+        `bestvideo[height<=${options.height}]+bestaudio/best[height<=${options.height}]/best`
+      );
     } else {
       args.push('-f', 'bestvideo+bestaudio/best');
     }
@@ -916,7 +934,9 @@ export async function downloadMedia(idOrUrl: string, options: YtDownloadOptions)
     args.push('-x', '--audio-format', audioFmt);
   }
 
-  const targetUrl = videoId.startsWith('http') ? videoId : `https://www.youtube.com/watch?v=${videoId}`;
+  const targetUrl = videoId.startsWith('http')
+    ? videoId
+    : `https://www.youtube.com/watch?v=${videoId}`;
   args.push(targetUrl);
 
   broadcastDownloadProgress({
@@ -979,7 +999,12 @@ export async function downloadMedia(idOrUrl: string, options: YtDownloadOptions)
 
     if (code === 0) {
       // If embedLink requested and we know the file and videoId, embed link tag
-      if (options.embedLink !== false && capturedFilePath && fs.existsSync(capturedFilePath) && videoId) {
+      if (
+        options.embedLink !== false &&
+        capturedFilePath &&
+        fs.existsSync(capturedFilePath) &&
+        videoId
+      ) {
         try {
           await writeLink(capturedFilePath, `https://youtu.be/${videoId}`);
         } catch {
@@ -1064,19 +1089,22 @@ export function cancelDownload(jobId: string): boolean {
  * Initializes all IPC handlers for YouTube backend.
  */
 export function initializeYoutube(): void {
-  ipcMain.handle('yt:search', async (_, query: string, options?: { limit?: number; type?: 'video' | 'music' }) => {
-    try {
-      return await searchYouTube(query, options);
-    } catch (err: any) {
-      recordErrorReport({
-        source: 'main',
-        severity: 'error',
-        message: `yt:search failed for "${query}": ${err.message || String(err)}`,
-        context: { query, options }
-      });
-      throw err;
+  ipcMain.handle(
+    'yt:search',
+    async (_, query: string, options?: { limit?: number; type?: 'video' | 'music' }) => {
+      try {
+        return await searchYouTube(query, options);
+      } catch (err: any) {
+        recordErrorReport({
+          source: 'main',
+          severity: 'error',
+          message: `yt:search failed for "${query}": ${err.message || String(err)}`,
+          context: { query, options }
+        });
+        throw err;
+      }
     }
-  });
+  );
 
   ipcMain.handle('yt:formats', async (_, idOrUrl: string) => {
     try {

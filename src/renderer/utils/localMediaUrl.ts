@@ -54,16 +54,11 @@ export function toPlayableMediaUrl(url?: string | null): string | undefined {
  * Proxies a remote media URL (and its required headers) through the loopback
  * server so Chromium accepts it and Range seeks work.
  */
-export function remoteMediaProxyUrl(
-  url: string,
-  headers?: Record<string, string> | null
-): string {
+export function remoteMediaProxyUrl(url: string, headers?: Record<string, string> | null): string {
   const base = getBaseUrl();
   if (!base) return url;
   const headerPart =
-    headers && Object.keys(headers).length > 0
-      ? `&h=${toBase64Url(JSON.stringify(headers))}`
-      : '';
+    headers && Object.keys(headers).length > 0 ? `&h=${toBase64Url(JSON.stringify(headers))}` : '';
   return `${base}/remote?u=${toBase64Url(url)}${headerPart}`;
 }
 

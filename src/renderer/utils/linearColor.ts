@@ -57,7 +57,10 @@ export const applyDynamicPaletteToRoot = (
   backgroundColor: string
 ): void => {
   try {
-    if (typeof localStorage !== 'undefined' && localStorage.getItem('enableDynamicPalette') === 'false') {
+    if (
+      typeof localStorage !== 'undefined' &&
+      localStorage.getItem('enableDynamicPalette') === 'false'
+    ) {
       resetDynamicPaletteOnRoot();
       return;
     }
@@ -159,7 +162,7 @@ const getImageColor = (img: HTMLImageElement): Promise<string> => {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     if (!ctx) {
-      reject(new Error('无法获取canvas上下文'));
+      reject(new Error('Unable to get canvas context'));
       return;
     }
 
@@ -183,7 +186,7 @@ const getImagePrimaryColor = (imageSrc: string): Promise<string> => {
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
       if (!ctx) {
-        reject(new Error('无法获取canvas上下文'));
+        reject(new Error('Unable to get canvas context'));
         return;
       }
 
@@ -196,7 +199,7 @@ const getImagePrimaryColor = (imageSrc: string): Promise<string> => {
       resolve(`rgb(${color.join(',')})`);
     };
 
-    img.onerror = () => reject(new Error('图片加载失败'));
+    img.onerror = () => reject(new Error('Image failed to load'));
   });
 };
 
@@ -211,7 +214,6 @@ const getAverageColor = (data: Uint8ClampedArray): number[] => {
     b += data[i + 2];
     count++;
   }
-  // 0 尺寸图片（count 为 0）会得到 NaN，回退为中性灰避免生成 rgb(NaN,...)
   if (count === 0) {
     return [128, 128, 128];
   }
@@ -222,7 +224,6 @@ const generateGradientBackground = (color: string): string => {
   const tc = tinycolor(color);
   const hsl = tc.toHsl();
 
-  // 增加亮度和暗度的差异
   const lightColor = tinycolor({ h: hsl.h, s: hsl.s * 0.8, l: Math.min(hsl.l + 0.2, 0.95) });
   const midColor = tinycolor({ h: hsl.h, s: hsl.s, l: hsl.l });
   const darkColor = tinycolor({
@@ -237,7 +238,6 @@ const generateGradientBackground = (color: string): string => {
 export const parseGradient = (gradientStr: string) => {
   if (!gradientStr) return [];
 
-  // 处理非渐变色
   if (!gradientStr.startsWith('linear-gradient')) {
     const color = tinycolor(gradientStr);
     if (color.isValid()) {
@@ -247,7 +247,6 @@ export const parseGradient = (gradientStr: string) => {
     return [];
   }
 
-  // 处理渐变色，支持 rgb、rgba 和十六进制颜色
   const colorMatches = gradientStr.match(/(?:(?:rgb|rgba)\([^)]+\)|#[0-9a-fA-F]{3,8})/g) || [];
   return colorMatches.map((color) => {
     const tc = tinycolor(color);
@@ -270,7 +269,7 @@ export const getTextColors = (gradient: string = ''): ITextColors => {
 
   const mainColor = colors.length === 1 ? colors[0] : colors[1] || colors[0];
   const tc = tinycolor(mainColor);
-  const isDark = tc.getBrightness() > 155; // tinycolor 的亮度范围是 0-255
+  const isDark = tc.getBrightness() > 155;
 
   return {
     primary: isDark ? 'rgba(0, 0, 0, 0.54)' : 'rgba(255, 255, 255, 0.54)',
@@ -310,22 +309,18 @@ export const animateGradient = (() => {
     onUpdate: (gradient: string) => void,
     duration = 300
   ) => {
-    // 如果新旧渐变色相同，不执行动画
     if (oldGradient === newGradient) {
       return null;
     }
 
-    // 如果正在动画中，取消当前动画
     if (currentAnimation !== null) {
       cancelAnimationFrame(currentAnimation);
       currentAnimation = null;
     }
 
-    // 解析颜色
     const startColors = parseGradient(oldGradient);
     const endColors = parseGradient(newGradient);
 
-    // 验证颜色数组
     if (
       !startColors.length ||
       !endColors.length ||
@@ -333,11 +328,10 @@ export const animateGradient = (() => {
       !validateColors(endColors)
     ) {
       console.warn('Invalid color values detected');
-      onUpdate(newGradient); // 直接更新到目标颜色
+      onUpdate(newGradient);
       return null;
     }
 
-    // 如果颜色数量不匹配，直接更新到目标颜色
     if (startColors.length !== endColors.length) {
       onUpdate(newGradient);
       return null;
@@ -351,11 +345,9 @@ export const animateGradient = (() => {
 
       const elapsed = currentTime - startTime;
       const rawProgress = Math.min(elapsed / duration, 1);
-      // 使用缓动函数使动画更平滑
       const progress = easeInOutCubic(rawProgress);
 
       try {
-        // 使用上一帧的进度来平滑过渡
         const effectiveProgress = lastProgress + (progress - lastProgress) * 0.6;
         lastProgress = effectiveProgress;
 
@@ -378,7 +370,6 @@ export const animateGradient = (() => {
           currentAnimation = requestAnimationFrame(animateFrame);
           return currentAnimation;
         }
-        // 确保最终颜色正确
         onUpdate(newGradient);
         isAnimating = false;
         currentAnimation = null;
@@ -398,7 +389,6 @@ export const animateGradient = (() => {
     return currentAnimation;
   };
 
-  // 使用更短的防抖时间
   return useDebounceFn(animate, 50);
 })();
 
@@ -409,23 +399,18 @@ export const createGradientString = (
   const count = colors.length;
   return `linear-gradient(to bottom, ${colors
     .map((color, i) => {
-      // 当颜色数量与传入的 percentages 不一致时，按索引均匀分布，避免出现 undefined%
       const percent = percentages[i] ?? (count > 1 ? Math.round((i / (count - 1)) * 100) : 0);
       return `rgb(${color.r}, ${color.g}, ${color.b}) ${percent}%`;
     })
     .join(', ')})`;
 };
 
-// ===== 歌词主题色相关工具函数 =====
-
 /**
- * 预设歌词主题色配置
- * 注意：name 字段将通过国际化系统动态获取，这里的值仅作为后备
  */
 const PRESET_LYRIC_COLORS: LyricThemeColor[] = [
   {
     id: 'spotify-green',
-    name: 'Spotify Green', // 后备名称，实际使用时会被国际化替换
+    name: 'Spotify Green',
     light: '#1db954',
     dark: '#1ed760'
   },
@@ -462,7 +447,6 @@ const PRESET_LYRIC_COLORS: LyricThemeColor[] = [
 ];
 
 /**
- * 验证颜色是否有效
  */
 export const validateColor = (color: string): boolean => {
   if (!color || typeof color !== 'string') return false;
@@ -471,18 +455,16 @@ export const validateColor = (color: string): boolean => {
 };
 
 /**
- * 检查颜色对比度是否符合可读性标准
  */
 export const validateColorContrast = (color: string, theme: 'light' | 'dark'): boolean => {
   if (!validateColor(color)) return false;
 
   const backgroundColor = theme === 'dark' ? '#000000' : '#ffffff';
   const contrast = tinycolor.readability(color, backgroundColor);
-  return contrast >= 4.5; // WCAG AA 标准
+  return contrast >= 4.5;
 };
 
 /**
- * 为特定主题优化颜色
  */
 export const optimizeColorForTheme = (color: string, theme: 'light' | 'dark'): string => {
   if (!validateColor(color)) {
@@ -493,14 +475,12 @@ export const optimizeColorForTheme = (color: string, theme: 'light' | 'dark'): s
   const hsl = tc.toHsl();
 
   if (theme === 'dark') {
-    // 暗色主题：增加亮度和饱和度
     const optimized = tinycolor({
       h: hsl.h,
       s: Math.min(hsl.s * 1.1, 1),
-      l: Math.max(hsl.l, 0.4) // 确保最小亮度
+      l: Math.max(hsl.l, 0.4)
     });
 
-    // 检查对比度，如果不够则进一步调整
     if (!validateColorContrast(optimized.toHexString(), theme)) {
       return tinycolor({
         h: hsl.h,
@@ -511,14 +491,12 @@ export const optimizeColorForTheme = (color: string, theme: 'light' | 'dark'): s
 
     return optimized.toHexString();
   } else {
-    // 亮色主题：适当降低亮度
     const optimized = tinycolor({
       h: hsl.h,
       s: Math.min(hsl.s * 1.05, 1),
-      l: Math.min(hsl.l, 0.6) // 确保最大亮度
+      l: Math.min(hsl.l, 0.6)
     });
 
-    // 检查对比度
     if (!validateColorContrast(optimized.toHexString(), theme)) {
       return tinycolor({
         h: hsl.h,
@@ -532,23 +510,20 @@ export const optimizeColorForTheme = (color: string, theme: 'light' | 'dark'): s
 };
 
 /**
- * 获取默认高亮颜色
  */
 export const getDefaultHighlightColor = (theme?: 'light' | 'dark'): string => {
-  const defaultColor = PRESET_LYRIC_COLORS[0]; // Spotify 绿
+  const defaultColor = PRESET_LYRIC_COLORS[0];
   if (!theme) return defaultColor.light;
   return theme === 'dark' ? defaultColor.dark : defaultColor.light;
 };
 
 /**
- * 获取预设主题色列表
  */
 export const getLyricThemeColors = (): LyricThemeColor[] => {
   return [...PRESET_LYRIC_COLORS];
 };
 
 /**
- * 根据主题获取预设颜色的实际值
  */
 export const getPresetColorValue = (colorId: string, theme: 'light' | 'dark'): string => {
   const color = PRESET_LYRIC_COLORS.find((c) => c.id === colorId);
@@ -557,7 +532,6 @@ export const getPresetColorValue = (colorId: string, theme: 'light' | 'dark'): s
 };
 
 /**
- * 安全加载歌词设置
  */
 const safeLoadLyricSettings = (): LyricSettings => {
   try {
@@ -565,7 +539,6 @@ const safeLoadLyricSettings = (): LyricSettings => {
     if (stored) {
       const parsed = JSON.parse(stored) as LyricSettings;
 
-      // 验证 highlightColor 字段
       if (parsed.highlightColor && !validateColor(parsed.highlightColor)) {
         console.warn('Invalid stored highlight color, removing it');
         delete parsed.highlightColor;
@@ -577,7 +550,6 @@ const safeLoadLyricSettings = (): LyricSettings => {
     console.error('Failed to load lyric settings:', error);
   }
 
-  // 返回默认设置
   return {
     isTop: false,
     theme: 'dark',
@@ -586,7 +558,6 @@ const safeLoadLyricSettings = (): LyricSettings => {
 };
 
 /**
- * 安全保存歌词设置
  */
 const safeSaveLyricSettings = (settings: LyricSettings): void => {
   try {
@@ -597,7 +568,6 @@ const safeSaveLyricSettings = (settings: LyricSettings): void => {
 };
 
 /**
- * 保存歌词主题色
  */
 export const saveLyricThemeColor = (color: string): void => {
   if (!validateColor(color)) {
@@ -611,7 +581,6 @@ export const saveLyricThemeColor = (color: string): void => {
 };
 
 /**
- * 加载歌词主题色
  */
 export const loadLyricThemeColor = (): string => {
   const settings = safeLoadLyricSettings();
@@ -620,12 +589,10 @@ export const loadLyricThemeColor = (): string => {
     return settings.highlightColor;
   }
 
-  // 如果没有保存的颜色或颜色无效，返回默认颜色
   return getDefaultHighlightColor(settings.theme);
 };
 
 /**
- * 重置歌词主题色到默认值
  */
 export const resetLyricThemeColor = (): void => {
   const settings = safeLoadLyricSettings();
@@ -634,7 +601,6 @@ export const resetLyricThemeColor = (): void => {
 };
 
 /**
- * 获取当前有效的歌词主题色
  */
 export const getCurrentLyricThemeColor = (theme: 'light' | 'dark'): string => {
   const savedColor = loadLyricThemeColor();

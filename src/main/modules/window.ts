@@ -30,11 +30,9 @@ import {
 
 const store = getSharedStore();
 
-// 保存主窗口引用，以便在 activate 事件中使用
 let mainWindowInstance: BrowserWindow | null = null;
 let isPlaying = false;
 let isAppQuitting = false;
-// 保存迷你模式前的窗口状态
 let preMiniModeState: WindowState = {
   width: DEFAULT_MAIN_WIDTH,
   height: DEFAULT_MAIN_HEIGHT,
@@ -42,7 +40,6 @@ let preMiniModeState: WindowState = {
   y: undefined,
   isMaximized: false
 };
-// 保存 macOS 下最大化（铺满工作区）前的正常窗口位置与大小
 let macPreMaximizedBounds: Electron.Rectangle | null = null;
 let isMacWorkAreaMaximized = false;
 
@@ -74,7 +71,6 @@ export function toggleWindowMaximize(win: BrowserWindow): void {
   if (!win || win.isDestroyed()) return;
 
   if (process.platform === 'darwin') {
-    // 若当前处于全屏，先退出全屏
     if (win.isFullScreen()) {
       win.setFullScreen(false);
       return;
@@ -91,7 +87,6 @@ export function toggleWindowMaximize(win: BrowserWindow): void {
       Math.abs(currentBounds.height - workArea.height) <= 2;
 
     if (isMacWorkAreaMaximized || isMatchingWorkArea) {
-      // 还原窗口
       isMacWorkAreaMaximized = false;
       if (
         macPreMaximizedBounds &&
@@ -105,7 +100,6 @@ export function toggleWindowMaximize(win: BrowserWindow): void {
       }
       win.webContents.send('window-maximized-state', false);
     } else {
-      // 铺满屏幕
       macPreMaximizedBounds = currentBounds;
       isMacWorkAreaMaximized = true;
       win.setBounds(workArea, true);
@@ -114,7 +108,6 @@ export function toggleWindowMaximize(win: BrowserWindow): void {
     return;
   }
 
-  // Windows / Linux: 原生 API
   if (win.isMaximized()) {
     win.unmaximize();
   } else {
@@ -123,14 +116,12 @@ export function toggleWindowMaximize(win: BrowserWindow): void {
 }
 
 /**
- * 设置应用退出状态
  */
 export function setAppQuitting(quitting: boolean) {
   isAppQuitting = quitting;
 }
 
 /**
- * 初始化代理设置
  */
 function initializeProxy() {
   const defaultConfig = {
@@ -187,10 +178,8 @@ function setThumbarButtons(window: BrowserWindow) {
 }
 
 /**
- * 初始化窗口管理相关的IPC监听
  */
 export function initializeWindowManager() {
-  // 初始化代理设置
   initializeProxy();
 
   ipcMain.on('minimize-window', (event) => {
@@ -227,7 +216,6 @@ export function initializeWindowManager() {
   ipcMain.on('close-window', (event) => {
     const win = BrowserWindow.fromWebContents(event.sender);
     if (win) {
-      // 在 macOS 上，关闭窗口不应该退出应用，而是隐藏窗口
       if (process.platform === 'darwin') {
         win.hide();
       } else {
@@ -237,7 +225,6 @@ export function initializeWindowManager() {
     }
   });
 
-  // 强制退出应用（用于免责声明拒绝等场景）
   ipcMain.on('quit-app', () => {
     setAppQuitting(true);
     app.quit();
@@ -253,20 +240,16 @@ export function initializeWindowManager() {
   ipcMain.on('mini-window', (event) => {
     const win = BrowserWindow.fromWebContents(event.sender);
     if (win) {
-      // 保存当前窗口状态，以便之后恢复
       preMiniModeState = saveWindowState(win);
-      console.log('保存正常模式状态用于恢复:', JSON.stringify(preMiniModeState));
+      console.log('Saved normal-mode state for restore: ', JSON.stringify(preMiniModeState));
 
-      // 获取屏幕工作区尺寸
       const display = screen.getDisplayMatching(win.getBounds());
       const { width: screenWidth, x: screenX } = display.workArea;
 
-      // 设置迷你窗口的大小和位置
       win.unmaximize();
       win.setMinimumSize(DEFAULT_MINI_WIDTH, DEFAULT_MINI_HEIGHT);
       win.setMaximumSize(DEFAULT_MINI_WIDTH, DEFAULT_MINI_HEIGHT);
-      win.setSize(DEFAULT_MINI_WIDTH, DEFAULT_MINI_HEIGHT, false); // 禁用动画
-      // 将迷你窗口放在工作区的右上角，留出一些边距
+      win.setSize(DEFAULT_MINI_WIDTH, DEFAULT_MINI_HEIGHT, false);
       win.setPosition(
         screenX + screenWidth - DEFAULT_MINI_WIDTH - 20,
         display.workArea.y + 20,
@@ -276,77 +259,60 @@ export function initializeWindowManager() {
       win.setSkipTaskbar(false);
       win.setResizable(false);
 
-      // 导航到迷你模式路由
       win.webContents.send('navigate', '/mini');
 
-      // 发送事件到渲染进程，通知切换到迷你模式
       win.webContents.send('mini-mode', true);
 
-      // 迷你窗口使用默认的缩放比
       win.webContents.setZoomFactor(1);
     }
   });
 
-  // 恢复窗口
   ipcMain.on('restore-window', (event) => {
     const win = BrowserWindow.fromWebContents(event.sender);
-    // 窗口可能已在关闭/退出的过程中被销毁，此时调用窗口方法会抛异常
     if (win && !win.isDestroyed()) {
-      // 恢复窗口的大小调整功能
       win.setResizable(true);
-      win.setMaximumSize(0, 0); // 取消最大尺寸限制
+      win.setMaximumSize(0, 0);
 
-      console.log('从迷你模式恢复，使用保存的状态:', JSON.stringify(preMiniModeState));
+      console.log('Restoring from mini mode with saved state: ', JSON.stringify(preMiniModeState));
 
-      // 设置适当的最小尺寸
       const { minWidth, minHeight } = calculateMinimumWindowSize();
       win.setMinimumSize(minWidth, minHeight);
 
-      // 恢复窗口状态
       win.setAlwaysOnTop(false);
       win.setSkipTaskbar(false);
 
-      // 导航回主页面
       win.webContents.send('navigate', '/');
 
-      // 发送事件到渲染进程，通知退出迷你模式
       win.webContents.send('mini-mode', false);
 
-      // 应用保存的状态
       setTimeout(() => {
         if (win.isDestroyed()) {
           return;
         }
 
-        // 如果有保存的位置，则应用
         if (preMiniModeState.x !== undefined && preMiniModeState.y !== undefined) {
           win.setPosition(preMiniModeState.x, preMiniModeState.y, false);
         } else {
           win.center();
         }
 
-        // 使用存储的迷你模式前的状态
         if (preMiniModeState.isMaximized) {
           win.maximize();
         } else {
-          // 设置正确的窗口大小
           win.setSize(preMiniModeState.width, preMiniModeState.height, false);
         }
 
-        // 应用页面缩放
         applyContentZoom(win);
 
-        // 确保窗口大小被正确应用
         setTimeout(() => {
           if (!win.isDestroyed() && !win.isMaximized() && !win.isMinimized()) {
-            // 再次验证窗口大小
             const [width, height] = win.getSize();
             if (
               Math.abs(width - preMiniModeState.width) > 2 ||
               Math.abs(height - preMiniModeState.height) > 2
             ) {
               console.log(
-                `恢复后窗口大小不一致，再次调整: 当前=${width}x${height}, 目标=${preMiniModeState.width}x${preMiniModeState.height}`
+                `Size differs after restore, adjusting again: current=${width}x${height}, target=${preMiniModeState.width}x${preMiniModeState.height}`
               );
               win.setSize(preMiniModeState.width, preMiniModeState.height, false);
             }
@@ -363,18 +329,13 @@ export function initializeWindowManager() {
     }
   });
 
-  // 监听代理设置变化
   store.onDidChange('set.proxyConfig', () => {
     initializeProxy();
   });
 
-  // 初始化窗口大小和缩放相关的IPC处理程序
   initWindowSizeHandlers(mainWindowInstance);
-  // 监听 macOS 下点击 Dock 图标的事件
   app.on('activate', () => {
-    // 当应用被激活时，检查主窗口是否存在
     if (mainWindowInstance && !mainWindowInstance.isDestroyed()) {
-      // 如果窗口存在但被隐藏，则显示窗口
       if (!mainWindowInstance.isVisible()) {
         mainWindowInstance.show();
       }
@@ -383,15 +344,12 @@ export function initializeWindowManager() {
 }
 
 /**
- * 创建主窗口
  */
 export function createMainWindow(icon: Electron.NativeImage): BrowserWindow {
-  console.log('开始创建主窗口...');
+  console.log('Creating main window...');
 
-  // 获取窗口创建选项
   const options = getWindowOptions();
 
-  // 添加图标和预加载脚本
   options.icon = icon;
   options.webPreferences = {
     preload: join(__dirname, '../preload/index.js'),
@@ -402,7 +360,7 @@ export function createMainWindow(icon: Electron.NativeImage): BrowserWindow {
   };
 
   console.log(
-    `创建窗口，使用选项: ${JSON.stringify({
+    `Creating window with options: ${JSON.stringify({
       width: options.width,
       height: options.height,
       x: options.x,
@@ -412,7 +370,6 @@ export function createMainWindow(icon: Electron.NativeImage): BrowserWindow {
     })}`
   );
 
-  // 创建窗口
   const mainWindow = new BrowserWindow(options);
   const syncMaximizedState = () => {
     if (!mainWindow.isDestroyed()) {
@@ -432,7 +389,6 @@ export function createMainWindow(icon: Electron.NativeImage): BrowserWindow {
   mainWindow.on('enter-full-screen', syncFullScreenState);
   mainWindow.on('leave-full-screen', syncFullScreenState);
 
-  // 监听 macOS 下用户拖动/改变窗口尺寸，若脱离了全屏工作区则自动重置最大化状态
   mainWindow.on('resize', () => {
     if (process.platform === 'darwin' && isMacWorkAreaMaximized && !mainWindow.isFullScreen()) {
       const bounds = mainWindow.getBounds();
@@ -482,17 +438,14 @@ export function createMainWindow(icon: Electron.NativeImage): BrowserWindow {
 
   const openInSystemBrowser = (targetUrl: string) => {
     shell.openExternal(targetUrl).catch((error) => {
-      console.error('打开外部链接失败:', targetUrl, error);
+      console.error('Failed to open external link:', targetUrl, error);
     });
   };
 
-  // 移除菜单
   mainWindow.removeMenu();
 
-  // 应用初始状态 (例如最大化状态)
   applyInitialState(mainWindow);
 
-  // 更新 preMiniModeState，以便迷你模式可以正确恢复
   const savedState = getWindowState();
   if (savedState) {
     preMiniModeState = { ...savedState };
@@ -502,36 +455,28 @@ export function createMainWindow(icon: Electron.NativeImage): BrowserWindow {
     setThumbarButtons(mainWindow);
   });
 
-  // 处理窗口关闭事件
   mainWindow.on('close', (event) => {
-    // 在 macOS 上，阻止默认的关闭行为，改为隐藏窗口
     if (process.platform === 'darwin') {
-      // 检查是否是应用正在退出
       if (!isAppQuitting) {
         event.preventDefault();
         mainWindow.hide();
         return;
       }
     }
-    // 在其他平台上，或者应用正在退出时，允许正常关闭
   });
 
   mainWindow.on('ready-to-show', () => {
     const [width, height] = mainWindow.getSize();
-    console.log(`窗口显示前的大小: ${width}x${height}`);
+    console.log(`Size before show: ${width}x${height}`);
 
-    // 强制确保窗口使用正确的大小
     if (savedState && !savedState.isMaximized) {
       mainWindow.setSize(savedState.width, savedState.height, false);
     }
 
-    // 显示窗口
     mainWindow.show();
     syncMaximizedState();
-    // 应用页面内容缩放
     applyContentZoom(mainWindow);
 
-    // 再次检查窗口大小是否正确应用
     setTimeout(() => {
       if (!mainWindow.isDestroyed() && !mainWindow.isMaximized()) {
         const [currentWidth, currentHeight] = mainWindow.getSize();
@@ -541,7 +486,7 @@ export function createMainWindow(icon: Electron.NativeImage): BrowserWindow {
             Math.abs(currentHeight - savedState.height) > 2
           ) {
             console.log(
-              `窗口大小不匹配，再次调整: 当前=${currentWidth}x${currentHeight}, 目标=${savedState.width}x${savedState.height}`
+              `Size mismatch, adjusting again: current=${currentWidth}x${currentHeight}, target=${savedState.width}x${savedState.height}`
             );
             mainWindow.setSize(savedState.width, savedState.height, false);
           }
@@ -563,20 +508,16 @@ export function createMainWindow(icon: Electron.NativeImage): BrowserWindow {
     return { action: 'deny' };
   });
 
-  // 捕获早期渲染进程控制台错误（包括模块初始化崩溃）到 ErrorReporter
-  mainWindow.webContents.on(
-    'console-message',
-    (_event, level, message, line, sourceId) => {
-      if (level >= 3 || /Uncaught\s+\w*Error/i.test(message)) {
-        recordErrorReport({
-          source: 'renderer',
-          severity: level >= 3 ? 'error' : 'warn',
-          message,
-          context: { line, sourceId, level }
-        });
-      }
+  mainWindow.webContents.on('console-message', (_event, level, message, line, sourceId) => {
+    if (level >= 3 || /Uncaught\s+\w*Error/i.test(message)) {
+      recordErrorReport({
+        source: 'renderer',
+        severity: level >= 3 ? 'error' : 'warn',
+        message,
+        context: { line, sourceId, level }
+      });
     }
-  );
+  });
 
   mainWindow.webContents.on('render-process-gone', (_event, details) => {
     recordErrorReport({
@@ -605,7 +546,6 @@ export function createMainWindow(icon: Electron.NativeImage): BrowserWindow {
     mainWindow.webContents.openDevTools({ mode: 'detach' });
     mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL);
 
-    // 注册快捷键 打开开发者工具
     globalShortcut.register('CommandOrControl+Shift+I', () => {
       mainWindow.webContents.openDevTools({ mode: 'detach' });
     });
@@ -615,7 +555,6 @@ export function createMainWindow(icon: Electron.NativeImage): BrowserWindow {
 
   initWindowSizeHandlers(mainWindow);
 
-  // 保存主窗口引用
   mainWindowInstance = mainWindow;
 
   return mainWindow;

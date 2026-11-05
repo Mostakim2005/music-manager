@@ -6,8 +6,6 @@ import { getSharedStore } from './modules/config';
 const store = getSharedStore();
 let lyricWindow: BrowserWindow | null = null;
 
-// 歌词窗口 bounds 防抖保存：拖动/缩放时高频触发，
-// 直接写盘会加剧 config.json 文件争用（#714 EBUSY）
 let lyricBoundsSaveTimer: ReturnType<typeof setTimeout> | null = null;
 const saveLyricWindowBounds = (bounds: Record<string, number>) => {
   if (lyricBoundsSaveTimer) {
@@ -18,17 +16,14 @@ const saveLyricWindowBounds = (bounds: Record<string, number>) => {
     try {
       store.set('lyricWindowBounds', bounds);
     } catch (error) {
-      console.error('保存歌词窗口位置失败:', error);
+      console.error('Failed to save lyric window position:', error);
     }
   }, 500);
 };
 
-// 跟踪拖动状态
 let isDragging = false;
 
-// 添加窗口大小变化防护
 let originalSize = { width: 0, height: 0 };
-// 鼠标位置轮询仅在"锁定 + 可见"时启用，解锁态下 DOM 事件已足够
 let mousePresenceTimer: ReturnType<typeof setInterval> | null = null;
 let lastMouseInside: boolean | null = null;
 let isLyricLocked = false;
@@ -91,7 +86,6 @@ const syncMousePresenceTracking = () => {
 const createWin = () => {
   console.log('Creating lyric window');
 
-  // 获取保存的窗口位置
   const windowBounds =
     (store.get('lyricWindowBounds') as {
       x?: number;
@@ -103,12 +97,10 @@ const createWin = () => {
 
   const { x, y, width, height, displayId } = windowBounds;
 
-  // 获取所有屏幕的信息
   const displays = screen.getAllDisplays();
   let isValidPosition = false;
-  let targetDisplay = displays[0]; // 默认使用主显示器
+  let targetDisplay = displays[0];
 
-  // 如果有显示器ID，尝试按ID匹配
   if (displayId) {
     const matchedDisplay = displays.find((d) => d.id === displayId);
     if (matchedDisplay) {
@@ -117,12 +109,11 @@ const createWin = () => {
     }
   }
 
-  // 验证位置是否在任何显示器的范围内
   if (x !== undefined && y !== undefined) {
     for (const display of displays) {
       const { bounds } = display;
       if (
-        x >= bounds.x - 50 && // 允许一点偏移，避免卡在边缘
+        x >= bounds.x - 50 &&
         x < bounds.x + bounds.width + 50 &&
         y >= bounds.y - 50 &&
         y < bounds.y + bounds.height + 50
@@ -134,20 +125,17 @@ const createWin = () => {
     }
   }
 
-  // 确保宽高合理
   const defaultWidth = 800;
   const defaultHeight = 200;
-  const maxWidth = 1600; // 设置最大宽度限制
-  const maxHeight = 800; // 设置最大高度限制
+  const maxWidth = 1600;
+  const maxHeight = 800;
 
   const validWidth = width && width > 0 && width <= maxWidth ? width : defaultWidth;
   const validHeight = height && height > 0 && height <= maxHeight ? height : defaultHeight;
 
-  // 确定窗口位置
   let windowX = isValidPosition ? x : undefined;
   let windowY = isValidPosition ? y : undefined;
 
-  // 如果位置无效，默认在当前显示器中居中
   if (windowX === undefined || windowY === undefined) {
     windowX = targetDisplay.bounds.x + (targetDisplay.bounds.width - validWidth) / 2;
     windowY = targetDisplay.bounds.y + (targetDisplay.bounds.height - validHeight) / 2;
@@ -168,7 +156,6 @@ const createWin = () => {
     roundedCorners: false,
     titleBarStyle: 'hidden',
     titleBarOverlay: false,
-    // 添加跨屏幕支持选项
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,
@@ -177,7 +164,6 @@ const createWin = () => {
     backgroundColor: '#00000000'
   });
 
-  // 监听窗口关闭事件
   lyricWindow.on('closed', () => {
     stopMousePresenceTracking();
     isLyricLocked = false;
@@ -205,16 +191,13 @@ const createWin = () => {
     syncMousePresenceTracking();
   });
 
-  // 监听窗口大小变化事件，保存新的尺寸
   lyricWindow.on('resize', () => {
-    // 如果正在拖动，忽略大小调整事件
     if (isDragging) return;
 
     if (lyricWindow && !lyricWindow.isDestroyed()) {
       const [width, height] = lyricWindow.getSize();
       const [x, y] = lyricWindow.getPosition();
 
-      // 保存窗口位置和大小（防抖）
       saveLyricWindowBounds({ x, y, width, height });
     }
   });
@@ -269,7 +252,6 @@ export const loadLyricWindow = (ipcMain: IpcMain, mainWin: BrowserWindow): void 
     });
   });
 
-  // 歌词窗口 Vue 应用加载完成，通知主窗口发送完整歌词数据
   ipcMain.on('lyric-ready', () => {
     if (mainWin && !mainWin.isDestroyed()) {
       mainWin.webContents.send('lyric-window-ready');
@@ -305,15 +287,12 @@ export const loadLyricWindow = (ipcMain: IpcMain, mainWin: BrowserWindow): void 
   ipcMain.on('set-lyric-lock-state', (_, isLocked: boolean) => {
     isLyricLocked = isLocked;
     if (lyricWindow && !lyricWindow.isDestroyed()) {
-      // 锁定时禁用 resize，避免鼠标移到边缘仍显示调整光标
       lyricWindow.setResizable(!isLocked);
-      // 设置初始穿透状态，后续 polling 会按实际位置纠正
       lyricWindow.setIgnoreMouseEvents(isLocked, { forward: true });
     }
     syncMousePresenceTracking();
   });
 
-  // 处理鼠标事件
   ipcMain.on('mouseenter-lyric', () => {
     if (lyricWindow && !lyricWindow.isDestroyed()) {
       lyricWindow.setIgnoreMouseEvents(true);
@@ -326,45 +305,36 @@ export const loadLyricWindow = (ipcMain: IpcMain, mainWin: BrowserWindow): void 
     }
   });
 
-  // 开始拖动时设置标志
   ipcMain.on('lyric-drag-start', () => {
     isDragging = true;
     if (lyricWindow && !lyricWindow.isDestroyed()) {
-      // 记录原始窗口大小
       const [width, height] = lyricWindow.getSize();
       originalSize = { width, height };
     }
   });
 
-  // 结束拖动时清除标志
   ipcMain.on('lyric-drag-end', () => {
     isDragging = false;
     if (lyricWindow && !lyricWindow.isDestroyed()) {
-      // 确保窗口大小恢复原样
       lyricWindow.setSize(originalSize.width, originalSize.height);
     }
   });
 
-  // 处理拖动移动
   ipcMain.on('lyric-drag-move', (_, { deltaX, deltaY }) => {
     if (!lyricWindow || lyricWindow.isDestroyed() || !isDragging) return;
 
     const [currentX, currentY] = lyricWindow.getPosition();
 
-    // 使用记录的原始大小，而不是当前大小
     const windowWidth = originalSize.width;
     const windowHeight = originalSize.height;
 
-    // 计算新位置
     const newX = currentX + deltaX;
     const newY = currentY + deltaY;
 
     try {
-      // 获取当前鼠标所在的显示器
       const mousePoint = screen.getCursorScreenPoint();
       const currentDisplay = screen.getDisplayNearestPoint(mousePoint);
 
-      // 拖动期间使用setBounds确保大小不变，使用false避免动画卡顿
       lyricWindow.setBounds(
         {
           x: newX,
@@ -375,30 +345,26 @@ export const loadLyricWindow = (ipcMain: IpcMain, mainWin: BrowserWindow): void 
         false
       );
 
-      // 更新存储的位置（防抖，拖动结束后统一落盘）
       const windowBounds = {
         x: newX,
         y: newY,
         width: windowWidth,
         height: windowHeight,
-        displayId: currentDisplay.id // 记录当前显示器ID，有助于多屏幕处理
+        displayId: currentDisplay.id
       };
       saveLyricWindowBounds(windowBounds);
     } catch (error) {
       console.error('Error during window drag:', error);
-      // 出错时尝试使用更简单的方法
       lyricWindow.setPosition(newX, newY);
     }
   });
 
-  // 添加鼠标穿透事件处理
   ipcMain.on('set-ignore-mouse', (_, shouldIgnore) => {
     if (!lyricWindow || lyricWindow.isDestroyed()) return;
 
     lyricWindow.setIgnoreMouseEvents(shouldIgnore, { forward: true });
   });
 
-  // 添加播放控制处理
   ipcMain.on('control-back', (_, command) => {
     console.log('command', command);
     if (mainWin && !mainWin.isDestroyed()) {

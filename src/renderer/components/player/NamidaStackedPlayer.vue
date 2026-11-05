@@ -1,5 +1,7 @@
 <template>
-  <div class="namida-stacked-player w-full max-w-2xl mx-auto flex flex-col items-center justify-center px-4 py-2 space-y-4">
+  <div
+    class="namida-stacked-player w-full max-w-2xl mx-auto flex flex-col items-center justify-center px-4 py-2 space-y-4"
+  >
     <!-- Top Media (Video 16:9 or Artwork Square) -->
     <div class="media-container w-full flex justify-center items-center">
       <!-- Video Mode -->
@@ -30,17 +32,24 @@
           alt="Album cover"
           class="w-full h-full object-cover select-none transition-transform duration-500 group-hover:scale-102"
         />
-        <div v-else class="w-full h-full flex items-center justify-center bg-neutral-800 text-white/30 text-5xl">
+        <div
+          v-else
+          class="w-full h-full flex items-center justify-center bg-neutral-800 text-white/30 text-5xl"
+        >
           <i class="ri-disc-line"></i>
         </div>
       </div>
     </div>
 
     <!-- ONE Synced Lyric Line Directly Beneath Artwork -->
-    <div class="synced-lyric-container w-full min-h-[56px] flex flex-col items-center justify-center text-center px-4 select-none">
+    <div
+      class="synced-lyric-container w-full min-h-[56px] flex flex-col items-center justify-center text-center px-4 select-none"
+    >
       <transition name="lyric-fade" mode="out-in">
         <div :key="currentLyricText" class="space-y-0.5">
-          <div class="current-line text-lg sm:text-xl font-semibold text-white/95 tracking-tight line-clamp-1">
+          <div
+            class="current-line text-lg sm:text-xl font-semibold text-white/95 tracking-tight line-clamp-1"
+          >
             {{ currentLyricText || '♫ ♫ ♫' }}
           </div>
           <div v-if="currentLyricSub" class="text-xs text-emerald-400 font-medium line-clamp-1">
@@ -57,7 +66,10 @@
     <!-- Track Info + Heart -->
     <div class="track-info-row w-full flex items-center justify-between px-2 pt-1">
       <div class="min-w-0 flex-1 pr-4">
-        <h2 class="text-xl sm:text-2xl font-bold tracking-tight text-white truncate" :title="song?.name">
+        <h2
+          class="text-xl sm:text-2xl font-bold tracking-tight text-white truncate"
+          :title="song?.name"
+        >
           {{ song?.name || 'Unknown Track' }}
         </h2>
         <div class="text-sm text-white/60 truncate mt-0.5">
@@ -110,7 +122,9 @@
       </div>
 
       <!-- Time Labels (Tabular numbers) -->
-      <div class="flex items-center justify-between text-xs font-mono tabular-nums text-white/50 px-1">
+      <div
+        class="flex items-center justify-between text-xs font-mono tabular-nums text-white/50 px-1"
+      >
         <span>{{ formatVideoTime(currentTime) }}</span>
         <span>{{ formatVideoTime(duration) }}</span>
       </div>
@@ -146,10 +160,7 @@
         :title="isPlaying ? 'Pause' : 'Play'"
         @click="$emit('togglePlay')"
       >
-        <i
-          class="text-3xl"
-          :class="isPlaying ? 'ri-pause-fill' : 'ri-play-fill pl-1'"
-        ></i>
+        <i class="text-3xl" :class="isPlaying ? 'ri-pause-fill' : 'ri-play-fill pl-1'"></i>
       </button>
 
       <!-- Next -->
@@ -304,7 +315,9 @@ const handleWaveformHover = (e: MouseEvent) => {
 <style scoped>
 .lyric-fade-enter-active,
 .lyric-fade-leave-active {
-  transition: opacity 0.2s ease, transform 0.2s ease;
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
 }
 
 .lyric-fade-enter-from {

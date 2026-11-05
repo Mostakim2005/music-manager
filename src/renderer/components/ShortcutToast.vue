@@ -42,14 +42,12 @@ const show = (message: string, iconName = '') => {
 
   timer = setTimeout(() => {
     visible.value = false;
-    // 在动画结束后触发销毁事件
     setTimeout(() => {
       emit('destroy');
     }, 300);
   }, 1500);
 };
 
-// 清理定时器
 onBeforeUnmount(() => {
   if (timer) {
     clearTimeout(timer);
@@ -58,7 +56,6 @@ onBeforeUnmount(() => {
 
 const emit = defineEmits(['destroy']);
 
-// 暴露方法给父组件
 defineExpose({
   show
 });
@@ -69,7 +66,6 @@ defineExpose({
   @apply fixed left-1/2 z-[9999];
   @apply flex items-center justify-center;
 
-  // 位置变体
   &-center {
     @apply top-1/2 -translate-y-1/2;
     .shortcut-toast-content {
@@ -85,7 +81,6 @@ defineExpose({
     @apply bottom-40;
   }
 
-  // 水平居中
   @apply -translate-x-1/2;
 
   &-content {

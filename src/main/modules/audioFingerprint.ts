@@ -10,9 +10,9 @@
 import { spawn } from 'child_process';
 
 import {
+  type AudioFingerprint,
   FINGERPRINT_MAX_SECONDS,
   FINGERPRINT_WINDOW_SECONDS,
-  type AudioFingerprint,
   quantizeLevel
 } from '../../shared/acousticFingerprint';
 import { getFfmpegPath } from './youtube';

@@ -1,100 +1,117 @@
-<h2 align="center">🎵 Alger Music Player</h2>
-<div align="center">
-<div align="center">
-  <a href="https://github.com/algerkong/AlgerMusicPlayer/stargazers">
-    <img src="https://img.shields.io/github/stars/algerkong/AlgerMusicPlayer?style=for-the-badge&logo=github&label=Stars&logoColor=white&color=22c55e" alt="GitHub stars">
-  </a>
-  <a href="https://github.com/algerkong/AlgerMusicPlayer/releases">
-    <img src="https://img.shields.io/github/v/release/algerkong/AlgerMusicPlayer?style=for-the-badge&logo=github&label=Release&logoColor=white&color=1a67af" alt="GitHub release">
-  </a>
-  <a href="https://pd.qq.com/s/cs056n33q?b=5">
-    <img src="https://img.shields.io/badge/QQ频道-algermusic-blue?style=for-the-badge&color=yellow" alt="加入频道">
-  </a>
-  <a href="https://t.me/+9efsKRuvKBk2NWVl">
-    <img src="https://img.shields.io/badge/AlgerMusic-blue?style=for-the-badge&logo=telegram&logoColor=white&label=Telegram" alt="Telegram">
-  </a>
-   <a href="https://donate.alger.fun/">
-    <img src="https://img.shields.io/badge/%E9%A1%B9%E7%9B%AE%E6%8D%90%E8%B5%A0-blue?style=for-the-badge&logo=telegram&logoColor=pink&color=pink&label=%E8%B5%9E%E5%8A%A9" alt="赞助">
-  </a>
-</div>
-</div>
-<div align="center">
-  <a href="https://hellogithub.com/repository/607b849c598d48e08fe38789d156ebdc" target="_blank"><img src="https://api.hellogithub.com/v1/widgets/recommend.svg?rid=607b849c598d48e08fe38789d156ebdc&claim_uid=ObuMXUfeHBmk9TI&theme=neutral" alt="Featured｜HelloGitHub" width="160" height="32" /></a>
-</div>
+<h2 align="center">🎵 Music Manager</h2>
 
-[项目下安装以及常用问题文档](https://www.yuque.com/alger-pfg5q/ip4f1a/bmgmfmghnhgwghkm?singleDoc#)
+<p align="center">
+  A local-first, MIT-licensed desktop music player for Windows.<br>
+  Built on Electron, Vue 3 and TypeScript.
+</p>
 
-主要功能如下
+---
 
-- 🎵 音乐推荐
-- 🔐 账号登录与同步
-- 📝 功能
-  - 播放历史记录
-  - 歌曲收藏管理
-  - 歌单 MV 排行榜 每日推荐
-  - 自定义快捷键配置（全局或应用内）
-- 🎨 界面与交互
-  - 沉浸式歌词显示（点击左下角封面进入）
-  - 独立桌面歌词窗口
-  - 明暗主题切换
-  - 迷你模式
-  - 状态栏控制
-  - 多语言支持
-- 🎼 音乐功能
-  - 支持歌单、MV、专辑等完整音乐服务
-  - 音乐资源解析（基于 @unblockneteasemusic/server）
-  - EQ均衡器
-  - 定时播放 远程控制播放 倍速播放
-  - 高品质音乐
-  - 音乐文件下载
-  - 搜索 MV 音乐 专辑 歌单 bilibili
-  - 音乐单独选择音源解析
-- 🚀 技术特性
-  - 本地化服务，无需依赖在线API (基于 netease-cloud-music-api)
-  - 全平台适配（Desktop & Web & Mobile Web & Android<测试> & ios<后续>）
+## What it is
 
-## 项目简介
+Music Manager plays your own files and streams from YouTube, in one library and
+one queue. There is no account requirement, no cloud library, and no telemetry
+beyond a local error log.
 
-一个第三方音乐播放器、本地服务、桌面歌词、音乐下载、最高音质
+It is built on the MIT-licensed [AlgerMusicPlayer](https://github.com/algerkong/AlgerMusicPlayer)
+engine, with the Netease cloud layer, the non-English locales and the
+promotional modules removed. See [`docs/REMOVED_FEATURES.md`](../docs/REMOVED_FEATURES.md)
+for the complete audit trail of what was taken out and why.
 
-## 预览地址
+## Features
 
-[http://music.alger.fun/](http://music.alger.fun/)
+### Library and playback
+- **Local file playback** for `.mp3`, `.flac`, `.opus`, `.m4a`, `.mp4`, `.webm`
+  and more, with HTTP Range seeking.
+- **Unified song library** — audio files, higher-bitrate copies and music videos
+  are linked as *variants of one song* in a single Dexie/IndexedDB database.
+- **Acoustic fingerprint index** — detects duplicate recordings by fingerprint
+  and duration, then merges them while preserving every variant.
+- **Automatic metadata repair** — fills in missing titles, artists and cover art
+  from iTunes Search, MusicBrainz and the Cover Art Archive, and writes the tags
+  back to the file (`ID3v2`, Vorbis comments, MP4 atoms).
+- **Playlist and library backup** — export and restore `.m3u8` playlists and full
+  `.json` library snapshots.
 
-## 软件截图
+### Audio and video together
+- **Instant audio ⇄ video switching** mid-track, with one shared playback clock
+  so lyrics, the progress bar and the video all stay in sync.
+- **Adaptive quality ladder** from 1080p down to 144p, extracted through bundled
+  `yt-dlp` with a multi-client fallback chain and an ephemeral local DASH proxy.
+- **Per-variant management** — unlink a file from the library while keeping it on
+  disk, or delete it outright, without touching the other qualities.
+- **Picture-in-Picture** and strict playback exclusivity, so two sources can never
+  play over each other.
 
-![首页白](./docs/image.png)
-![首页黑](./docs/image3.png)
-![歌词](./docs/image6.png)
-![桌面歌词](./docs/image2.png)
-![设置页面](./docs/image4.png)
-![音乐远程控制](./docs/image5.png)
+### Lyrics
+- **Synced lyrics** from LRCLIB, with word-by-word (karaoke) highlighting.
+- **Timing offset control** (`-100 ms` / `+100 ms`) applied live to every surface,
+  including the floating desktop lyric window.
+- **Multi-language romanization** — Hepburn Romaji for Japanese kana and phonetic
+  Bangla, generated from the shared transliteration tables.
+- **In-app LRC synchronizer** — tap along to stamp timestamps onto plain lyrics and
+  save them to embedded tags or a `.lrc` sidecar.
 
-## 项目启动
+### Player and interface
+- Dynamic palette extracted from the album art, with light and dark themes.
+- Namida-style stacked fullscreen player with a waveform seekbar.
+- Equal-power crossfade, gapless playback and skip-silence.
+- A-B loop, per-track bookmarks, sleep timer and listening statistics.
+- Discord Rich Presence, global media keys and system tray controls.
+- **English-only interface and source.** No other locale ships.
 
-```bash
+## Requirements
+
+- Windows 10 or newer (x64)
+- No external runtime — `ffmpeg` and `yt-dlp` are bundled
+
+## Getting started
+
+Download the latest portable executable from the releases page and run it. No
+installation is required.
+
+## Development
+
+```powershell
+cd AlgerMusicPlayer
 npm install
-npm run dev
+
+npm run dev              # electron-vite dev server with hot reload
+npm run typecheck        # node + web type checks
+npx vitest run           # unit tests
+npm run build            # bundle check
+npm run build:portable   # produce MusicManager-v<version>-Portable.exe
 ```
 
-## 开发文档
+### Repository layout
 
-点击这里[开发文档](./DEV.md)
+```
+AlgerMusicPlayer/
+├── src/main/            Electron main process, IPC handlers, window setup
+├── src/preload/         Context-isolation bridge
+├── src/renderer/        Vue 3 frontend (views, components, stores, services)
+├── src/shared/          Code shared between main and renderer
+├── tests/               Vitest unit tests
+└── scripts/             Build, packaging and i18n tooling
+```
 
-## 赞赏☕️
+### Conventions
 
-[赞赏列表](http://donate.alger.fun/)
-| 微信赞赏 | 支付宝赞赏 |
-| :--------------------------------------------------------------------------------: | :--------------------------------------------------------------------------------: |
-| <img src="https://github.com/algerkong/algerkong/blob/main/wechat.jpg?raw=true" alt="WeChat QRcode" width=200> <br><small>喝点咖啡继续干</small> | <img src="https://github.com/algerkong/algerkong/blob/main/alipay.jpg?raw=true" alt="Wechat QRcode" width=200> <br><small>来包辣条吧~</small> |
+- **English-only source.** Comments, log messages, thrown errors and dialog
+  titles are all English. Four CJK exemptions are deliberate and documented in
+  [`docs/REMOVED_FEATURES.md`](../docs/REMOVED_FEATURES.md) §7; the regression
+  gate is `node .sweep-gate.mjs`, which must report 0.
+- **Media URLs are never stored as `local://`.** Convert at playback time with
+  `toPlayableMediaUrl()`.
+- **The Dexie schema is versioned.** Any index change requires a new version.
 
-## 项目统计
+## License
 
-[![Star History Chart](https://api.star-history.com/chart?repos=algerkong%2FAlgerMusicPlayer&type=date&legend=top-left)](https://www.star-history.com/?repos=algerkong%2FAlgerMusicPlayer&type=date&legend=top-left)
+MIT. See [`LICENSE`](LICENSE).
 
-## 欢迎提Issues
+## Acknowledgements
 
-## 声明
-
-本软件仅用于学习交流，禁止用于商业用途，否则后果自负。
-希望大家还是要多多支持官方正版，此软件仅用作开发教学。
+This project is built on [AlgerMusicPlayer](https://github.com/algerkong/AlgerMusicPlayer)
+by Alger, and draws its visual language from
+[YesPlayMusic](https://github.com/qier222/YesPlayMusic) and the feature design of
+Namida.

@@ -1,7 +1,6 @@
 <template>
   <header id="title-bar" :class="{ 'title-bar--mac': isMac }" @dblclick="handleTitleBarDblClick">
     <div class="title-bar__leading">
-      <!-- macOS 交通灯控制按钮：关闭、最小化、最大化 -->
       <div v-if="isElectron && isMac" class="window-controls window-controls--mac">
         <button
           class="window-control window-control--mac window-control--mac-close"
@@ -44,7 +43,6 @@
           :title="isMaximized ? t('comp.titleBar.restore') : t('comp.titleBar.maximize')"
           @click.stop="handleMacGreenClick"
         >
-          <!-- 未最大化：对角展开箭头；已最大化：对角收拢箭头 -->
           <svg
             v-if="!isMaximized"
             viewBox="0 0 12 12"
@@ -64,18 +62,14 @@
         </button>
       </div>
 
-      <!-- 应用标题：Mac 靠左侧紧随控制按钮，其他系统靠左 -->
       <span class="title-bar__brand" :class="{ 'title-bar__brand--mac': isElectron && isMac }">
         Music Manager
       </span>
     </div>
 
-    <!-- 中间空白可拖拽区域 -->
     <div class="title-bar__spacer" />
 
     <div class="title-bar__trailing">
-
-
       <template v-if="isElectron">
         <button
           class="window-control window-control--utility"
@@ -87,7 +81,6 @@
           <i class="ri-picture-in-picture-line" aria-hidden="true" />
         </button>
 
-        <!-- Windows 和 Linux 控制按钮保持在右上角常规顺序 -->
         <div v-if="!isMac" class="window-controls window-controls--desktop">
           <button
             class="window-control window-control--desktop"
@@ -124,7 +117,6 @@
     </div>
   </header>
 
-  <!-- 关闭确认弹窗：与展开歌词视图共用（#492） -->
   <close-app-confirm-modal
     v-model:show="showCloseModal"
     v-model:remember-choice="rememberChoice"
@@ -168,10 +160,7 @@ const {
   confirmCloseAction
 } = useWindowControls();
 
-
-
 const handleMacGreenClick = (event: MouseEvent) => {
-  // Option + 点击触发系统全屏，普通点击触发窗口铺满屏幕（最大化/还原）
   if (event.altKey) {
     window.api.toggleFullScreen();
   } else {
@@ -181,7 +170,6 @@ const handleMacGreenClick = (event: MouseEvent) => {
 
 const handleTitleBarDblClick = (event: MouseEvent) => {
   const target = event.target as HTMLElement | null;
-  // 避免在按钮或可交互控件上触发双击
   if (target?.closest('.window-control, .n-button, [data-no-drag]')) {
     return;
   }
@@ -192,7 +180,7 @@ const syncMaximizedState = async (): Promise<void> => {
   try {
     isMaximized.value = await window.api.isMaximized();
   } catch (error) {
-    console.error('获取窗口最大化状态失败:', error);
+    console.error('Failed to read maximized state:', error);
   }
 };
 
@@ -301,7 +289,6 @@ onUnmounted(() => {
   background: #e81123;
 }
 
-/* macOS 交通灯外观 */
 .window-control--mac {
   width: 12px;
   height: 12px;
@@ -335,7 +322,6 @@ onUnmounted(() => {
   pointer-events: none;
 }
 
-/* 鼠标悬停在整个交通灯按钮组时，全部图标清晰淡入 */
 .window-controls--mac:hover .traffic-icon {
   opacity: 1;
 }

@@ -5,29 +5,23 @@
         v-if="showModal"
         class="fixed inset-0 z-[999999] flex items-end justify-center bg-black/50 backdrop-blur-sm"
       >
-        <!-- 弹窗内容 -->
         <div
           class="w-full max-w-lg bg-white dark:bg-gray-900 rounded-t-3xl overflow-hidden animate-slide-up"
         >
-          <!-- 顶部装饰条 -->
           <div class="h-1 bg-gradient-to-r from-green-400 via-green-500 to-emerald-600"></div>
 
-          <!-- 关闭条 -->
           <div class="flex justify-center pt-3 pb-2">
             <div class="w-10 h-1 rounded-full bg-gray-300 dark:bg-gray-700"></div>
           </div>
 
-          <!-- 头部信息 -->
           <div class="px-6 pb-5">
             <div class="flex items-center gap-4">
-              <!-- 应用图标 -->
               <div
                 class="w-20 h-20 rounded-2xl overflow-hidden shadow-lg flex-shrink-0 ring-2 ring-green-500/20"
               >
                 <img src="@/assets/logo.png" alt="App Icon" class="w-full h-full object-cover" />
               </div>
 
-              <!-- 版本信息 -->
               <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-2 mb-2">
                   <span
@@ -46,7 +40,6 @@
             </div>
           </div>
 
-          <!-- 更新内容 -->
           <div
             class="mx-6 mb-6 max-h-80 overflow-y-auto rounded-2xl bg-gray-50 dark:bg-gray-800/50"
           >
@@ -56,7 +49,6 @@
             ></div>
           </div>
 
-          <!-- 操作按钮 -->
           <div
             class="px-6 pb-8 flex gap-3"
             :style="{ paddingBottom: `calc(32px + var(--safe-area-inset-bottom, 0px))` }"
@@ -94,10 +86,8 @@ import config from '../../../../package.json';
 
 const { t } = useI18n();
 
-// 缓存键：记录用户点击"稍后提醒"的时间
 const REMIND_LATER_KEY = 'update_remind_later_timestamp';
 
-// 配置 marked
 marked.setOptions({
   breaks: true,
   gfm: true
@@ -112,7 +102,6 @@ const updateInfo = ref<UpdateResult>({
   releaseInfo: null
 });
 
-// 解析 Markdown
 const parsedReleaseNotes = computed(() => {
   if (!updateInfo.value.releaseInfo?.body) return '';
   try {
@@ -123,22 +112,18 @@ const parsedReleaseNotes = computed(() => {
   }
 });
 
-// 检查是否应该显示更新提醒
 const shouldShowReminder = (): boolean => {
   const remindLaterTime = localStorage.getItem(REMIND_LATER_KEY);
   if (!remindLaterTime) return true;
 
   const savedTime = parseInt(remindLaterTime, 10);
   const now = Date.now();
-  const oneDayInMs = 24 * 60 * 60 * 1000; // 24小时
+  const oneDayInMs = 24 * 60 * 60 * 1000;
 
-  // 如果距离上次点击"稍后提醒"超过24小时，则显示
   return now - savedTime >= oneDayInMs;
 };
 
-// 处理"稍后提醒"
 const handleLater = () => {
-  // 记录当前时间
   localStorage.setItem(REMIND_LATER_KEY, Date.now().toString());
   showModal.value = false;
 };
@@ -148,9 +133,8 @@ const closeModal = () => {
 };
 
 const checkForUpdates = async () => {
-  // 检查是否应该显示提醒
   if (!shouldShowReminder()) {
-    console.log('更新提醒被延迟，等待24小时后再提醒');
+    console.log('Update reminder postponed for 24 hours');
     return;
   }
 
@@ -161,32 +145,26 @@ const checkForUpdates = async () => {
       showModal.value = true;
     }
   } catch (error) {
-    console.error('检查更新失败:', error);
+    console.error('Update check failed:', error);
   }
 };
 
 const handleUpdate = async () => {
   const version = updateInfo.value.latestVersion;
 
-  // Android APK 下载地址
   const downloadUrl = `https://github.com/algerkong/AlgerMusicPlayer/releases/download/v${version}/AlgerMusicPlayer-${version}.apk`;
 
   try {
-    // 获取代理节点
     const proxyHosts = await getProxyNodes();
     const proxyDownloadUrl = `${proxyHosts[0]}/${downloadUrl}`;
 
-    // 清除"稍后提醒"记录（用户选择更新后，下次应该正常提醒）
     localStorage.removeItem(REMIND_LATER_KEY);
 
-    // 使用系统浏览器打开下载链接
     window.open(proxyDownloadUrl, '_blank');
 
-    // 关闭弹窗
     closeModal();
   } catch (error) {
-    console.error('打开下载链接失败:', error);
-    // 回退到直接打开 GitHub Releases
+    console.error('Failed to open download link:', error);
     const releaseUrl =
       updateInfo.value.releaseInfo?.html_url ||
       'https://github.com/algerkong/AlgerMusicPlayer/releases/latest';
@@ -196,7 +174,6 @@ const handleUpdate = async () => {
 };
 
 onMounted(() => {
-  // 延迟检查更新，确保应用完全加载
   setTimeout(() => {
     checkForUpdates();
   }, 2000);
@@ -204,7 +181,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* 动画 */
 .update-modal-enter-active,
 .update-modal-leave-active {
   transition: opacity 0.3s ease;
@@ -228,7 +204,6 @@ onMounted(() => {
   transform: translateY(100%);
 }
 
-/* 更新内容样式 */
 :deep(h1) {
   font-size: 1.25rem;
   font-weight: 700;

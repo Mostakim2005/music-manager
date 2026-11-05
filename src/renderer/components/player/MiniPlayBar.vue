@@ -4,7 +4,6 @@
     :class="{ 'pure-mode': pureModeEnabled, 'mini-mode': settingsStore.isMiniMode }"
   >
     <div class="mini-bar-container">
-      <!-- 专辑封面 -->
       <div class="album-cover" @click="setMusicFull">
         <n-image
           :src="getImgUrl(playMusic?.picUrl, '100y100')"
@@ -14,9 +13,8 @@
         />
       </div>
 
-      <!-- 歌曲信息 -->
       <div class="song-info" @click="setMusicFull">
-        <div class="song-title" v-html="playMusic?.name || '未播放'"></div>
+        <div class="song-title" v-html="playMusic?.name || 'Not playing'"></div>
         <div class="song-artist">
           <span
             v-for="(artists, artistsindex) in artistList"
@@ -29,7 +27,6 @@
         </div>
       </div>
 
-      <!-- 控制按钮区域 -->
       <div class="control-buttons">
         <div class="control-button previous" @click="handlePrev">
           <i class="iconfont icon-prev"></i>
@@ -42,7 +39,6 @@
         </div>
       </div>
 
-      <!-- 右侧功能按钮 -->
       <div class="function-buttons">
         <div class="function-button">
           <i
@@ -76,19 +72,16 @@
           </div>
         </n-popover>
 
-        <!-- 播放列表按钮 -->
         <div v-if="!component" class="function-button" @click="togglePlaylist">
           <i class="iconfont icon-list"></i>
         </div>
       </div>
 
-      <!-- 关闭按钮 -->
       <div v-if="!component" class="close-button" @click="handleClose">
         <i class="iconfont ri-close-line"></i>
       </div>
     </div>
 
-    <!-- 进度条 -->
     <div
       class="progress-bar"
       @click="handleProgressClick"
@@ -99,7 +92,6 @@
       <div class="progress-fill" :style="{ width: `${(nowTime / allTime) * 100}%` }"></div>
     </div>
 
-    <!-- 播放列表 - 单独放在外层，不再使用 popover -->
     <div
       v-if="!component"
       v-show="isPlaylistOpen"
@@ -142,10 +134,8 @@ const playerStore = usePlayerStore();
 const settingsStore = useSettingsStore();
 const { navigateToArtist } = useArtist();
 
-// 播放控制
 const { isPlaying: play, playMusicEvent, handleNext, handlePrev } = usePlaybackControl();
 
-// 音量控制（统一通过 playerStore 管理）
 const {
   isMuted,
   volumeSlider,
@@ -154,7 +144,6 @@ const {
   handleVolumeWheel
 } = useVolumeControl();
 
-// 收藏
 const { isFavorite, toggleFavorite } = useFavorite();
 
 withDefaults(
@@ -167,74 +156,56 @@ withDefaults(
   }
 );
 
-// togglePlaylist 会为撑开歌单临时改写 body 的内联样式。若退出迷你模式时未清理，
-// 残留的 body{height:64px;overflow:hidden} 会把整个主界面裁成一条 64px 高的横条，
-// 看起来就像 UI 崩溃（#763）。这里统一做一次清理，保证任何退出路径都不会残留。
 const clearMiniModeBodyStyles = () => {
   document.body.style.height = '';
   document.body.style.overflow = '';
 };
 
-// 迷你布局被移除（切回主界面）时兜底清理，不依赖 mini-mode 事件是否到达
 onBeforeUnmount(clearMiniModeBodyStyles);
 
-// 处理关闭按钮点击
 const handleClose = () => {
   if (settingsStore.isMiniMode) {
-    // 先清理临时样式再恢复窗口，避免窗口放大后主界面仍被裁切
     clearMiniModeBodyStyles();
     window.api.restore();
   }
 };
 
-// 播放列表
 const playList = computed(() => playerStore.playList as SongResult[]);
 
-// 播放列表相关
 const palyListRef = useTemplateRef('palyListRef') as any;
 const isPlaylistOpen = ref(false);
 
-// 提供 openPlaylistDrawer 给子组件
-// Mini 窗口（340px 宽）容不下 420px 的歌单抽屉：记录待添加歌曲并恢复主窗口，
-// AppLayout 重新挂载后接力打开抽屉（#504）
 provide('openPlaylistDrawer', (songId: number) => {
   localStorage.setItem('pendingAddToPlaylistSongId', String(songId));
   window.api.restore();
 });
 
-// 切换播放列表显示/隐藏
 const togglePlaylist = () => {
   isPlaylistOpen.value = !isPlaylistOpen.value;
-  console.log('切换播放列表状态', isPlaylistOpen.value);
+  console.log('toggle playlist state', isPlaylistOpen.value);
 
-  // 调整窗口大小
   if (settingsStore.isMiniMode) {
     try {
       if (isPlaylistOpen.value) {
-        // 打开播放列表时调整DOM
         document.body.style.height = 'auto';
         document.body.style.overflow = 'visible';
 
-        // 使用新的专用 API 调整窗口大小
         if (window.api && typeof window.api.resizeMiniWindow === 'function') {
           window.api.resizeMiniWindow(true);
         }
       } else {
-        // 关闭播放列表时强制调整DOM
         document.body.style.height = '64px';
         document.body.style.overflow = 'hidden';
 
-        // 使用新的专用 API 调整窗口大小
         if (window.api && typeof window.api.resizeMiniWindow === 'function') {
           window.api.resizeMiniWindow(false);
         }
       }
     } catch (error) {
-      console.error('调整窗口大小失败:', error);
+      console.error('Failed to resize window: ', error);
     }
   }
 
-  // 如果打开列表，滚动到当前播放歌曲
   if (isPlaylistOpen.value) {
     scrollToPlayList();
   }
@@ -243,7 +214,7 @@ const togglePlaylist = () => {
 const scrollToPlayList = () => {
   setTimeout(() => {
     const currentIndex = playerStore.playListIndex;
-    const itemHeight = 69; // 每个列表项的高度
+    const itemHeight = 69;
     palyListRef.value?.scrollTo({
       top: currentIndex * itemHeight,
       behavior: 'smooth'
@@ -258,12 +229,10 @@ const handleDeleteSong = (song: SongResult) => {
   playerStore.removeFromPlayList(song.id as number);
 };
 
-// 艺术家点击
 const handleArtistClick = (id: number) => {
   navigateToArtist(id);
 };
 
-// 进度条相关
 const handleProgressClick = (e: MouseEvent) => {
   const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
   const percent = (e.clientX - rect.left) / rect.width;
@@ -285,7 +254,6 @@ const handleProgressLeave = () => {
   isHovering.value = false;
 };
 
-// 切换到完整播放器
 const setMusicFull = () => {
   playerStore.setMusicFull(true);
 };
@@ -536,7 +504,6 @@ const setMusicFull = () => {
   }
 }
 
-// 播放列表样式
 .playlist-container {
   @apply fixed left-0 right-0 bg-white dark:bg-dark-100 overflow-hidden;
   top: 64px;
@@ -549,7 +516,6 @@ const setMusicFull = () => {
   }
 }
 
-// 播放列表内容样式
 .music-play-list-content {
   @apply px-2 py-1;
 
@@ -563,7 +529,6 @@ const setMusicFull = () => {
   }
 }
 
-// 过渡动画
 .fade-enter-active,
 .fade-leave-active {
   transition: opacity 0.3s ease;

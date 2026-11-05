@@ -213,7 +213,11 @@ export const youtubeService = {
             const ext = filePath.split('.').pop()?.toLowerCase();
             const isVideo = ['mp4', 'mkv', 'webm', 'mov'].includes(ext || '');
             const basename =
-              filePath.replace(/\\/g, '/').split('/').pop()?.replace(/\.[^.]+$/, '') || '';
+              filePath
+                .replace(/\\/g, '/')
+                .split('/')
+                .pop()
+                ?.replace(/\.[^.]+$/, '') || '';
             let [title, artist] = basename.split(' - ').map((s) => s.trim());
             if (!artist) {
               artist = 'YouTube';

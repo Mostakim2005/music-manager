@@ -5,7 +5,6 @@ import i18n from '@/../i18n/renderer';
 import { usePlayerCoreStore } from '@/store/modules/playerCore';
 import { getLocalStorageItem, setLocalStorageItem } from '@/utils/playerUtils';
 
-// 定时关闭类型
 export enum SleepTimerType {
   NONE = 'none',
   TIME = 'time',
@@ -13,7 +12,6 @@ export enum SleepTimerType {
   PLAYLIST_END = 'end'
 }
 
-// 定时关闭信息
 export interface SleepTimerInfo {
   type: SleepTimerType;
   value: number;
@@ -23,11 +21,8 @@ export interface SleepTimerInfo {
 }
 
 /**
- * 定时关闭管理 Store
- * 负责：定时关闭功能
  */
 export const useSleepTimerStore = defineStore('sleepTimer', () => {
-  // ==================== 状态 ====================
   const sleepTimer = ref<SleepTimerInfo>(
     getLocalStorageItem('sleepTimer', {
       type: SleepTimerType.NONE,
@@ -59,7 +54,6 @@ export const useSleepTimerStore = defineStore('sleepTimer', () => {
   // ==================== Actions ====================
 
   /**
-   * 按时间设置定时关闭
    */
   const setSleepTimerByTime = (minutes: number) => {
     clearSleepTimer();
@@ -82,12 +76,11 @@ export const useSleepTimerStore = defineStore('sleepTimer', () => {
       checkSleepTimer();
     }, 1000) as unknown as number;
 
-    console.log(`设置定时关闭: ${minutes}分钟后`);
+    console.log(`Sleep timer: ${minutes} minutes`);
     return true;
   };
 
   /**
-   * 按歌曲数设置定时关闭
    */
   const setSleepTimerBySongs = async (songs: number) => {
     clearSleepTimer();
@@ -108,12 +101,11 @@ export const useSleepTimerStore = defineStore('sleepTimer', () => {
 
     setLocalStorageItem('sleepTimer', sleepTimer.value);
 
-    console.log(`设置定时关闭: 再播放${songs}首歌后`);
+    console.log(`Sleep timer: after ${songs} more tracks`);
     return true;
   };
 
   /**
-   * 播放列表结束时关闭
    */
   const setSleepTimerAtPlaylistEnd = () => {
     clearSleepTimer();
@@ -125,12 +117,11 @@ export const useSleepTimerStore = defineStore('sleepTimer', () => {
 
     setLocalStorageItem('sleepTimer', sleepTimer.value);
 
-    console.log('设置定时关闭: 播放列表结束时');
+    console.log('Sleep timer: end of playlist');
     return true;
   };
 
   /**
-   * 取消定时关闭
    */
   const clearSleepTimer = () => {
     if (timerInterval.value) {
@@ -145,12 +136,11 @@ export const useSleepTimerStore = defineStore('sleepTimer', () => {
 
     setLocalStorageItem('sleepTimer', sleepTimer.value);
 
-    console.log('取消定时关闭');
+    console.log('Sleep timer cancelled');
     return true;
   };
 
   /**
-   * 检查定时关闭是否应该触发
    */
   const checkSleepTimer = () => {
     if (sleepTimer.value.type === SleepTimerType.NONE) {
@@ -165,16 +155,14 @@ export const useSleepTimerStore = defineStore('sleepTimer', () => {
   };
 
   /**
-   * 停止播放并清除定时器
    */
   const stopPlayback = (): void => {
     if (sleepTimer.value.type === SleepTimerType.NONE) return;
-    console.log('定时器触发：停止播放');
+    console.log('Sleep timer fired: stopping playback');
     const playerCore = usePlayerCoreStore();
     playerCore.handlePause();
     clearSleepTimer();
 
-    // 发送通知
     if (window.electron?.ipcRenderer) {
       window.electron.ipcRenderer.send('show-notification', {
         title: i18n.global.t('player.sleepTimer.timerEnded'),
@@ -184,7 +172,6 @@ export const useSleepTimerStore = defineStore('sleepTimer', () => {
   };
 
   /**
-   * 在自然结束、开始下一首之前计数，单曲循环和 FM 同样经过这里。
    */
   const handleSongEnd = (isLastSong: boolean): boolean => {
     if (
@@ -200,7 +187,7 @@ export const useSleepTimerStore = defineStore('sleepTimer', () => {
       sleepTimer.value.remainingSongs !== undefined
     ) {
       sleepTimer.value.remainingSongs--;
-      console.log(`剩余歌曲数: ${sleepTimer.value.remainingSongs}`);
+      console.log(`Remaining tracks: ${sleepTimer.value.remainingSongs}`);
 
       setLocalStorageItem('sleepTimer', sleepTimer.value);
 
@@ -218,23 +205,18 @@ export const useSleepTimerStore = defineStore('sleepTimer', () => {
   };
 
   /**
-   * 设置定时器弹窗显示状态
    */
   const setShowSleepTimer = (value: boolean) => {
     showSleepTimer.value = value;
   };
 
   /**
-   * 应用重启/刷新后恢复定时器：
-   * sleepTimer 状态会被持久化并在 ref 初始化时恢复，但 setInterval 不会，
-   * 导致 TIME 类型定时器到点后不再触发停止。这里在 store 创建时重建 interval。
    */
   const restoreTimerInterval = () => {
     if (sleepTimer.value.type !== SleepTimerType.TIME || !sleepTimer.value.endTime) {
       return;
     }
     if (Date.now() >= sleepTimer.value.endTime) {
-      // 重启时已过设定时间，直接停止播放
       stopPlayback();
       return;
     }
@@ -245,11 +227,9 @@ export const useSleepTimerStore = defineStore('sleepTimer', () => {
     }
   };
 
-  // store 首次实例化时立即尝试恢复（player store 在启动阶段即会实例化本 store）
   restoreTimerInterval();
 
   return {
-    // 状态
     sleepTimer,
     showSleepTimer,
 

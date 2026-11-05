@@ -1,10 +1,5 @@
 /**
- * 解析缓存（从旧 musicParser.ts 迁移，键语义升级为 provider 粒度）
  *
- * - URL 缓存：IndexedDB music_url_cache，30 分钟 TTL；缓存键包含参与音源
- *   集合，配置变化自动失效
- * - 失败缓存：内存 Map，1 分钟；键 `${songId}:${providerKey}`，单个 provider
- *   短时间内不重试（切歌场景避免重复等待同一坏源）
  */
 import { cloneDeep } from 'lodash';
 
@@ -30,7 +25,10 @@ const CACHE_CONFIG = {
 const failedCacheMap = new Map<string, number>();
 
 export const MusicResolveCache = {
-  async getCachedMusicUrl(songId: string | number, sourceKeys?: string[]): Promise<CachedUrlEntry | null> {
+  async getCachedMusicUrl(
+    songId: string | number,
+    sourceKeys?: string[]
+  ): Promise<CachedUrlEntry | null> {
     try {
       const cached = await getData('music_url_cache', songId);
       if (
@@ -49,7 +47,7 @@ export const MusicResolveCache = {
         await deleteData('music_url_cache', songId);
       }
     } catch (error) {
-      console.warn('获取解析缓存失败:', error);
+      console.warn('Failed to read resolve cache:', error);
     }
     return null;
   },
@@ -67,7 +65,7 @@ export const MusicResolveCache = {
         createTime: Date.now()
       });
     } catch (error) {
-      console.error('缓存解析结果失败:', error);
+      console.error('Failed to cache resolve result:', error);
     }
   },
 
@@ -95,7 +93,7 @@ export const MusicResolveCache = {
     try {
       await deleteData('music_url_cache', songId);
     } catch (error) {
-      console.error('清除解析缓存失败:', error);
+      console.error('Failed to clear resolve cache:', error);
     }
     this.clearFailedCache(songId);
   }

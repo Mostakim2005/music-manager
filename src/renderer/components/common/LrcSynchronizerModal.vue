@@ -9,14 +9,17 @@
       class="lrc-synchronizer-modal p-6 rounded-3xl border border-white/20 dark:border-white/10 shadow-2xl backdrop-blur-2xl bg-white/85 dark:bg-neutral-900/85 text-neutral-900 dark:text-neutral-100 max-w-3xl w-[95vw] max-h-[92vh] flex flex-col"
     >
       <!-- Header -->
-      <div class="flex items-center justify-between pb-3 border-b border-neutral-200/60 dark:border-neutral-800/60">
+      <div
+        class="flex items-center justify-between pb-3 border-b border-neutral-200/60 dark:border-neutral-800/60"
+      >
         <div>
           <h3 class="text-lg font-bold text-neutral-900 dark:text-white flex items-center gap-2">
             <i class="ri-timer-flash-line text-green-500 text-xl" />
             LRC Lyric Timestamp Synchronizer
           </h3>
           <p class="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
-            Precision timestamp maker &amp; real-time audio synchronizer. Play, stamp, preview &amp; nudge.
+            Precision timestamp maker &amp; real-time audio synchronizer. Play, stamp, preview &amp;
+            nudge.
           </p>
         </div>
         <button
@@ -84,7 +87,9 @@
 
           <!-- Time Display & Reset -->
           <div class="flex items-center gap-2">
-            <span class="font-mono text-xs tabular-nums text-neutral-600 dark:text-neutral-300 bg-white/70 dark:bg-neutral-900/60 px-2.5 py-1 rounded-lg border border-neutral-200/50 dark:border-neutral-700/50">
+            <span
+              class="font-mono text-xs tabular-nums text-neutral-600 dark:text-neutral-300 bg-white/70 dark:bg-neutral-900/60 px-2.5 py-1 rounded-lg border border-neutral-200/50 dark:border-neutral-700/50"
+            >
               <span class="text-primary font-bold">{{ formatLrcTimestamp(currentAudioTime) }}</span>
               <span class="text-neutral-400 mx-1">/</span>
               <span>{{ formatLrcTimestamp(totalDuration) }}</span>
@@ -109,7 +114,9 @@
       <!-- Mode & Tools Bar (Nudge step, Global Offset, Mode switch) -->
       <div class="mt-3 flex items-center justify-between flex-wrap gap-2.5 py-1">
         <!-- Interactive vs Plain Text Mode Switch -->
-        <div class="flex items-center gap-1 p-1 bg-neutral-100 dark:bg-neutral-800 rounded-xl text-xs font-medium">
+        <div
+          class="flex items-center gap-1 p-1 bg-neutral-100 dark:bg-neutral-800 rounded-xl text-xs font-medium"
+        >
           <button
             type="button"
             class="px-3 py-1 rounded-lg transition"
@@ -139,7 +146,9 @@
         <!-- Nudge Step Selector & Global Offset Control -->
         <div v-if="mode === 'sync'" class="flex items-center flex-wrap gap-2 text-xs">
           <!-- Step Selector -->
-          <div class="flex items-center gap-1 bg-neutral-100 dark:bg-neutral-800 px-2 py-1 rounded-xl">
+          <div
+            class="flex items-center gap-1 bg-neutral-100 dark:bg-neutral-800 px-2 py-1 rounded-xl"
+          >
             <span class="text-neutral-500 dark:text-neutral-400 font-medium mr-1">Nudge:</span>
             <button
               v-for="st in [0.1, 0.5, 1.0]"
@@ -172,7 +181,9 @@
           </div>
 
           <!-- Global Shift Bar -->
-          <div class="flex items-center gap-1 bg-neutral-100 dark:bg-neutral-800 px-2 py-1 rounded-xl">
+          <div
+            class="flex items-center gap-1 bg-neutral-100 dark:bg-neutral-800 px-2 py-1 rounded-xl"
+          >
             <span class="text-neutral-500 dark:text-neutral-400 font-medium">All:</span>
             <button
               type="button"
@@ -220,7 +231,8 @@
       <!-- Plain Text Editor Mode -->
       <div v-if="mode === 'edit'" class="mt-3 flex-1 flex flex-col min-h-0">
         <label class="text-xs text-neutral-500 dark:text-neutral-400 mb-1">
-          Paste plain lyrics or existing LRC text below. Each row will be loaded into the synchronizer:
+          Paste plain lyrics or existing LRC text below. Each row will be loaded into the
+          synchronizer:
         </label>
         <textarea
           v-model="rawInputText"
@@ -277,7 +289,11 @@
           <div
             v-for="(item, index) in lines"
             :key="index"
-            :ref="(el) => { if (index === activeIndex) activeElementRef = el as HTMLElement; }"
+            :ref="
+              (el) => {
+                if (index === activeIndex) activeElementRef = el as HTMLElement;
+              }
+            "
             class="group flex items-center gap-2 p-1.5 rounded-xl text-xs transition cursor-pointer"
             :class="[
               index === activeIndex
@@ -377,15 +393,8 @@
         </div>
 
         <div class="flex items-center gap-2">
-          <n-button size="small" @click="emit('update:show', false)">
-            Cancel
-          </n-button>
-          <n-button
-            size="small"
-            type="primary"
-            :loading="applying"
-            @click="handleApply"
-          >
+          <n-button size="small" @click="emit('update:show', false)"> Cancel </n-button>
+          <n-button size="small" type="primary" :loading="applying" @click="handleApply">
             <template #icon>
               <i class="ri-check-line" />
             </template>
@@ -556,9 +565,7 @@ function parseInputIntoLines(text: string): LyricLineState[] {
 }
 
 function buildLrcString(): string {
-  return lines.value
-    .map((l) => (l.timestamp ? `${l.timestamp}${l.text}` : l.text))
-    .join('\n');
+  return lines.value.map((l) => (l.timestamp ? `${l.timestamp}${l.text}` : l.text)).join('\n');
 }
 
 function scrollToActive() {
@@ -717,9 +724,7 @@ function handleGlobalKeydown(e: KeyboardEvent) {
   const target = e.target as HTMLElement | null;
   const isInputActive =
     target &&
-    (target.tagName === 'INPUT' ||
-      target.tagName === 'TEXTAREA' ||
-      target.isContentEditable);
+    (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
 
   if (isInputActive) return;
 

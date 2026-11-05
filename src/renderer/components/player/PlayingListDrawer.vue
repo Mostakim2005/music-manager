@@ -1,8 +1,6 @@
 <template>
-  <!-- 透明遮罩层，点击任意位置关闭 -->
   <div v-if="internalVisible" class="fixed-overlay" @click="closePanel"></div>
 
-  <!-- 使用animate.css进行动画效果 -->
   <div
     v-if="internalVisible"
     class="playlist-panel"
@@ -72,11 +70,9 @@ const message = useMessage();
 const dialog = useDialog();
 const playerStore = usePlayerStore();
 
-// 内部状态控制组件的可见性
 const internalVisible = ref(false);
 const closing = ref(false);
 
-// 当前是否显示播放列表面板
 const show = computed({
   get: () => playerStore.playListDrawerVisible,
   set: (value) => {
@@ -84,48 +80,38 @@ const show = computed({
   }
 });
 
-// 监听外部可见性变化
 watch(
   show,
   (newValue) => {
     if (newValue) {
-      // 打开面板
       internalVisible.value = true;
       closing.value = false;
-      // 在下一个渲染周期后滚动到当前歌曲
       nextTick(() => {
         scrollToCurrentSong();
       });
     } else {
-      // 如果已经是关闭状态，不需要处理
       if (!internalVisible.value) return;
 
-      // 开始关闭动画，等 animationend 后再隐藏
       closing.value = true;
     }
   },
   { immediate: true }
 );
 
-// 播放列表
 const playList = computed(() => playerStore.playList as SongResult[]);
 
-// 播放列表引用
 const playListRef = ref<any>(null);
 
-// 关闭面板
 const closePanel = () => {
   show.value = false;
 };
 
-// 动画结束后隐藏组件
 const onAnimationEnd = () => {
   if (closing.value) {
     internalVisible.value = false;
   }
 };
 
-// 清空播放列表
 const handleClearPlaylist = () => {
   if (playList.value.length === 0) {
     message.info(t('player.playList.alreadyEmpty'));
@@ -141,23 +127,20 @@ const handleClearPlaylist = () => {
     content: t('player.playList.clearConfirmContent'),
     positiveText: t('common.confirm'),
     negativeText: t('common.cancel'),
-    style: { zIndex: 999999999 }, // 确保对话框显示在遮罩之上
+    style: { zIndex: 999999999 },
     onPositiveClick: () => {
-      // 清空播放列表
       playerStore.clearPlayAll();
       message.success(t('player.playList.cleared'));
     }
   });
 };
 
-// 处理键盘事件
 const handleKeyDown = (event: KeyboardEvent) => {
   if (event.key === 'Escape' && internalVisible.value) {
     closePanel();
   }
 };
 
-// 添加和移除键盘事件监听
 onMounted(() => {
   window.addEventListener('keydown', handleKeyDown);
 });
@@ -166,13 +149,11 @@ onUnmounted(() => {
   window.removeEventListener('keydown', handleKeyDown);
 });
 
-// 滚动到当前播放歌曲
 const scrollToCurrentSong = () => {
-  // 延长等待时间，确保列表已渲染完成
   setTimeout(() => {
     if (playListRef.value && playList.value.length > 0) {
       const index = playerStore.playListIndex;
-      console.log('滚动到歌曲索引:', index);
+      console.log('Scrolled to song index:', index);
       playListRef.value.scrollTo({
         top: (index > 3 ? index - 3 : 0) * 62
       });
@@ -180,7 +161,6 @@ const scrollToCurrentSong = () => {
   }, 100);
 };
 
-// 删除歌曲
 const handleDeleteSong = (song: SongResult) => {
   playerStore.removeFromPlayList(song.id as number);
 };
@@ -189,7 +169,7 @@ const handleDeleteSong = (song: SongResult) => {
 <style lang="scss" scoped>
 .fixed-overlay {
   @apply fixed inset-0 z-[999999];
-  pointer-events: auto; // 允许点击关闭
+  pointer-events: auto;
   cursor: default;
 }
 
@@ -197,8 +177,8 @@ const handleDeleteSong = (song: SongResult) => {
   @apply fixed right-0 z-[9999999] rounded-l-xl overflow-hidden;
   width: 350px;
   height: 70vh;
-  top: 15vh; // 距离顶部15%
-  animation-duration: 0.4s !important; // 动画持续时间
+  top: 15vh;
+  animation-duration: 0.4s !important;
 
   @apply bg-light dark:bg-dark shadow-2xl dark:border dark:border-gray-700;
 
@@ -269,14 +249,13 @@ const handleDeleteSong = (song: SongResult) => {
   }
 }
 
-// 移动端适配
 @media (max-width: 768px) {
   .playlist-panel {
     position: fixed;
     width: 100%;
     height: 80vh;
     top: auto;
-    bottom: 0; // 移动端底部留出导航栏高度
+    bottom: 0;
     border-radius: 30px 30px 0 0;
     border-left: none;
     border-top: 1px solid theme('colors.gray.200');

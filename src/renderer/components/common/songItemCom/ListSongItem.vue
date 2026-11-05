@@ -12,14 +12,12 @@
     class="list-song-item"
     ref="baseItem"
   >
-    <!-- 选择框插槽 -->
     <template #select>
       <div v-if="baseItem && selectable" class="song-item-select" @click.stop="onToggleSelect">
         <n-checkbox :checked="selected" />
       </div>
     </template>
 
-    <!-- 图片插槽 -->
     <template #image>
       <n-image
         v-if="item.picUrl"
@@ -33,7 +31,6 @@
       />
     </template>
 
-    <!-- 内容插槽 -->
     <template #content>
       <div class="song-item-content">
         <div class="song-item-content-wrapper">
@@ -64,7 +61,6 @@
       </div>
     </template>
 
-    <!-- 操作插槽 -->
     <template #operating>
       <div class="song-item-operating-list">
         <div v-if="favorite" class="song-item-operating-list-like">
@@ -122,14 +118,12 @@ const props = withDefaults(
 const emit = defineEmits(['play', 'select', 'remove-song']);
 const baseItem = ref<InstanceType<typeof BaseSongItem>>();
 
-// 从基础组件获取响应式状态
 const play = computed(() => playerStore.isPlay);
 const isPlaying = computed(() => baseItem.value?.isPlaying || false);
 const playLoading = computed(() => baseItem.value?.playLoading || false);
 const isFavorite = computed(() => baseItem.value?.isFavorite || false);
 const artists = computed(() => baseItem.value?.artists || []);
 
-// 包装方法，避免直接访问可能为undefined的ref
 const onToggleSelect = () => {
   baseItem.value?.toggleSelect();
   emit('select', props.item.id, !props.selected);

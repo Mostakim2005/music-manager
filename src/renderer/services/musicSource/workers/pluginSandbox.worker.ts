@@ -1,20 +1,11 @@
 /**
- * 统一音源插件沙箱 Worker（三方言单一运行时）
  *
- * - native：CommonJS wrapper（module/exports/ctx），无 require
- * - musicfree：CommonJS wrapper + require 垫片（axios/crypto-js/cheerio 等）+ 全局 env
- * - lxmusic：注入 globalThis.lx 事件宿主（on/send/request/utils），脚本顶层注册
- *   handler 后 send(inited)；适配器把事件模型包装成统一的 getMediaSource 导出
  *
- * 消息协议（与 PluginSandboxRunner 对应）：
  *   host→worker: initialize{script, dialect, scriptInfo} | invoke{callId, method, args, userVars}
  *                | http-response{requestId, response, error?}
  *   worker→host: initialized{meta} | script-error | invoke-result | invoke-error
  *                | http-request{requestId, url, options} | log
  *
- * 参照 AlgerMusicFlutter server/src/plugin/loader.js 的方言适配分层：
- * 方言差异（执行包装/全局注入/返回值归一）全部收敛在 worker 内，
- * Runner 与上层只面对统一的导出对象形状。
  */
 import bigInteger from 'big-integer';
 import * as cheerio from 'cheerio';
@@ -28,8 +19,6 @@ import type { LxQuality, LxSourceKey } from '@/types/lxMusic';
 import type { MusicSourcePluginDialect } from '@/types/musicSourcePlugin';
 import type { MusicSourcePluginMeta } from '@/types/musicSourcePlugin';
 import * as lxCrypto from '@/utils/lxCrypto';
-
-// ─── 消息协议 ────────────────────────────────────────────────────────────
 
 type WorkerInitMessage = {
   type: 'initialize';
@@ -64,7 +53,6 @@ export type SandboxPluginMeta = {
   sourceUrl?: string;
   methods: string[];
   userVariables: unknown[];
-  /** lxmusic 方言：脚本 inited 握手声明的源表 */
   lxSources?: Record<string, { name?: string; actions?: string[]; qualitys?: string[] }>;
 };
 
@@ -88,8 +76,6 @@ type HostWorkerMessage =
   | HostScriptErrorMessage
   | HostLogMessage;
 
-// ─── 状态 ────────────────────────────────────────────────────────────────
-
 type PluginExports = Record<string, any> & {
   __lxSources?: SandboxPluginMeta['lxSources'];
 };
@@ -104,7 +90,6 @@ const pendingHttpRequests = new Map<
   string,
   { resolve: (value: HttpResponse) => void; reject: (error: Error) => void }
 >();
-/** LX 脚本的回调风格请求（lx.request(url, options, callback)） */
 const pendingHttpCallbacks = new Map<
   string,
   (error: Error | null, response: any, body: any) => void
@@ -119,8 +104,6 @@ const postToHost = (message: HostWorkerMessage): void => {
 const postLog = (level: HostLogMessage['level'], ...args: unknown[]): void => {
   postToHost({ type: 'log', level, args });
 };
-
-// ─── HTTP 通道（promise 风格，native/musicfree 用） ────────────────────────
 
 type HttpResponse = {
   statusCode: number;
@@ -175,8 +158,6 @@ const createHttpContext = () => {
       request(url, { ...options, method: 'DELETE' })
   };
 };
-
-// ─── 编解码 / 加密工具（ctx 与 LX utils 共用底层） ────────────────────────
 
 const toBytes = (value: unknown, encoding = 'utf-8'): Uint8Array => {
   if (typeof value === 'string') {
@@ -235,7 +216,6 @@ const bytesToString = (data: unknown, encoding = 'utf-8'): string => {
   }
 };
 
-/** Node Buffer 语义（LX 脚本按 lx-music-desktop 的 Node 环境编写） */
 class LxBuffer extends Uint8Array {
   toString(encoding = 'utf-8'): string {
     return bytesToString(this, encoding);
@@ -255,8 +235,6 @@ const bytesToBase64 = (value: unknown): string => {
   for (const byte of toBytes(value)) binary += String.fromCharCode(byte);
   return btoa(binary);
 };
-
-// ─── ctx（native 方言注入） ───────────────────────────────────────────────
 
 const createCryptoContext = () => ({
   md5: (value: unknown) => CryptoJS.MD5(String(value)).toString(),
@@ -302,8 +280,6 @@ const createPluginContext = () => ({
   }
 });
 
-// ─── MusicFree 的 require 垫片 ───────────────────────────────────────────
-
 type AxiosLike = {
   (configOrUrl: string | Record<string, unknown>, config?: Record<string, unknown>): Promise<any>;
   defaults: Record<string, unknown>;
@@ -330,9 +306,6 @@ const buildAxiosResponse = (response: HttpResponse, config: Record<string, unkno
 });
 
 /**
- * axios 调优对齐 MusicFree 宿主（行为级兼容，参照 Flutter loader.js）：
- * 移动端宿主 `defaults.timeout = 2000`，且响应拦截器把长度为 1 的 set-cookie
- * 按逗号拆开。不调优则「装得上、跑不对」：慢站点无超时挂死、cookie 取值形状错。
  */
 const tuneAxiosLikeMusicFree = (mod: Record<string, any>): void => {
   if (!mod || !mod.defaults || mod.__mfTuned) return;
@@ -403,10 +376,6 @@ const createAxiosShim = (initialDefaults: Record<string, unknown> = {}): AxiosLi
 };
 
 /**
- * 生态里绝大多数插件是 TS 编译产物：`qs_1.default.stringify(...)` 是标准形状。
- * 不能直接赋值 .default —— Vite/worker 的 ESM namespace 对象是冻结的
- * （批量语料 31/73 份死在 `Cannot add property default, object is not
- * extensible`），冻结对象改用 Proxy 透传 default 键。
  */
 const withDefault = (mod: unknown): unknown => {
   const obj = mod as Record<string, unknown> | null;
@@ -453,7 +422,6 @@ const createRequireShim = () => {
   };
 };
 
-/** CJS/ESM 互操作：Parcel 打包的插件把实例挂在 module.exports.default 上 */
 const unwrapDefault = (value: unknown): Record<string, any> => {
   if (!value || typeof value !== 'object') return {};
   const object = value as Record<string, any>;
@@ -467,8 +435,6 @@ const unwrapDefault = (value: unknown): Record<string, any> => {
   if (!topHasPlatform && defHasPlatform) return defaultValue;
   return object;
 };
-
-// ─── LX Music 方言宿主（事件模型 → 统一导出对象） ─────────────────────────
 
 type LxInitedSources = Record<
   string,
@@ -489,7 +455,6 @@ const QUALITY_TO_LX: Record<string, LxQuality> = {
 const LX_QUALITY_LADDER: LxQuality[] = ['flac24bit', 'flac', '320k', '128k'];
 const LX_SOURCE_PRIORITY: LxSourceKey[] = ['wy', 'kw', 'mg', 'kg', 'tx'];
 
-/** 统一导出条目（toPluginItem 形状）→ LX 协议 musicInfo */
 const itemToLxMusicInfo = (item: Record<string, any>) => {
   const artists = (item.artists || []).map((a: { name?: string }) => a?.name).filter(Boolean);
   const durationMs = Number(item.duration) || 0;
@@ -509,8 +474,6 @@ const itemToLxMusicInfo = (item: Record<string, any>) => {
 };
 
 /**
- * 注入 globalThis.lx 事件宿主并执行脚本，等 inited 握手后把
- * 「源选择 + musicUrl 请求 + 音质降级 + 返回值归一」包装成统一导出对象。
  */
 const loadLxDialect = async (
   script: string,
@@ -592,11 +555,6 @@ const loadLxDialect = async (
     }
   };
 
-  // installGlobals 已设 window=globalThis；本 Worker 每插件一个实例（独立 realm），
-  // lx 挂 globalThis.lx 后 window.lx 自然可见，脚本访问 window.setTimeout 等也正常。
-  // 不在包装里前置 `const lx = globalThis.lx`：语料里有脚本顶层自声明
-  // `const lx`/`const z`，前置声明会与其冲突（Identifier has already been
-  // declared）；裸用 lx 的脚本沿作用域链同样命中 globalThis.lx。
   const globalValue = globalThis as any;
   globalValue.lx = lxApi;
 
@@ -605,8 +563,6 @@ const loadLxDialect = async (
   try {
     await import(/* @vite-ignore */ scriptUrl);
   } catch {
-    // Node 测试台不支持 blob: 模块；LX 脚本是 IIFE + globalThis.lx 回调模型，
-    // 不依赖模块作用域，两种装载手段等价（真语法错误两条路径都抛）
     new Function(sandboxScript)();
   } finally {
     URL.revokeObjectURL(scriptUrl);
@@ -627,15 +583,14 @@ const loadLxDialect = async (
   };
 
   const exports_: PluginExports = {
-    // LX 脚本不声明 platform；由 meta 静态解析兜底
     getMediaSource: async (item: Record<string, any>, quality: string) => {
       if (typeof requestHandler !== 'function') {
         throw new Error('LX script did not register a request handler');
       }
       const source = pickSource();
-      if (!source)        throw new Error('LX script did not declare any available source');
+      if (!source) throw new Error('LX script did not declare any available source');
       if (!source.actions.includes('musicUrl')) {
-        throw new Error(`LX 音源 ${source.key} 不支持获取音乐 URL`);
+        throw new Error(`LX source ${source.key} does not support resolving music URLs`);
       }
 
       let targetQuality: LxQuality = QUALITY_TO_LX[quality] || '320k';
@@ -657,10 +612,10 @@ const loadLxDialect = async (
       }
       if (typeof url !== 'string' || !url) {
         throw new Error(
-          ((result as Record<string, unknown>)?.message as string) || 'LX script did not return a music URL'
+          ((result as Record<string, unknown>)?.message as string) ||
+            'LX script did not return a music URL'
         );
       }
-      // LX 脚本可能返回 API 端点而非直链；此处保持乐观返回，由上层 resolveAudioUrl 验证
       return { url };
     }
   };
@@ -711,8 +666,6 @@ const streamCompress = (format: string, buffer: ArrayBuffer) =>
     buffer
   );
 
-// ─── 全局环境 ────────────────────────────────────────────────────────────
-
 const installGlobals = () => {
   const globalValue = globalThis as any;
   if (!globalValue.window) globalValue.window = globalValue;
@@ -729,8 +682,6 @@ const installGlobals = () => {
     }
   }
 };
-
-// ─── 装载 ────────────────────────────────────────────────────────────────
 
 const initializePlugin = async (
   script: string,
@@ -749,8 +700,6 @@ const initializePlugin = async (
   } else {
     const moduleObject = { exports: {} as Record<string, any> };
     const requireShim = createRequireShim();
-    // env 挂全局而不是 wrapper 形参：语料 8/73 份脚本顶层自声明 `const env`
-    // （形参即函数作用域声明，会与其冲突）。裸读 env 的脚本沿作用域链命中全局。
     if (dialect === 'musicfree') {
       (globalThis as any).env = {
         os: 'desktop',
@@ -838,7 +787,6 @@ const invokePlugin = async (message: WorkerInvokeMessage): Promise<void> => {
   }
 
   try {
-    // native 协议 ctx 恒为最后一参；musicfree/lxmusic 的适配在方言层内部完成
     const args = currentDialect === 'native' ? [...message.args, currentContext] : message.args;
     const result = await Promise.resolve(method.apply(pluginExports, args));
     postToHost({ type: 'invoke-result', callId: message.callId, result });
@@ -850,8 +798,6 @@ const invokePlugin = async (message: WorkerInvokeMessage): Promise<void> => {
     });
   }
 };
-
-// ─── 消息循环 ────────────────────────────────────────────────────────────
 
 self.onmessage = async (event: MessageEvent<WorkerHostMessage>) => {
   const message = event.data;
@@ -873,7 +819,6 @@ self.onmessage = async (event: MessageEvent<WorkerHostMessage>) => {
     return;
   }
 
-  // http-response：两条通道（promise / LX 回调）按 requestId 命中各自队列
   const callback = pendingHttpCallbacks.get(message.requestId);
   if (callback) {
     pendingHttpCallbacks.delete(message.requestId);

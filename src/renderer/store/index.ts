@@ -4,17 +4,14 @@ import { markRaw } from 'vue';
 
 import router from '@/router';
 
-// 创建 pinia 实例
 const pinia = createPinia();
 
 pinia.use(piniaPluginPersistedstate);
 
-// 添加路由到 Pinia
 pinia.use(({ store }) => {
   store.router = markRaw(router);
 });
 
-// 导出所有 store
 export * from './modules/download';
 export * from './modules/favorite';
 export * from './modules/intelligenceMode';

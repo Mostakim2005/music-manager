@@ -70,10 +70,7 @@
       </n-switch>
     </setting-item>
 
-    <setting-item
-      title="Lyric Translation"
-      description="Display translated lyrics when available."
-    >
+    <setting-item title="Lyric Translation" description="Display translated lyrics when available.">
       <n-switch v-model:value="setData.showTranslation" @update:value="handleTranslationChange">
         <template #checked>{{ t('common.show') }}</template>
         <template #unchecked>{{ t('common.hide') }}</template>
@@ -138,7 +135,6 @@
       </div>
     </div>
 
-
     <setting-item :title="t('settings.basic.animation')">
       <template #description>
         <div class="flex items-center gap-2">
@@ -195,7 +191,6 @@
         <template #unchecked><i class="ri-cpu-line"></i></template>
       </n-switch>
     </setting-item>
-
   </setting-section>
 </template>
 
@@ -272,7 +267,7 @@ const handleGpuAccelerationChange = (enabled: boolean) => {
       message.info(t('settings.basic.gpuAccelerationChangeSuccess'));
     }
   } catch (error) {
-    console.error('GPU加速设置更新失败:', error);
+    console.error('Failed to update GPU setting:', error);
     message.error(t('settings.basic.gpuAccelerationChangeError'));
   }
 };
@@ -316,16 +311,15 @@ watch(
   { immediate: true }
 );
 
-
 onMounted(() => {
   if (window.electron) {
     window.electron.ipcRenderer.on('gpu-acceleration-updated', (_, enabled: boolean) => {
-      console.log('GPU加速设置已更新:', enabled);
+      console.log('GPU setting updated:', enabled);
       gpuAccelerationChanged.value = true;
     });
 
     window.electron.ipcRenderer.on('gpu-acceleration-update-error', (_, errorMessage: string) => {
-      console.error('GPU加速设置更新错误:', errorMessage);
+      console.error('GPU setting update error:', errorMessage);
       gpuAccelerationChanged.value = false;
     });
   }

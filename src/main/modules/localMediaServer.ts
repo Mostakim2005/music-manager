@@ -7,17 +7,11 @@
  * only to processes on this machine and only by exact path.
  */
 
+import { ipcMain } from 'electron';
 import { createReadStream, promises as fs } from 'fs';
-import {
-  createServer,
-  type IncomingMessage,
-  type Server,
-  type ServerResponse
-} from 'http';
+import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'http';
 import { extname } from 'path';
 import { Readable } from 'stream';
-
-import { ipcMain } from 'electron';
 
 const MIME_TYPES: Record<string, string> = {
   '.mp3': 'audio/mpeg',
@@ -60,9 +54,7 @@ async function proxyRemoteMedia(
     const encodedHeaders = url.searchParams.get('h');
     if (encodedHeaders) {
       try {
-        upstreamHeaders = JSON.parse(
-          Buffer.from(encodedHeaders, 'base64url').toString('utf8')
-        );
+        upstreamHeaders = JSON.parse(Buffer.from(encodedHeaders, 'base64url').toString('utf8'));
       } catch {
         upstreamHeaders = {};
       }
@@ -157,7 +149,8 @@ export function startLocalMediaServer(): Promise<number> {
         const stat = await fs.stat(filePath);
         if (!stat.isFile()) throw new Error('not a file');
 
-        const contentType = MIME_TYPES[extname(filePath).toLowerCase()] || 'application/octet-stream';
+        const contentType =
+          MIME_TYPES[extname(filePath).toLowerCase()] || 'application/octet-stream';
         const rangeHeader = req.headers.range;
 
         if (rangeHeader) {

@@ -9,13 +9,18 @@
       class="local-track-editor-modal p-6 rounded-3xl border border-white/20 dark:border-white/10 shadow-2xl backdrop-blur-2xl bg-white/90 dark:bg-neutral-900/90 text-neutral-900 dark:text-neutral-100 max-w-2xl w-[94vw] max-h-[90vh] overflow-y-auto"
     >
       <!-- Modal Header -->
-      <div class="flex items-center justify-between pb-3.5 border-b border-neutral-200/60 dark:border-neutral-800/60">
+      <div
+        class="flex items-center justify-between pb-3.5 border-b border-neutral-200/60 dark:border-neutral-800/60"
+      >
         <div>
           <h3 class="text-lg font-bold text-neutral-900 dark:text-white flex items-center gap-2">
             <i class="ri-edit-box-line text-primary" />
             Edit Track Metadata, Artwork &amp; Filename
           </h3>
-          <p class="text-xs text-neutral-500 dark:text-neutral-400 truncate max-w-lg mt-0.5" :title="entry?.filePath">
+          <p
+            class="text-xs text-neutral-500 dark:text-neutral-400 truncate max-w-lg mt-0.5"
+            :title="entry?.filePath"
+          >
             {{ entry?.filePath }}
           </p>
         </div>
@@ -30,7 +35,9 @@
       </div>
 
       <!-- Auto-Fetch Action Bar (Tidy Button Group) -->
-      <div class="mt-4 p-3 rounded-2xl bg-neutral-100/60 dark:bg-neutral-800/40 border border-neutral-200/50 dark:border-neutral-700/50">
+      <div
+        class="mt-4 p-3 rounded-2xl bg-neutral-100/60 dark:bg-neutral-800/40 border border-neutral-200/50 dark:border-neutral-700/50"
+      >
         <div class="flex flex-wrap items-center justify-between gap-2.5">
           <div class="flex items-center gap-2">
             <n-button
@@ -97,7 +104,10 @@
                   alt="Candidate Cover"
                   class="w-10 h-10 rounded-lg object-cover shrink-0 border border-neutral-200/50 dark:border-neutral-700/50"
                 />
-                <div v-else class="w-10 h-10 rounded-lg bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center shrink-0">
+                <div
+                  v-else
+                  class="w-10 h-10 rounded-lg bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center shrink-0"
+                >
                   <i class="ri-music-2-line text-neutral-400" />
                 </div>
                 <div class="min-w-0">
@@ -106,7 +116,9 @@
                   </div>
                   <div class="text-[11px] text-neutral-500 truncate mt-0.5">
                     {{ cand.album }} {{ cand.year ? `(${cand.year})` : '' }} ·
-                    <span class="px-1.5 py-0.2 rounded text-[10px] bg-primary/10 text-primary font-medium">
+                    <span
+                      class="px-1.5 py-0.2 rounded text-[10px] bg-primary/10 text-primary font-medium"
+                    >
                       {{ cand.source }}
                     </span>
                   </div>
@@ -183,13 +195,17 @@
           <!-- Song Title & Artists -->
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label class="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
+              <label
+                class="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1"
+              >
                 Song Title
               </label>
               <n-input v-model:value="form.title" size="small" placeholder="Track title" />
             </div>
             <div>
-              <label class="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
+              <label
+                class="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1"
+              >
                 Artist(s) <span class="text-neutral-400 font-normal">(use ; or feat.)</span>
               </label>
               <n-input v-model:value="form.artist" size="small" placeholder="Artist name(s)" />
@@ -199,19 +215,25 @@
           <!-- Album, Year, Genre -->
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
-              <label class="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
+              <label
+                class="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1"
+              >
                 Album
               </label>
               <n-input v-model:value="form.album" size="small" placeholder="Album name" />
             </div>
             <div>
-              <label class="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
+              <label
+                class="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1"
+              >
                 Year
               </label>
               <n-input v-model:value="form.year" size="small" placeholder="YYYY" />
             </div>
             <div>
-              <label class="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
+              <label
+                class="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1"
+              >
                 Genre
               </label>
               <n-input v-model:value="form.genre" size="small" placeholder="e.g. Pop; Rock" />
@@ -227,12 +249,7 @@
             <label class="text-xs font-semibold text-neutral-700 dark:text-neutral-300">
               Embedded &amp; Sidecar Synced Lyrics (.lrc)
             </label>
-            <n-button
-              size="tiny"
-              secondary
-              type="warning"
-              @click="showLrcSync = true"
-            >
+            <n-button size="tiny" secondary type="warning" @click="showLrcSync = true">
               <template #icon>
                 <i class="ri-timer-flash-line" />
               </template>
@@ -254,14 +271,11 @@
       </div>
 
       <!-- Footer Actions -->
-      <div class="flex items-center justify-end gap-3 mt-6 pt-4 border-t border-neutral-200/60 dark:border-neutral-800/60">
+      <div
+        class="flex items-center justify-end gap-3 mt-6 pt-4 border-t border-neutral-200/60 dark:border-neutral-800/60"
+      >
         <n-button size="small" @click="emit('update:show', false)">Cancel</n-button>
-        <n-button
-          size="small"
-          type="primary"
-          :loading="saving"
-          @click="handleSave"
-        >
+        <n-button size="small" type="primary" :loading="saving" @click="handleSave">
           <template #icon>
             <i class="ri-save-3-line" />
           </template>

@@ -1,0 +1,66 @@
+name: Bug report
+description: Report a bug with this form.
+title: 'Describe the problem'
+body:
+  - type: markdown
+    attributes:
+      value: |
+        # Thanks for helping out
+        This tracker accepts bug reports and feature requests.
+
+        Before opening an issue, please make sure you have:
+        - Searched existing issues for your problem. It may already be reported,
+          or already fixed in the latest version.
+        - If a previously closed issue still reproduces on the latest version,
+          open a new issue instead of commenting on the old one.
+
+  - type: input
+    id: reproduce
+    attributes:
+      label: Reproduction link
+      description: Link to a minimal CodePen, CodeSandbox, or GitHub repository. Unrelated links will get the issue closed.
+      placeholder: Paste a link
+
+  - type: textarea
+    id: reproduceSteps
+    attributes:
+      label: Steps to reproduce
+      description: Describe clearly how to reproduce the issue; this is what makes it fixable. Issues without clear steps, or tagged 'need reproduction' with no steps after 7 days, are closed.
+      placeholder: Describe the steps
+
+  - type: textarea
+    id: expect
+    attributes:
+      label: Expected result
+      placeholder: What did you expect to happen?
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual result
+      placeholder: What actually happened?
+
+  - type: input
+    id: appVersion
+    attributes:
+      label: Music Manager version
+      placeholder: v5.3.0
+
+  - type: input
+    id: systemVersion
+    attributes:
+      label: Operating system
+      placeholder: Windows 11 23H2
+
+  - type: input
+    id: nodeVersion
+    attributes:
+      label: Node version
+      placeholder: 24.21.0
+
+  - type: textarea
+    id: remarks
+    attributes:
+      label: Additional context
+      description: Anything else that helps, such as logs, error reports, or the workflow that triggered the bug.
+      placeholder: Optional

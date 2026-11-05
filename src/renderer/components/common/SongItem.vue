@@ -55,7 +55,6 @@ const props = withDefaults(
 
 defineEmits(['play', 'select', 'remove-song']);
 
-// 根据属性决定渲染哪个组件
 const renderComponent = computed(() => {
   if (props.mini) return MiniSongItem;
   if (props.list) return ListSongItem;

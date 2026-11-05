@@ -1,8 +1,8 @@
 export {
   alignSubLyrics,
   copyLyric,
-  type LyricParserResult,
   lyricParser,
+  type LyricParserResult,
   type ParsedLyric,
   parseLyric,
   type RawLyricField,

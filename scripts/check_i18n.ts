@@ -44,7 +44,7 @@ async function loadTranslationFile(filePath: string): Promise<TranslationObject 
   const payload = loaded.default;
 
   if (!isPlainObject(payload)) {
-    throw new Error(`翻译文件默认导出必须是对象: ${filePath}`);
+    throw new Error(`The translation file default export must be an object: ${filePath}`);
   }
 
   return payload;
@@ -192,7 +192,7 @@ async function main() {
   const shouldFail = hasBlockingIssue || (strictMode && hasWarningIssue);
 
   if (hasBlockingIssue || hasWarningIssue) {
-    console.error('发现国际化问题:');
+    console.error('i18n problems found:');
 
     for (const lang of TARGET_LANGS) {
       const missingFiles = missingByLang[lang];
@@ -204,32 +204,32 @@ async function main() {
         continue;
       }
 
-      console.error(`\n语言: ${lang}`);
+      console.error(`\nLocale: ${lang}`);
       for (const fileName of Object.keys(missingFiles)) {
-        console.error(`  文件: ${fileName}`);
+        console.error(`  File: ${fileName}`);
         for (const key of missingFiles[fileName]) {
           const sourceValue = sourceValues.get(key) ?? '';
-          console.error(`    - 缺失键 [${key}]：${sourceValue}`);
+          console.error(`    - Missing key [${key}]: ${sourceValue}`);
         }
       }
 
       for (const fileName of Object.keys(extraFiles)) {
-        console.error(`  文件: ${fileName}`);
+        console.error(`  File: ${fileName}`);
         for (const key of extraFiles[fileName]) {
-          console.error(`    - 多余键 [${key}]`);
+          console.error(`    - Unexpected key [${key}]`);
         }
       }
     }
 
     if (invalidReferences.length > 0) {
-      console.error('\n代码中引用了不存在的 i18n key:');
+      console.error('\nCode references i18n keys that do not exist:');
       for (const item of invalidReferences) {
         console.error(`  - ${item.file}:${item.line} -> ${item.key}`);
       }
     }
 
     if (strictMode && hasWarningIssue && !hasBlockingIssue) {
-      console.error('\n当前为严格模式，告警将导致失败（I18N_STRICT=1）。');
+      console.error('\nStrict mode is on: warnings fail the run (I18N_STRICT=1).');
     }
   }
 
@@ -238,14 +238,14 @@ async function main() {
   }
 
   if (!hasBlockingIssue && !hasWarningIssue) {
-    console.log('所有国际化键值检查通过！');
+    console.log('All i18n keys check out.');
     return;
   }
 
-  console.log('国际化检查通过（含告警，建议尽快修复）');
+  console.log('i18n check passed with warnings; fix them soon.');
 }
 
 main().catch((error) => {
-  console.error('国际化检查执行失败:', error);
+  console.error('i18n check failed to run:', error);
   process.exit(1);
 });

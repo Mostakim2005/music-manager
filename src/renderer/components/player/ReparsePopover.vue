@@ -25,7 +25,6 @@
       <div class="mb-3 max-h-80 overflow-y-auto">
         <div class="flex flex-col space-y-2">
           <template v-for="(group, groupIndex) in groupedSources" :key="group.key">
-            <!-- 分组分隔线 -->
             <div
               v-if="groupIndex > 0"
               class="border-t border-gray-200 dark:border-gray-700 my-1"
@@ -76,7 +75,6 @@
           </template>
         </div>
       </div>
-      <!-- 清除自定义音源 -->
       <div
         class="text-red-500 text-sm flex items-center bg-light-200 dark:bg-dark-200 rounded-lg p-2 cursor-pointer"
         @click="clearCustomSource"
@@ -119,16 +117,13 @@ const { t } = useI18n();
 const message = useMessage();
 const { allSources } = useMusicSources();
 
-// 音源重新解析状态
 const isReparsing = ref(false);
 const currentReparsingId = ref<string | null>(null);
 
-// 当前选中的音源条目 id
 const selectedSourceId = ref<string | null>(null);
 
 const isReparse = computed(() => selectedSourceId.value !== null);
 
-// 重解析音源列表：注册表平铺（内置与插件同权，LX 脚本迁移后以插件身份出现）
 const reparseSourceList = computed<ReparseSourceItem[]>(() =>
   allSources.value.map((source) => ({
     id: source.key,
@@ -142,7 +137,6 @@ const reparseSourceList = computed<ReparseSourceItem[]>(() =>
   }))
 );
 
-// 按分组排列音源
 const GROUP_ORDER: MusicSourceGroup[] = ['netease', 'builtin', 'unblock', 'plugin'];
 
 const groupedSources = computed(() => {
@@ -152,12 +146,10 @@ const groupedSources = computed(() => {
   })).filter((g) => g.sources.length > 0);
 });
 
-// 检查音源条目是否被选中
 const isCurrentSource = (sourceId: string) => {
   return selectedSourceId.value === sourceId;
 };
 
-// 初始化选中的音源
 const initSelectedSources = () => {
   const songId = playMusic.value.id;
   const config = SongSourceConfigManager.getConfig(songId);
@@ -169,18 +161,15 @@ const initSelectedSources = () => {
   }
 };
 
-// 清除自定义音源
 const clearCustomSource = () => {
   SongSourceConfigManager.clearConfig(playMusic.value.id);
   selectedSourceId.value = null;
 };
 
-// 点击音源条目
 const handleSourceClick = async (source: ReparseSourceItem) => {
   await directReparseMusic(source);
 };
 
-// 直接重新解析当前歌曲（统一注册表 provider key 作为歌曲级音源覆盖）
 const directReparseMusic = async (source: ReparseSourceItem) => {
   if (isReparsing.value) return;
 
@@ -202,7 +191,7 @@ const directReparseMusic = async (source: ReparseSourceItem) => {
       message.error(t('player.reparse.failed'));
     }
   } catch (error) {
-    console.error('解析失败:', error);
+    console.error('Re-resolve failed:', error);
     message.error(t('player.reparse.failed'));
   } finally {
     isReparsing.value = false;
@@ -210,7 +199,6 @@ const directReparseMusic = async (source: ReparseSourceItem) => {
   }
 };
 
-// 监听歌曲ID变化，初始化音源设置
 watch(
   () => playMusic.value.id,
   () => {

@@ -572,7 +572,7 @@ async function loadShortcutsFromMain() {
     draftShortcuts.value = cloneDeep(normalized);
     return;
   } catch (error) {
-    console.error('[ShortcutSettings] 获取快捷键配置失败:', error);
+    console.error('[ShortcutSettings] Failed to read shortcut config:', error);
   }
 
   const stored = window.electron.ipcRenderer.sendSync('get-store-value', 'shortcuts');
@@ -654,7 +654,7 @@ async function handleSave() {
     message.success(t('settings.shortcutSettings.messages.saveSuccess'));
     visible.value = false;
   } catch (error) {
-    console.error('[ShortcutSettings] 保存快捷键失败:', error);
+    console.error('[ShortcutSettings] Failed to save shortcuts:', error);
     message.error(t('settings.shortcutSettings.messages.saveError'));
   } finally {
     saving.value = false;

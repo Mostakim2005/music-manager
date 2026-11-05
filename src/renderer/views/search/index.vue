@@ -1,11 +1,15 @@
 <template>
-  <div class="search-page-container h-full w-full bg-white dark:bg-black transition-colors duration-500">
+  <div
+    class="search-page-container h-full w-full bg-white dark:bg-black transition-colors duration-500"
+  >
     <n-scrollbar class="h-full">
       <div class="search-content w-full pb-32 pt-8 page-padding max-w-4xl mx-auto space-y-8">
         <!-- Search Header -->
         <div class="search-header">
           <div class="flex items-center gap-3 mb-2">
-            <div class="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
+            <div
+              class="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary"
+            >
               <i class="ri-search-2-line text-xl" />
             </div>
             <h1 class="text-3xl font-extrabold tracking-tight text-neutral-900 dark:text-white">
@@ -49,7 +53,9 @@
         <!-- Search History Section -->
         <section v-if="searchHistory.length > 0" class="search-history-section pt-2">
           <div class="mb-4 flex items-center justify-between">
-            <h2 class="text-base font-bold text-neutral-900 dark:text-white flex items-center gap-2">
+            <h2
+              class="text-base font-bold text-neutral-900 dark:text-white flex items-center gap-2"
+            >
               <i class="ri-history-line text-neutral-400" />
               <span>Recent Searches</span>
             </h2>
@@ -79,21 +85,35 @@
 
         <!-- Search Tips -->
         <section class="tips-section pt-4 border-t border-neutral-100 dark:border-neutral-800/60">
-          <h2 class="text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-neutral-500 mb-3">
+          <h2
+            class="text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-neutral-500 mb-3"
+          >
             Search Tips
           </h2>
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div class="p-4 rounded-xl bg-neutral-50 dark:bg-neutral-900/40 border border-neutral-100 dark:border-neutral-800/40">
+            <div
+              class="p-4 rounded-xl bg-neutral-50 dark:bg-neutral-900/40 border border-neutral-100 dark:border-neutral-800/40"
+            >
               <div class="text-primary font-semibold text-sm mb-1">By Title</div>
-              <p class="text-xs text-neutral-500 dark:text-neutral-400">Search for exact song or track titles.</p>
+              <p class="text-xs text-neutral-500 dark:text-neutral-400">
+                Search for exact song or track titles.
+              </p>
             </div>
-            <div class="p-4 rounded-xl bg-neutral-50 dark:bg-neutral-900/40 border border-neutral-100 dark:border-neutral-800/40">
+            <div
+              class="p-4 rounded-xl bg-neutral-50 dark:bg-neutral-900/40 border border-neutral-100 dark:border-neutral-800/40"
+            >
               <div class="text-emerald-500 font-semibold text-sm mb-1">By Artist</div>
-              <p class="text-xs text-neutral-500 dark:text-neutral-400">Search for singer, band, or producer names.</p>
+              <p class="text-xs text-neutral-500 dark:text-neutral-400">
+                Search for singer, band, or producer names.
+              </p>
             </div>
-            <div class="p-4 rounded-xl bg-neutral-50 dark:bg-neutral-900/40 border border-neutral-100 dark:border-neutral-800/40">
+            <div
+              class="p-4 rounded-xl bg-neutral-50 dark:bg-neutral-900/40 border border-neutral-100 dark:border-neutral-800/40"
+            >
               <div class="text-violet-500 font-semibold text-sm mb-1">By Album</div>
-              <p class="text-xs text-neutral-500 dark:text-neutral-400">Find full releases, EPs, or compilations.</p>
+              <p class="text-xs text-neutral-500 dark:text-neutral-400">
+                Find full releases, EPs, or compilations.
+              </p>
             </div>
           </div>
         </section>
@@ -103,9 +123,9 @@
 </template>
 
 <script lang="ts" setup>
+import { NScrollbar } from 'naive-ui';
 import { onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { NScrollbar } from 'naive-ui';
 
 import { useSearchStore } from '@/store/modules/search';
 

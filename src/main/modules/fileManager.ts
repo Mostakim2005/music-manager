@@ -7,7 +7,6 @@ import { Readable } from 'stream';
 
 import { getStore } from './config';
 
-// 创建一个store实例用于存储音频缓存
 const audioCacheStore = new Store({
   name: 'audioCache',
   defaults: {
@@ -16,7 +15,6 @@ const audioCacheStore = new Store({
 });
 
 /**
- * 清理文件名中的非法字符
  */
 function sanitizeFilename(filename: string): string {
   return filename
@@ -25,7 +23,6 @@ function sanitizeFilename(filename: string): string {
     .trim();
 }
 
-// Electron net.fetch(file://) 在当前版本不会回 206，audio seek 需要主进程自己处理 Range
 function buildLocalFileResponse(
   filePath: string,
   total: number,
@@ -65,23 +62,17 @@ function buildLocalFileResponse(
 }
 
 /**
- * 初始化文件管理相关的IPC监听
  */
 export function initializeFileManager() {
-  // 注册本地文件协议
-  // Electron 25+ 起 registerFileProtocol 已弃用，改用 protocol.handle，并配合 main/index.ts
-  // 中的 registerSchemesAsPrivileged，让 audio 元素能从 http(s) 页面跨协议加载本地文件
   protocol.handle('local', async (request) => {
     try {
       // local:///<absolute-path>
       let filePath = decodeURIComponent(request.url.replace(/^local:\/\/\/?/, ''));
 
-      // Windows: 协议解析后可能是 /C:/...，去掉前导斜杠
       if (/^\/[a-zA-Z]:\//.test(filePath)) {
         filePath = filePath.slice(1);
       }
 
-      // macOS/Linux 上去掉前导斜杠后会丢失绝对路径标识，这里补回
       if (process.platform !== 'win32' && !filePath.startsWith('/')) {
         filePath = '/' + filePath;
       }
@@ -101,7 +92,6 @@ export function initializeFileManager() {
     }
   });
 
-  // 检查文件是否存在
   ipcMain.handle('check-file-exists', (_, filePath) => {
     try {
       return fs.existsSync(filePath);
@@ -111,7 +101,6 @@ export function initializeFileManager() {
     }
   });
 
-  // 获取支持的音频格式列表
   ipcMain.handle('get-supported-audio-formats', () => {
     return {
       formats: [
@@ -126,25 +115,21 @@ export function initializeFileManager() {
     };
   });
 
-  // 通用的选择目录处理
   ipcMain.handle('select-directory', async () => {
     const result = await dialog.showOpenDialog({
       properties: ['openDirectory'],
-      title: '选择目录'
+      title: 'Choose folder'
     });
     return result;
   });
 
-  // 通用的打开目录处理
   ipcMain.on('open-directory', (_, filePath) => {
     try {
-      // 验证文件路径
       if (!filePath) {
-        console.error('无效的文件路径: 路径为空');
+        console.error('Invalid file path: path is empty');
         return;
       }
 
-      // 统一处理路径分隔符
       const normalizedPath = path.normalize(filePath);
 
       if (fs.statSync(normalizedPath).isDirectory()) {
@@ -153,16 +138,14 @@ export function initializeFileManager() {
         shell.showItemInFolder(normalizedPath);
       }
     } catch (error) {
-      console.error('打开路径失败:', error);
+      console.error('Failed to open path:', error);
     }
   });
 
-  // 获取默认下载路径
   ipcMain.handle('get-downloads-path', () => {
     return app.getPath('downloads');
   });
 
-  // 保存歌词文件
   ipcMain.handle(
     'save-lyric-file',
     async (
@@ -176,13 +159,10 @@ export function initializeFileManager() {
       try {
         const configStore = getStore();
         const downloadPath =
-          targetDir ||
-          (configStore.get('set.downloadPath') as string) ||
-          app.getPath('downloads');
+          targetDir || (configStore.get('set.downloadPath') as string) || app.getPath('downloads');
         const sanitizedName = sanitizeFilename(filename);
         let filePath = path.join(downloadPath, `${sanitizedName}.lrc`);
 
-        // 文件已存在时添加序号
         let counter = 1;
         while (fs.existsSync(filePath)) {
           filePath = path.join(downloadPath, `${sanitizedName} (${counter}).lrc`);
@@ -192,16 +172,14 @@ export function initializeFileManager() {
         await fs.promises.writeFile(filePath, lrcContent, 'utf-8');
         return { success: true, path: filePath };
       } catch (error: any) {
-        console.error('保存歌词文件失败:', error);
+        console.error('Failed to save lyric file:', error);
         return { success: false, error: error.message };
       }
     }
   );
 
-  // 添加清除音频缓存的处理函数
   ipcMain.on('clear-audio-cache', () => {
     audioCacheStore.set('cache', {});
-    // 清除临时音频文件目录
     const tempDir = path.join(app.getPath('userData'), 'AudioCache');
     if (fs.existsSync(tempDir)) {
       try {
@@ -212,15 +190,14 @@ export function initializeFileManager() {
           }
         });
       } catch (error) {
-        console.error('清除音频缓存文件失败:', error);
+        console.error('Failed to clear audio cache file:', error);
       }
     }
   });
 
-  // 处理导入自定义API插件的请求
   ipcMain.handle('import-custom-api-plugin', async () => {
     const result = await dialog.showOpenDialog({
-      title: '选择自定义音源配置文件',
+      title: 'Choose custom source config file',
       filters: [{ name: 'JSON Files', extensions: ['json'] }],
       properties: ['openFile']
     });
@@ -233,27 +210,24 @@ export function initializeFileManager() {
     try {
       const fileContent = fs.readFileSync(filePath, 'utf-8');
 
-      // 基础验证，确保它是个合法的JSON并且包含关键字段
       const pluginData = JSON.parse(fileContent);
       if (!pluginData.name || !pluginData.apiUrl) {
-        throw new Error('无效的插件文件，缺少 name 或 apiUrl 字段。');
+        throw new Error('Invalid plugin file: missing "name" or "apiUrl" field.');
       }
 
       return {
         name: pluginData.name,
-        content: fileContent // 返回完整的JSON字符串
+        content: fileContent
       };
     } catch (error: any) {
-      console.error('读取或解析插件文件失败:', error);
-      // 向渲染进程抛出错误，以便UI可以显示提示
-      throw new Error(`文件读取或解析失败: ${error.message}`);
+      console.error('Failed to read or parse plugin file:', error);
+      throw new Error(`Failed to read or parse file: ${error.message}`);
     }
   });
 
-  // 处理导入落雪音源脚本的请求
   ipcMain.handle('import-lx-music-script', async () => {
     const result = await dialog.showOpenDialog({
-      title: '选择落雪音源脚本文件',
+      title: 'Choose LX source script file',
       filters: [{ name: 'JavaScript Files', extensions: ['js'] }],
       properties: ['openFile']
     });
@@ -266,19 +240,17 @@ export function initializeFileManager() {
     try {
       const fileContent = fs.readFileSync(filePath, 'utf-8');
 
-      // 验证脚本格式：检查是否包含落雪音源特征
       if (
         !fileContent.includes('globalThis.lx') &&
         !fileContent.includes('lx.on') &&
         !fileContent.includes('EVENT_NAMES')
       ) {
-        throw new Error('无效的落雪音源脚本，未找到 globalThis.lx 相关代码。');
+        throw new Error('Invalid LX source script: no globalThis.lx code found.');
       }
 
-      // 检查是否包含必要的元信息注释
       const hasMetaComment = fileContent.includes('@name');
       if (!hasMetaComment) {
-        console.warn('警告: 脚本缺少 @name 元信息注释');
+        console.warn('Warning: script is missing the @name metadata comment');
       }
 
       return {
@@ -286,15 +258,14 @@ export function initializeFileManager() {
         content: fileContent
       };
     } catch (error: any) {
-      console.error('读取落雪音源脚本失败:', error);
-      throw new Error(`脚本读取失败: ${error.message}`);
+      console.error('Failed to read LX source script:', error);
+      throw new Error(`Failed to read script: ${error.message}`);
     }
   });
 
-  // 处理通用本地音源插件导入。这里只读取源码，不在主进程执行第三方脚本。
   ipcMain.handle('import-music-source-plugin', async () => {
     const result = await dialog.showOpenDialog({
-      title: '选择音乐音源脚本',
+      title: 'Choose music source script',
       filters: [{ name: 'JavaScript Files', extensions: ['js', 'mjs', 'cjs'] }],
       properties: ['openFile']
     });
@@ -305,22 +276,21 @@ export function initializeFileManager() {
     try {
       const stat = await fs.promises.stat(filePath);
       if (stat.size > 2 * 1024 * 1024) {
-        throw new Error('音源脚本不能超过 2 MB。');
+        throw new Error('Source script must not exceed 2 MB.');
       }
       const content = await fs.promises.readFile(filePath, 'utf-8');
-      if (!content.trim()) throw new Error('音源脚本为空。');
+      if (!content.trim()) throw new Error('Source script is empty.');
       return {
         name: path.basename(filePath).replace(/\.(m?js|cjs)$/i, ''),
         content,
         path: filePath
       };
     } catch (error: any) {
-      console.error('读取音乐音源脚本失败:', error);
-      throw new Error(`脚本读取失败: ${error.message}`);
+      console.error('Failed to read music source script:', error);
+      throw new Error(`Failed to read script: ${error.message}`);
     }
   });
 
-  // URL 导入走主进程，避免渲染进程 CORS 和任意第三方脚本读取凭证的问题。
   ipcMain.handle(
     'fetch-music-source-plugin',
     async (_, sourceUrl: string): Promise<{ name: string; content: string; url: string }> => {
@@ -328,10 +298,10 @@ export function initializeFileManager() {
       try {
         url = new URL(sourceUrl);
       } catch {
-        throw new Error('无效的音源脚本 URL。');
+        throw new Error('Invalid source script URL.');
       }
       if (!/^https?:$/.test(url.protocol)) {
-        throw new Error('音源脚本 URL 只支持 HTTP 或 HTTPS。');
+        throw new Error('Source script URL must use HTTP or HTTPS.');
       }
 
       const controller = new AbortController();
@@ -347,16 +317,15 @@ export function initializeFileManager() {
         }
         const content = await response.text();
         if (content.length > 2 * 1024 * 1024) {
-          throw new Error('音源脚本不能超过 2 MB。');
+          throw new Error('Source script must not exceed 2 MB.');
         }
-        if (!content.trim()) throw new Error('音源脚本为空。');
-        // URL 路径里的中文是 percent-encoding（%E9%85%B7...），不解码就是乱码名
+        if (!content.trim()) throw new Error('Source script is empty.');
         const rawName = path.basename(url.pathname) || 'online-source';
         let fileName = rawName;
         try {
           fileName = decodeURIComponent(rawName);
         } catch {
-          // 含非法转义序列时保留原样
+          // Ignore an unreadable or absent file
         }
         return {
           name: fileName.replace(/\.(m?js|cjs)$/i, ''),
@@ -364,8 +333,8 @@ export function initializeFileManager() {
           url: url.toString()
         };
       } catch (error: any) {
-        console.error('下载音乐音源脚本失败:', error);
-        throw new Error(`脚本下载失败: ${error.message}`);
+        console.error('Failed to download music source script:', error);
+        throw new Error(`Script download failed: ${error.message}`);
       } finally {
         clearTimeout(timeoutId);
       }

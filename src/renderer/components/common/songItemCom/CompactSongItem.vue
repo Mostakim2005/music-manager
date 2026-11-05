@@ -12,7 +12,6 @@
     class="compact-song-item"
     ref="baseItem"
   >
-    <!-- 索引插槽 -->
     <template #index>
       <div
         v-if="index !== undefined"
@@ -23,14 +22,12 @@
       </div>
     </template>
 
-    <!-- 选择框插槽 -->
     <template #select>
       <div v-if="baseItem && selectable" class="song-item-select" @click.stop="onToggleSelect">
         <n-checkbox :checked="selected" />
       </div>
     </template>
 
-    <!-- 内容插槽 -->
     <template #content>
       <div class="song-item-content-compact">
         <div class="song-item-content-compact-wrapper">
@@ -70,7 +67,6 @@
       </div>
     </template>
 
-    <!-- 操作插槽 -->
     <template #operating>
       <div class="song-item-operating-compact">
         <div
@@ -142,7 +138,6 @@ const props = withDefaults(
 defineEmits(['play', 'select', 'remove-song']);
 const baseItem = ref<InstanceType<typeof BaseSongItem>>();
 
-// 从基础组件获取响应式状态
 const play = computed(() => playerStore.isPlay);
 const isPlaying = computed(() => baseItem.value?.isPlaying || false);
 const playLoading = computed(() => baseItem.value?.playLoading || false);
@@ -150,21 +145,18 @@ const isFavorite = computed(() => baseItem.value?.isFavorite || false);
 const isHovering = computed(() => baseItem.value?.isHovering || false);
 const artists = computed(() => baseItem.value?.artists || []);
 
-// 包装方法，避免直接访问可能为undefined的ref
 const onToggleSelect = () => {
   baseItem.value?.toggleSelect();
 };
 const onArtistClick = (id: number) => baseItem.value?.handleArtistClick(id);
 const onToggleFavorite = (event: Event) => {
   baseItem.value?.toggleFavorite(event);
-  // 可选：emit 收藏事件
 };
 const onPlayMusic = () => {
   baseItem.value?.handlePlay(props.item);
 };
 const onMenuClick = (event: MouseEvent) => baseItem.value?.handleMenuClick(event);
 
-// 从useSongItem.ts导入格式化时长和获取时长方法
 const getDuration = (item: SongResult): number => {
   if (item.duration) return item.duration;
   if (typeof item.dt === 'number') return item.dt;
@@ -271,7 +263,6 @@ const formatDuration = (ms: number): string => {
   }
 }
 
-// 全局应用
 :deep(.text-ellipsis) {
   width: 100%;
 }

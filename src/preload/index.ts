@@ -54,11 +54,9 @@ const api = {
   importLxMusicScript: () => ipcRenderer.invoke('import-lx-music-script'),
   importMusicSourcePlugin: () => ipcRenderer.invoke('import-music-source-plugin'),
   fetchMusicSourcePlugin: (url: string) => ipcRenderer.invoke('fetch-music-source-plugin', url),
-  // 歌词窗口关闭事件
   onLyricWindowClosed: (callback: () => void) => {
     ipcRenderer.on('lyric-window-closed', () => callback());
   },
-  // 歌词窗口就绪事件（Vue 加载完成，可以接收数据）
   onLyricWindowReady: (callback: () => void) => {
     ipcRenderer.on('lyric-window-ready', () => callback());
   },
@@ -74,15 +72,12 @@ const api = {
   removeAppUpdateListeners: () => {
     ipcRenderer.removeAllListeners('app-update:state');
   },
-  // 语言相关
   onLanguageChanged: (callback: (locale: string) => void) => {
     ipcRenderer.on('language-changed', (_event, locale) => {
       callback(locale);
     });
   },
-  // 错误报告与诊断相关
   reportError: (entry: any) => ipcRenderer.invoke('error-reporter:report', entry),
-  // 歌词缓存相关
   invoke: (channel: string, ...args: any[]) => {
     const validChannels = [
       'get-lyrics',
@@ -114,18 +109,15 @@ const api = {
     if (validChannels.includes(channel)) {
       return ipcRenderer.invoke(channel, ...args);
     }
-    return Promise.reject(new Error(`未授权的 IPC 通道: ${channel}`));
+    return Promise.reject(new Error(`Unauthorized IPC channel: ${channel}`));
   },
-  // 搜索建议
   getSearchSuggestions: (keyword: string) => ipcRenderer.invoke('get-search-suggestions', keyword),
 
-  // 落雪音乐 HTTP 请求（绕过 CORS）
   lxMusicHttpRequest: (request: { url: string; options: any; requestId: string }) =>
     ipcRenderer.invoke('lx-music-http-request', request),
 
   lxMusicHttpCancel: (requestId: string) => ipcRenderer.invoke('lx-music-http-cancel', requestId),
 
-  // 本地音乐扫描相关
   scanLocalMusic: (folderPath: string) => ipcRenderer.invoke('scan-local-music', folderPath),
   scanLocalMusicWithStats: (folderPath: string) =>
     ipcRenderer.invoke('scan-local-music-with-stats', folderPath),
@@ -199,7 +191,6 @@ const api = {
     ipcRenderer.invoke('save-lyric-file', params)
 };
 
-// YouTube 引擎与媒体代理桥接
 const youtube = {
   search: (query: string, options?: { limit?: number; type?: 'video' | 'music' }) =>
     ipcRenderer.invoke('yt:search', query, options),
@@ -225,17 +216,13 @@ const youtube = {
 // @ts-ignore
 (api as any).youtube = youtube;
 
-// 创建带类型的ipcRenderer对象，暴露给渲染进程
 const ipc = {
-  // 发送消息到主进程（无返回值）
   send: (channel: string, ...args: any[]) => {
     ipcRenderer.send(channel, ...args);
   },
-  // 调用主进程方法（有返回值）
   invoke: (channel: string, ...args: any[]) => {
     return ipcRenderer.invoke(channel, ...args);
   },
-  // 监听主进程消息
   on: (channel: string, listener: (...args: any[]) => void) => {
     const wrappedListener = (_event: IpcRendererEvent, ...args: any[]) => listener(...args);
     ipcRenderer.on(channel, wrappedListener);
@@ -243,7 +230,6 @@ const ipc = {
       ipcRenderer.removeListener(channel, wrappedListener);
     };
   },
-  // 移除所有监听器
   removeAllListeners: (channel: string) => {
     ipcRenderer.removeAllListeners(channel);
   }

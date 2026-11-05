@@ -6,19 +6,15 @@
         class="fixed inset-0 z-[99999] flex items-end justify-center"
         @click.self="close"
       >
-        <!-- 遮罩层 -->
         <div class="absolute inset-0 bg-black/50" @click="close"></div>
 
-        <!-- 弹窗内容 - 磨砂玻璃效果 -->
         <div
           class="relative w-full max-w-lg bg-gray-900/70 backdrop-blur-2xl rounded-t-3xl overflow-hidden max-h-[85vh] flex flex-col border-t border-white/10 shadow-2xl"
         >
-          <!-- 顶部拖拽条 -->
           <div class="flex justify-center pt-3 pb-2 flex-shrink-0">
             <div class="w-10 h-1 rounded-full bg-white/30"></div>
           </div>
 
-          <!-- 标题栏 -->
           <div class="flex items-center justify-between px-5 pb-4 flex-shrink-0">
             <h2 class="text-lg font-semibold text-white">
               {{ t('player.settings.title') }}
@@ -31,12 +27,10 @@
             </button>
           </div>
 
-          <!-- 内容区域 -->
           <div
             class="flex-1 overflow-y-auto px-5 pb-6"
             :style="{ paddingBottom: `calc(24px + var(--safe-area-inset-bottom, 0px))` }"
           >
-            <!-- 播放速度 -->
             <div class="mb-6">
               <div class="flex items-center justify-between mb-3">
                 <span class="text-sm font-medium text-white/80">
@@ -61,10 +55,8 @@
               </div>
             </div>
 
-            <!-- 分隔线 -->
             <div class="h-px bg-white/10 my-5"></div>
 
-            <!-- 定时关闭 -->
             <div>
               <div class="flex items-center justify-between mb-3">
                 <span class="text-sm font-medium text-white/80">
@@ -75,7 +67,6 @@
                 </span>
               </div>
 
-              <!-- 已激活状态 -->
               <div v-if="hasTimerActive" class="space-y-3">
                 <div class="p-4 rounded-2xl bg-green-500/15 border border-green-500/30">
                   <div class="flex items-center justify-between">
@@ -95,9 +86,7 @@
                 </div>
               </div>
 
-              <!-- 未激活状态 - 设置选项 -->
               <div v-else class="space-y-4">
-                <!-- 按时间 -->
                 <div>
                   <p class="text-xs text-white/50 mb-2">
                     {{ t('player.sleepTimer.timeMode') }}
@@ -112,7 +101,6 @@
                       {{ minutes }}{{ t('player.sleepTimer.minutes') }}
                     </button>
                   </div>
-                  <!-- 自定义时间 -->
                   <div class="flex items-center gap-2 mt-3">
                     <div class="flex items-center flex-1 bg-white/10 rounded-full overflow-hidden">
                       <button
@@ -147,7 +135,6 @@
                   </div>
                 </div>
 
-                <!-- 按歌曲数 -->
                 <div>
                   <p class="text-xs text-white/50 mb-2">
                     {{ t('player.sleepTimer.songsMode') }}
@@ -164,7 +151,6 @@
                   </div>
                 </div>
 
-                <!-- 播放列表结束 -->
                 <button
                   @click="setPlaylistEndTimer"
                   class="w-full py-3 rounded-2xl text-sm font-medium bg-white/10 text-white/70 hover:bg-white/15"
@@ -200,13 +186,10 @@ const emit = defineEmits<{
   (e: 'update:visible', value: boolean): void;
 }>();
 
-// 播放速度选项
 const speedOptions = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
 
-// 自定义时间
 const customMinutes = ref<number | string>(30);
 
-// 定时器相关
 const refreshTrigger = ref(0);
 let timerInterval: number | null = null;
 
@@ -245,7 +228,6 @@ const timerDisplayText = computed(() => {
   return '';
 });
 
-// 方法
 const close = () => {
   emit('update:visible', false);
 };
@@ -301,7 +283,6 @@ const cancelTimer = () => {
   playerStore.clearSleepTimer();
 };
 
-// 定时刷新倒计时
 const startTimerUpdate = () => {
   if (timerInterval) return;
   timerInterval = window.setInterval(() => {
@@ -340,7 +321,6 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-/* 弹窗动画 */
 .settings-drawer-enter-active,
 .settings-drawer-leave-active {
   transition: opacity 0.3s ease;

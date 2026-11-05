@@ -1,6 +1,5 @@
 <template>
   <div class="h-full w-full bg-white dark:bg-black transition-colors duration-500 flex flex-col">
-    <!-- 顶部导航区 -->
     <div
       class="flex-shrink-0 border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-black z-10 page-padding pt-6 pb-2"
     >
@@ -27,7 +26,6 @@
       </n-scrollbar>
     </div>
 
-    <!-- 内容区域 -->
     <n-scrollbar class="flex-1">
       <div class="w-full mx-auto pb-32 pt-6 page-padding">
         <div v-show="currentSection === 'basic'" class="animate-fade-in">
@@ -53,7 +51,6 @@
         <div v-show="currentSection === 'about'" class="animate-fade-in">
           <about-tab />
         </div>
-
 
         <div class="h-20"></div>
         <play-bottom />
@@ -87,7 +84,6 @@ const message = useMessage();
 const dialog = useDialog();
 const { t } = useI18n();
 
-// ==================== 设置数据管理 ====================
 const saveSettings = useDebounceFn((data) => {
   settingsStore.setSetData(data);
 }, 500);
@@ -126,7 +122,6 @@ provide(SETTINGS_DATA_KEY, setData);
 provide(SETTINGS_MESSAGE_KEY, message);
 provide(SETTINGS_DIALOG_KEY, dialog);
 
-// ==================== 导航相关 ====================
 type SettingSectionConfig = {
   id: string;
   electron?: boolean;
@@ -152,7 +147,6 @@ const navSections = computed(() => {
 
 const currentSection = ref('basic');
 
-// ==================== 初始化 ====================
 onMounted(() => {
   if (isElectron && settingsStore.appUpdateState.currentVersion === '') {
     settingsStore.setAppUpdateState(createDefaultAppUpdateState(config.version));

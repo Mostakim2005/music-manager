@@ -75,14 +75,14 @@ const resetUpdateState = () => {
 
 const getUnsupportedMessage = () => {
   if (!app.isPackaged) {
-    return '当前环境为开发模式，自动更新仅在打包后的应用内可用';
+    return 'Running in development mode. Auto-update is only available in the packaged app.';
   }
 
   if (process.platform === 'linux') {
-    return '当前 Linux 安装方式不支持自动更新，请前往官网下载安装包更新';
+    return 'This Linux install does not support auto-update. Download the installer from the website.';
   }
 
-  return '当前环境不支持自动更新，请前往官网下载安装包更新';
+  return 'This build does not support auto-update. Download the installer from the website.';
 };
 
 const applyUpdateInfo = (
@@ -132,7 +132,7 @@ const checkForUpdates = async (options: CheckUpdateOptions = {}): Promise<AppUpd
       await autoUpdater.checkForUpdates();
       return updateState;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : '检查更新失败';
+      const errorMessage = error instanceof Error ? error.message : 'Update check failed';
       setUpdateState({
         status: APP_UPDATE_STATUS.error,
         errorMessage,
@@ -163,7 +163,7 @@ const downloadUpdate = async (): Promise<AppUpdateState> => {
   if (!hasDownloadableUpdate()) {
     setUpdateState({
       status: APP_UPDATE_STATUS.error,
-      errorMessage: '当前没有可下载的更新'
+      errorMessage: 'No downloadable update available'
     });
     return updateState;
   }
@@ -177,7 +177,7 @@ const downloadUpdate = async (): Promise<AppUpdateState> => {
       await autoUpdater.downloadUpdate();
       return updateState;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : '下载更新失败';
+      const errorMessage = error instanceof Error ? error.message : 'Failed to download update';
       setUpdateState({
         status: APP_UPDATE_STATUS.error,
         errorMessage
@@ -265,7 +265,7 @@ export function setupUpdateHandlers(mainWindow: BrowserWindow) {
   autoUpdater.on('error', (error) => {
     setUpdateState({
       status: APP_UPDATE_STATUS.error,
-      errorMessage: error?.message ?? '自动更新失败'
+      errorMessage: error?.message ?? 'Auto-update failed'
     });
   });
 

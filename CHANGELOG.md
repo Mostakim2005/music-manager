@@ -1,4 +1,53 @@
-# 更新日志
+# Changelog
+
+## v5.3.0
+
+### Completed: English-only source sweep
+
+The de-China work started in v5.2.0 is now finished. Every visible string, log
+message, thrown `Error`, dialog title and code comment in `src/` is English.
+
+- **Comments** — removed the remaining Chinese comment lines across `src/main`,
+  `src/renderer` and `src/shared`. Where a comment carried the intent of an
+  otherwise-empty `catch` block, it was rewritten in English rather than deleted,
+  so no error handling became silent.
+- **Runtime strings** — translated the remaining Chinese string literals:
+  `console.*` diagnostics, IPC error responses, `throw new Error(...)` messages,
+  notification titles/bodies, file-dialog titles, and tooltips.
+- **Lyric parser diagnostics** — `yrcParser.ts` parse errors are now English.
+- **Formatting** — `formatNumber()` used the Chinese myriad units `万`/`亿`; it
+  now uses `M`/`B`.
+- **Verified** — `typecheck:node`, `typecheck:web`, `vitest` (169 tests) and
+  `electron-vite build` all pass. `eslint` reports no regressions.
+
+### Also swept beyond `src/`
+
+- **Build tooling** — comments and diagnostics in `eslint.config.mjs`,
+  `vite.config.ts`, `electron.vite.config.ts`, `build/installer.nsh`,
+  `scripts/check_i18n.ts`, `scripts/export_i18n_report.ts` and
+  `scripts/fix-sandbox.js`.
+- **GitHub workflows** — comments and step names in `pr-check.yml` and
+  `deploy.yml`.
+- **Issue templates** — the upstream `bug-report.zh-CN.yml` and
+  `feature-report.zh-CN.yml` were replaced with English `bug-report.yml` and
+  `feature-report.yml` rather than translated, since the project no longer ships
+  other locales.
+- **Tests** — incidental Chinese test names and comments translated. CJK used as
+  *fixture data* is kept, because it is the thing under test: plugin metadata
+  samples, Japanese/Chinese lyric strings for the translator, and a CJK filename
+  for the tag writer.
+- **Docs** — rewrote `README.md` for Music Manager (the upstream README still
+  advertised the removed Netease account features) and removed the stale
+  `DEV.md` and `docs/custom-api-readme.md`, which documented the deleted Netease
+  custom API.
+
+Two exemptions inside `src/` are deliberate and documented in
+[REMOVED_FEATURES.md](docs/REMOVED_FEATURES.md) §7:
+
+- `src/renderer/utils/lxListParser.ts` — a multilingual CSV header matcher that
+  must recognise CJK/Korean/Japanese column names in user-imported lists.
+- `src/i18n/lang/en-US/settings.ts` → `fontPreview.chineseText` — the CJK sample
+  line used to preview font rendering. Translating it would defeat its purpose.
 
 ## v5.1.0
 

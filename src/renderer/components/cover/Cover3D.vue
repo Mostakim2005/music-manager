@@ -39,7 +39,6 @@ const props = withDefaults(defineProps<Props>(), {
   disabled: false
 });
 
-// 3D视差效果相关
 const coverContainer = ref<HTMLElement | null>(null);
 const coverImage = ref<HTMLElement | null>(null);
 const mouseX = ref(0.5);
@@ -47,7 +46,6 @@ const mouseY = ref(0.5);
 const isHovering = ref(false);
 const rafId = ref<number | null>(null);
 
-// 3D视差效果计算
 const coverTransformStyle = computed(() => {
   if (!isHovering.value || props.disabled) {
     return {
@@ -65,7 +63,6 @@ const coverTransformStyle = computed(() => {
   };
 });
 
-// 光泽效果计算
 const shineStyle = computed(() => {
   if (!isHovering.value || props.disabled) {
     return {
@@ -85,14 +82,12 @@ const shineStyle = computed(() => {
   };
 });
 
-// 使用 requestAnimationFrame 优化鼠标事件
 const updateMousePosition = (x: number, y: number) => {
   if (rafId.value) {
     cancelAnimationFrame(rafId.value);
   }
 
   rafId.value = requestAnimationFrame(() => {
-    // 只在位置有显著变化时更新，减少不必要的重绘
     const deltaX = Math.abs(mouseX.value - x);
     const deltaY = Math.abs(mouseY.value - y);
 
@@ -103,7 +98,6 @@ const updateMousePosition = (x: number, y: number) => {
   });
 };
 
-// 3D视差效果的鼠标事件处理
 const handleMouseMove = (event: MouseEvent) => {
   if (!coverContainer.value || !isHovering.value || props.disabled) return;
 
@@ -126,11 +120,9 @@ const handleMouseLeave = () => {
     cancelAnimationFrame(rafId.value);
     rafId.value = null;
   }
-  // 平滑回到中心位置
   updateMousePosition(0.5, 0.5);
 };
 
-// 清理资源
 onBeforeUnmount(() => {
   if (rafId.value) {
     cancelAnimationFrame(rafId.value);
@@ -143,19 +135,18 @@ onBeforeUnmount(() => {
   @apply w-full h-full;
 }
 
-/* 3D视差效果样式 */
 .cover-wrapper {
   @apply relative w-full h-full rounded-xl overflow-hidden;
   transform-style: preserve-3d;
   will-change: transform;
   backface-visibility: hidden;
-  transform: translateZ(0); /* 强制硬件加速 */
+  transform: translateZ(0);
 }
 
 .cover-image {
   @apply w-full h-full;
   border-radius: inherit;
-  transform: translateZ(0); /* 强制硬件加速 */
+  transform: translateZ(0);
 }
 
 .cover-shine {
@@ -166,7 +157,6 @@ onBeforeUnmount(() => {
   backface-visibility: hidden;
 }
 
-/* 为封面容器添加阴影效果 */
 .cover-3d-container:hover .cover-wrapper {
   filter: drop-shadow(0 15px 30px rgba(0, 0, 0, 0.25));
 }
@@ -192,7 +182,6 @@ onBeforeUnmount(() => {
   animation: spin 1s linear infinite;
 }
 
-/* 移动端禁用3D效果 */
 @media (max-width: 768px) {
   .cover-wrapper {
     transform: none !important;

@@ -4,7 +4,6 @@
       <div class="local-music-content pb-32">
         <!-- Hero Section -->
         <section class="hero-section relative overflow-hidden rounded-tl-2xl">
-          <!-- 背景模糊效果 -->
           <div class="hero-bg absolute inset-0 -top-20">
             <div
               class="absolute inset-0 bg-gradient-to-br from-primary/20 via-transparent to-primary/10 blur-3xl opacity-50 dark:opacity-30"
@@ -14,7 +13,6 @@
             ></div>
           </div>
 
-          <!-- Hero 内容 -->
           <div class="hero-content relative z-10 page-padding-x pt-6 pb-4">
             <div class="flex items-center gap-5">
               <div
@@ -42,7 +40,6 @@
           class="action-bar sticky top-0 z-20 page-padding-x py-3 md:py-4 bg-white/80 dark:bg-black/80 backdrop-blur-xl border-b border-neutral-100 dark:border-neutral-800/50"
         >
           <div class="flex items-center justify-between gap-4">
-            <!-- 左侧：搜索框 -->
             <div class="flex-1 max-w-xs">
               <n-input
                 v-model:value="searchKeyword"
@@ -57,9 +54,7 @@
               </n-input>
             </div>
 
-            <!-- 右侧：操作按钮 -->
             <div class="flex items-center gap-3">
-              <!-- 播放全部按钮 -->
               <button
                 v-if="filteredList.length > 0"
                 class="action-btn-pill flex items-center gap-2 px-4 py-2 rounded-full font-semibold text-sm transition-all bg-primary text-white hover:bg-primary/90"
@@ -69,7 +64,6 @@
                 <span class="hidden md:inline">{{ t('localMusic.playAll') }}</span>
               </button>
 
-              <!-- 扫描按钮 -->
               <button
                 class="action-btn-icon w-10 h-10 rounded-full flex items-center justify-center bg-neutral-100 dark:bg-neutral-900 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-neutral-800 transition-all"
                 :disabled="localMusicStore.scanning"
@@ -112,7 +106,6 @@
                 </button>
               </n-dropdown>
 
-              <!-- 添加文件夹按钮 -->
               <button
                 class="action-btn-icon w-10 h-10 rounded-full flex items-center justify-center bg-neutral-100 dark:bg-neutral-900 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-neutral-800 transition-all"
                 @click="handleAddFolder"
@@ -120,7 +113,6 @@
                 <i class="ri-folder-add-line text-lg" />
               </button>
 
-              <!-- 文件夹管理按钮 -->
               <button
                 v-if="localMusicStore.folderPaths.length > 0"
                 class="action-btn-icon w-10 h-10 rounded-full flex items-center justify-center bg-neutral-100 dark:bg-neutral-900 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-neutral-800 transition-all"
@@ -130,7 +122,6 @@
                 <i class="ri-folder-settings-line text-lg" />
               </button>
 
-              <!-- 个人听歌统计与Wrapped报告按钮 -->
               <button
                 class="action-btn-icon w-10 h-10 rounded-full flex items-center justify-center bg-neutral-100 dark:bg-neutral-900 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-neutral-800 transition-all"
                 title="Personal Listening Stats & Wrapped"
@@ -139,7 +130,6 @@
                 <i class="ri-bar-chart-box-line text-lg" />
               </button>
 
-              <!-- 导出/导入 M3U8 歌单与 JSON 备份菜单 -->
               <n-dropdown
                 trigger="click"
                 :options="backupDropdownOptions"
@@ -159,7 +149,11 @@
 
         <!-- Library maintenance progress -->
         <section
-          v-if="localMusicStore.scanning || localMusicStore.autoTagging || localMusicStore.buildingFingerprints"
+          v-if="
+            localMusicStore.scanning ||
+            localMusicStore.autoTagging ||
+            localMusicStore.buildingFingerprints
+          "
           class="page-padding-x mt-6"
         >
           <div
@@ -177,9 +171,7 @@
           </div>
         </section>
 
-        <!-- 歌曲列表 -->
         <section class="list-section page-padding-x mt-6">
-          <!-- 空状态 -->
           <div
             v-if="!localMusicStore.scanning && filteredList.length === 0"
             class="empty-state py-20 text-center"
@@ -195,7 +187,6 @@
             </button>
           </div>
 
-          <!-- 歌曲列表 (紧凑型行布局，44px 圆角封面，标题艺术家 flex-1，右侧紧凑按钮组) -->
           <div v-else-if="filteredList.length > 0" class="song-list-container space-y-1">
             <local-track-row
               v-for="(item, index) in filteredSongResults"
@@ -212,7 +203,6 @@
       </div>
     </n-scrollbar>
 
-    <!-- 文件夹管理抽屉 -->
     <n-drawer v-model:show="showFolderManager" :width="400" placement="right">
       <n-drawer-content :title="t('localMusic.removeFolder')" closable>
         <div class="space-y-3 py-4">
@@ -235,7 +225,6 @@
             </button>
           </div>
 
-          <!-- 空文件夹列表 -->
           <div v-if="localMusicStore.folderPaths.length === 0" class="text-center py-8">
             <i class="ri-folder-line text-4xl text-neutral-200 dark:text-neutral-800" />
             <p class="text-sm text-neutral-400 mt-2">{{ t('localMusic.emptyState') }}</p>
@@ -253,35 +242,31 @@
       </n-drawer-content>
     </n-drawer>
 
-    <!-- 本地音乐元数据、封面与文件名编辑器 -->
     <local-track-editor-modal
       v-model:show="showTrackEditor"
       :entry="editingEntry"
       @saved="handleTrackSaved"
     />
 
-    <!-- 个人听歌统计与Wrapped弹窗 -->
     <listening-stats-modal v-model:show="showListeningStats" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { createDiscreteApi, NButton, type DropdownOption } from 'naive-ui';
+import { createDiscreteApi, type DropdownOption, NButton } from 'naive-ui';
 import { computed, h, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import LocalTrackEditorModal from '@/components/common/LocalTrackEditorModal.vue';
 import ListeningStatsModal from '@/components/player/ListeningStatsModal.vue';
-import LocalTrackRow from './LocalTrackRow.vue';
-import {
-  exportListeningStatsRaw,
-  importListeningStatsRaw
-} from '@/services/listeningStatsService';
+import { exportListeningStatsRaw, importListeningStatsRaw } from '@/services/listeningStatsService';
 import { useLocalMusicStore } from '@/store/modules/localMusic';
 import { usePlayerStore } from '@/store/modules/player';
 import type { LocalMusicEntry } from '@/types/localMusic';
 import type { SongResult } from '@/types/music';
 import { debounceIngestLocalTracks, filterByKeyword, toSongResult } from '@/utils/localMusicUtils';
+
+import LocalTrackRow from './LocalTrackRow.vue';
 
 // ==================== Stores ====================
 const { t } = useI18n();
@@ -290,14 +275,10 @@ const localMusicStore = useLocalMusicStore();
 const playerStore = usePlayerStore();
 
 // ==================== State ====================
-/** 搜索关键词 */
 const searchKeyword = ref('');
-/** 文件夹管理抽屉是否显示 */
 const showFolderManager = ref(false);
-/** 本地歌曲标签/文件编辑器弹窗 */
 const showTrackEditor = ref(false);
 const editingEntry = ref<LocalMusicEntry | null>(null);
-/** 听歌统计弹窗 */
 const showListeningStats = ref(false);
 
 const acousticDropdownOptions: DropdownOption[] = [
@@ -470,12 +451,10 @@ async function handleTrackSaved(updatedEntry: LocalMusicEntry, oldId: string) {
 }
 
 // ==================== Computed ====================
-/** 根据搜索关键词过滤后的本地音乐列表 */
 const filteredList = computed(() => {
   return filterByKeyword(localMusicStore.musicList, searchKeyword.value);
 });
 
-/** 将过滤后的列表转换为 SongResult[] 供 SongItem 使用 */
 const filteredSongResults = computed(() => {
   return filteredList.value.map(toSongResult);
 });
@@ -500,27 +479,21 @@ const maintenanceDetail = computed(() => {
 // ==================== Methods ====================
 
 /**
- * 选择并添加文件夹
- * 调用系统文件夹选择对话框
- * dialog.showOpenDialog 返回 { canceled: boolean, filePaths: string[] }
  */
 async function handleAddFolder(): Promise<void> {
   try {
     const result = await window.electron.ipcRenderer.invoke('select-directory');
     if (result && !result.canceled && result.filePaths?.length > 0) {
       localMusicStore.addFolder(result.filePaths[0]);
-      // 添加文件夹后自动触发扫描
       await localMusicStore.scanFolders();
     }
   } catch (error) {
-    console.error('选择文件夹失败:', error);
+    console.error('Failed to choose folder:', error);
     message.error(String(error));
   }
 }
 
 /**
- * 移除文件夹（同时清理该文件夹下的缓存条目，歌曲总数立即更新）
- * @param folder 要移除的文件夹路径
  */
 async function handleRemoveFolder(folder: string): Promise<void> {
   await localMusicStore.removeFolder(folder);
@@ -548,7 +521,9 @@ function triggerIngest(): void {
                     title: entry.title,
                     artist: entry.artist || '',
                     album: entry.album || '',
-                    durationSec: Math.round((entry.duration || 0) > 1000 ? entry.duration / 1000 : entry.duration || 0),
+                    durationSec: Math.round(
+                      (entry.duration || 0) > 1000 ? entry.duration / 1000 : entry.duration || 0
+                    ),
                     bitrate: (entry as any).bitrate,
                     container: ext
                   },
@@ -574,7 +549,9 @@ function triggerIngest(): void {
                     title: entry.title,
                     artist: entry.artist || '',
                     album: entry.album || '',
-                    durationSec: Math.round((entry.duration || 0) > 1000 ? entry.duration / 1000 : entry.duration || 0),
+                    durationSec: Math.round(
+                      (entry.duration || 0) > 1000 ? entry.duration / 1000 : entry.duration || 0
+                    ),
                     bitrate: (entry as any).bitrate,
                     container: ext
                   },
@@ -592,11 +569,9 @@ function triggerIngest(): void {
 }
 
 /**
- * 触发扫描
  */
 async function handleScan(): Promise<void> {
   if (localMusicStore.folderPaths.length === 0) {
-    // 没有配置文件夹：先清掉可能残留的历史条目（#742），再引导用户添加文件夹
     await localMusicStore.scanFolders();
     triggerIngest();
     await handleAddFolder();
@@ -607,37 +582,29 @@ async function handleScan(): Promise<void> {
 }
 
 /**
- * 播放单曲
- * SongItem 内部已通过 playMusicEvent 调用 playerStore.setPlay 触发播放
- * 此处只需设置播放列表上下文，确保上下一首切换正常
- * @param song SongItem 组件 emit 的 SongResult 对象
  */
 async function handlePlaySong(song: SongResult): Promise<void> {
   try {
     playerStore.prepareSongPlayback(song, filteredSongResults.value);
     await playerStore.setPlay(song);
   } catch (error) {
-    console.error('播放本地音乐失败:', error);
+    console.error('Failed to play local music:', error);
   }
 }
 
 /**
- * 从本地列表移除单曲（仅软件层面移除，不删除磁盘文件）（#713）
- * @param id SongResult.id，即 LocalMusicEntry.id（hex 字符串）
  */
 async function handleRemoveSong(id: number | string): Promise<void> {
   try {
     await localMusicStore.removeEntry(String(id));
     message.success(t('localMusic.removedFromLibrary'));
   } catch (error) {
-    console.error('移除本地歌曲失败:', error);
+    console.error('Failed to remove local song:', error);
     message.error(String(error));
   }
 }
 
 /**
- * 播放全部
- * 将完整列表转换为 SongResult[] 后设置为播放列表并从第一首开始播放
  */
 async function handlePlayAll(): Promise<void> {
   if (filteredSongResults.value.length === 0) return;
@@ -646,35 +613,30 @@ async function handlePlayAll(): Promise<void> {
     const firstSong = filteredSongResults.value[0];
     const entry = filteredList.value[0];
 
-    // 检查第一首歌文件是否存在
     const exists = await window.electron.ipcRenderer.invoke('check-file-exists', entry.filePath);
     if (!exists) {
       message.error(t('localMusic.fileNotFound'));
       return;
     }
 
-    // 设置播放列表并播放第一首
     playerStore.setPlayList(filteredSongResults.value);
     await playerStore.setPlay(firstSong);
   } catch (error) {
-    console.error('播放全部失败:', error);
+    console.error('Failed to play all:', error);
   }
 }
 
 // ==================== Lifecycle ====================
 onMounted(async () => {
-  // 启动时的自动扫描可能仍在进行，此时不要用缓存快照覆盖扫描结果
   if (localMusicStore.scanning) {
     return;
   }
-  // 进入页面时从 IndexedDB 缓存加载音乐列表
   await localMusicStore.loadFromCache();
   triggerIngest();
 });
 </script>
 
 <style scoped>
-/* 虚拟列表样式 */
 .song-virtual-list {
   @apply w-full;
 }

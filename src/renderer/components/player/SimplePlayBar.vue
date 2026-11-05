@@ -1,9 +1,7 @@
 <template>
   <div class="play-bar" :class="{ 'dark-theme': isDarkMode }" ref="playBarRef">
     <div class="container">
-      <!-- 顶部进度条和时间 -->
       <div class="top-section">
-        <!-- 进度条 -->
         <div
           class="progress-bar"
           :class="{ 'is-dragging': isDragging }"
@@ -14,14 +12,12 @@
           <div class="progress-fill" :style="{ width: `${progressPercentage}%` }"></div>
         </div>
 
-        <!-- 时间显示 -->
         <div class="time-display">
           <span class="current-time">{{ formatTime(displayTime) }}</span>
           <span class="total-time">{{ formatTime(allTime) }}</span>
         </div>
       </div>
 
-      <!-- 主控制区域 -->
       <div class="controls-section">
         <div class="left-controls">
           <button class="control-btn small-btn" @click="togglePlayMode">
@@ -33,34 +29,28 @@
         </div>
 
         <div class="center-controls">
-          <!-- 上一首 -->
           <button class="control-btn" @click="handlePrev">
             <i class="iconfont icon-prev"></i>
           </button>
 
-          <!-- 播放/暂停 -->
           <button class="control-btn play-btn" @click="playMusicEvent">
             <i class="iconfont" :class="play ? 'icon-stop' : 'icon-play'"></i>
           </button>
 
-          <!-- 下一首 -->
           <button class="control-btn" @click="handleNext">
             <i class="iconfont icon-next"></i>
           </button>
         </div>
 
         <div class="right-controls">
-          <!-- 播放列表按钮 -->
           <button class="control-btn small-btn" @click="openPlayListDrawer">
             <i class="iconfont icon-list"></i>
           </button>
         </div>
       </div>
 
-      <!-- 底部控制区域 -->
       <div class="bottom-section">
         <div class="spacer"></div>
-        <!-- 音量控制 -->
         <div class="volume-control">
           <i class="iconfont" :class="getVolumeIcon" @click="mute"></i>
           <div class="volume-slider">
@@ -101,13 +91,10 @@ const props = withDefaults(
 const playerStore = usePlayerStore();
 const playBarRef = ref<HTMLElement | null>(null);
 
-// 播放控制
 const { isPlaying: play, playMusicEvent, handleNext, handlePrev } = usePlaybackControl();
 
-// 播放模式
 const { playMode, playModeIcon, togglePlayMode } = usePlayMode();
 
-// 音量控制（统一通过 playerStore 管理）
 const {
   isMuted,
   volumeSlider,
@@ -116,11 +103,9 @@ const {
   handleVolumeWheel
 } = useVolumeControl();
 
-// 进度条控制
 const isDragging = ref(false);
-const dragProgress = ref(0); // 拖拽时的预览进度 (0-100)
+const dragProgress = ref(0);
 
-// 计算当前显示的进度百分比
 const progressPercentage = computed(() => {
   if (isDragging.value) {
     return dragProgress.value;
@@ -129,7 +114,6 @@ const progressPercentage = computed(() => {
   return (nowTime.value / allTime.value) * 100;
 });
 
-// 计算显示的时间
 const displayTime = computed(() => {
   if (isDragging.value) {
     return (dragProgress.value / 100) * allTime.value;
@@ -137,29 +121,24 @@ const displayTime = computed(() => {
   return nowTime.value;
 });
 
-// 计算进度百分比的辅助函数
 const calculateProgress = (clientX: number, element: HTMLElement): number => {
   const rect = element.getBoundingClientRect();
   const percent = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
   return percent * 100;
 };
 
-// 更新音频进度
 const seekToProgress = (percentage: number) => {
   const targetTime = (percentage / 100) * allTime.value;
   audioService.seek(targetTime);
-  // 不立即更新 nowTime,让音频服务的回调来更新,避免不同步
 };
 
-// 鼠标按下开始拖拽
 const handleProgressMouseDown = (e: MouseEvent) => {
-  if (e.button !== 0) return; // 只响应左键
+  if (e.button !== 0) return;
 
   const target = e.currentTarget as HTMLElement;
   isDragging.value = true;
   dragProgress.value = calculateProgress(e.clientX, target);
 
-  // 添加全局鼠标移动和释放监听
   const handleMouseMove = (moveEvent: MouseEvent) => {
     if (isDragging.value) {
       dragProgress.value = calculateProgress(moveEvent.clientX, target);
@@ -168,11 +147,9 @@ const handleProgressMouseDown = (e: MouseEvent) => {
 
   const handleMouseUp = () => {
     if (isDragging.value) {
-      // 拖拽结束,执行跳转
       seekToProgress(dragProgress.value);
       isDragging.value = false;
     }
-    // 移除事件监听
     document.removeEventListener('mousemove', handleMouseMove);
     document.removeEventListener('mouseup', handleMouseUp);
   };
@@ -180,13 +157,10 @@ const handleProgressMouseDown = (e: MouseEvent) => {
   document.addEventListener('mousemove', handleMouseMove);
   document.addEventListener('mouseup', handleMouseUp);
 
-  // 防止文本选择
   e.preventDefault();
 };
 
-// 点击进度条跳转
 const handleProgressClick = (e: MouseEvent) => {
-  // 如果正在拖拽,不处理点击事件
   if (isDragging.value) return;
 
   const target = e.currentTarget as HTMLElement;
@@ -194,68 +168,52 @@ const handleProgressClick = (e: MouseEvent) => {
   seekToProgress(percentage);
 };
 
-// 格式化时间
 const formatTime = (seconds: number) => {
   return secondToMinute(seconds);
 };
 
-// 打开播放列表抽屉
 const openPlayListDrawer = () => {
   playerStore.setPlayListDrawerVisible(true);
 };
 
-// 深色模式
 const isDarkMode = computed(() => props.isDark);
 
-// 主题颜色应用函数
 const applyThemeColor = (colorValue: string) => {
   if (!colorValue || !playBarRef.value) return;
 
-  console.log('应用主题色:', colorValue);
+  console.log('Applying theme color:', colorValue);
   const playBarElement = playBarRef.value;
 
-  // 解析RGB值
   const rgbMatch = colorValue.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
 
   if (rgbMatch) {
     const [_, r, g, b] = rgbMatch.map(Number);
 
-    // 计算颜色亮度 (0-255)
-    // 使用加权平均值公式: 0.299*R + 0.587*G + 0.114*B
     const brightness = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
 
-    console.log(`主题色亮度: ${brightness}/255`);
+    console.log(`Theme color brightness: ${brightness}/255`);
 
-    // 设置主色
     playBarElement.style.setProperty('--fill-color', colorValue);
 
-    // 亮度自适应处理
     if (brightness > 200) {
-      // 非常亮的颜色
-      // 深化主色以增加对比度
       const darkenedColor = `rgb(${Math.max(0, r - 60)}, ${Math.max(0, g - 60)}, ${Math.max(0, b - 60)})`;
       playBarElement.style.setProperty('--fill-color-alt', darkenedColor);
-      playBarElement.style.setProperty('--fill-color-transparent', `rgba(${r}, ${g}, ${b}, 0.5)`); // 提高透明度
-      playBarElement.style.setProperty('--text-on-fill', '#000000'); // 亮色背景上用黑色文字
-      playBarElement.style.setProperty('--high-contrast-color', '#000000'); // 高对比度颜色
+      playBarElement.style.setProperty('--fill-color-transparent', `rgba(${r}, ${g}, ${b}, 0.5)`);
+      playBarElement.style.setProperty('--text-on-fill', '#000000');
+      playBarElement.style.setProperty('--high-contrast-color', '#000000');
       playBarElement.classList.add('light-theme-color');
       playBarElement.classList.remove('dark-theme-color');
     } else if (brightness < 50) {
-      // 非常暗的颜色
-      // 提亮主色以增加可见性
       const lightenedColor = `rgb(${Math.min(255, r + 60)}, ${Math.min(255, g + 60)}, ${Math.min(255, b + 60)})`;
       playBarElement.style.setProperty('--fill-color-alt', lightenedColor);
-      playBarElement.style.setProperty('--fill-color-transparent', `rgba(${r}, ${g}, ${b}, 0.7)`); // 提高透明度
-      playBarElement.style.setProperty('--text-on-fill', '#ffffff'); // 暗色背景上用白色文字
-      playBarElement.style.setProperty('--high-contrast-color', '#ffffff'); // 高对比度颜色
+      playBarElement.style.setProperty('--fill-color-transparent', `rgba(${r}, ${g}, ${b}, 0.7)`);
+      playBarElement.style.setProperty('--text-on-fill', '#ffffff');
+      playBarElement.style.setProperty('--high-contrast-color', '#ffffff');
       playBarElement.classList.add('dark-theme-color');
       playBarElement.classList.remove('light-theme-color');
     } else {
-      // 计算辅助色和高亮色
-      // 普通亮度颜色，正常处理
-      playBarElement.style.setProperty('--fill-color-alt', colorValue); // 保持一致
+      playBarElement.style.setProperty('--fill-color-alt', colorValue);
       playBarElement.style.setProperty('--fill-color-transparent', `rgba(${r}, ${g}, ${b}, 0.25)`);
-      // 根据亮度决定文本颜色
       const textColor = brightness > 125 ? '#000000' : '#ffffff';
       playBarElement.style.setProperty('--text-on-fill', textColor);
       playBarElement.style.setProperty('--high-contrast-color', textColor);
@@ -263,11 +221,9 @@ const applyThemeColor = (colorValue: string) => {
       playBarElement.classList.remove('dark-theme-color');
     }
 
-    // 设置亮色（用于高亮效果）
     const lightenedColor = `rgb(${Math.min(255, r + 40)}, ${Math.min(255, g + 40)}, ${Math.min(255, b + 40)})`;
     playBarElement.style.setProperty('--fill-color-light', lightenedColor);
   } else {
-    // 无法解析RGB值时的默认设置
     playBarElement.style.setProperty('--fill-color', colorValue);
     playBarElement.style.setProperty('--fill-color-transparent', `${colorValue}40`);
     playBarElement.style.setProperty('--fill-color-light', `${colorValue}80`);
@@ -277,7 +233,6 @@ const applyThemeColor = (colorValue: string) => {
   }
 };
 
-// 监听主题色变化
 watch(
   () => playerStore.playMusic.primaryColor,
   (newVal) => {
@@ -302,7 +257,6 @@ onMounted(() => {
   border-radius: 12px;
   transition: all 0.3s ease;
 
-  /* 默认变量 */
   --text-on-fill: #ffffff;
   --high-contrast-color: #ffffff;
 
@@ -332,7 +286,6 @@ onMounted(() => {
     --button-hover: rgba(255, 255, 255, 0.1);
   }
 
-  /* 极亮主题色适配 */
   &.light-theme-color {
     .progress-fill {
       box-shadow:
@@ -352,7 +305,6 @@ onMounted(() => {
     }
   }
 
-  /* 极暗主题色适配 */
   &.dark-theme-color {
     .progress-fill {
       box-shadow:

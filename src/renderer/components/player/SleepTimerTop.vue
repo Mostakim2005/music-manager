@@ -1,6 +1,5 @@
 <template>
   <div>
-    <!-- 定时关闭倒计时显示区域 -->
     <div v-if="hasActiveSleepTimer" class="sleep-timer-countdown" @click="handleShowTimer">
       <i class="iconfont ri-time-line mr-1"></i>
       <span>{{ formattedRemainingTime }}</span>
@@ -15,13 +14,11 @@ import { useI18n } from 'vue-i18n';
 import { usePlayerStore } from '@/store/modules/player';
 
 const { t } = useI18n();
-// 定时器状态
 const playerStore = usePlayerStore();
 const { sleepTimer } = storeToRefs(playerStore);
 const hasActiveSleepTimer = computed(() => playerStore.hasSleepTimerActive);
 const refreshTrigger = ref(0);
 
-// 检查定时器是否已结束
 const checkTimerExpired = () => {
   if (sleepTimer.value.type === 'time' && sleepTimer.value.endTime) {
     const now = Date.now();
@@ -31,14 +28,11 @@ const checkTimerExpired = () => {
   }
 };
 
-// 在组件挂载时检查定时器状态
 onMounted(() => {
   checkTimerExpired();
 });
 
-// 倒计时显示
 const formattedRemainingTime = computed(() => {
-  // 依赖刷新触发器强制更新
   void refreshTrigger.value;
 
   if (sleepTimer.value.type !== 'time' || !sleepTimer.value.endTime) {
@@ -65,7 +59,6 @@ const formattedRemainingTime = computed(() => {
   }
 });
 
-// 监听剩余时间变化
 let timerUpdateInterval: number | null = null;
 
 watch(
@@ -80,18 +73,14 @@ watch(
   { immediate: true }
 );
 
-// 启动定时器更新UI
 function startTimerUpdate() {
-  stopTimerUpdate(); // 先停止之前的计时器
+  stopTimerUpdate();
 
-  // 每秒更新UI
   timerUpdateInterval = window.setInterval(() => {
-    // 更新刷新触发器，强制重新计算
     refreshTrigger.value = Date.now();
   }, 1000) as unknown as number;
 }
 
-// 停止定时器更新UI
 function stopTimerUpdate() {
   if (timerUpdateInterval) {
     clearInterval(timerUpdateInterval);
@@ -103,7 +92,6 @@ const handleShowTimer = () => {
   playerStore.showSleepTimer = !playerStore.showSleepTimer;
 };
 
-// 播放器卸载时清除定时器
 onUnmounted(() => {
   stopTimerUpdate();
 });

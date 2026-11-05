@@ -3,9 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { Readable } from 'stream';
 
-/** 支持的 MIME 类型映射表 */
 const MIME_TYPES: Record<string, string> = {
-  // 音频
   '.mp3': 'audio/mpeg',
   '.m4a': 'audio/mp4',
   '.aac': 'audio/mp4',
@@ -14,10 +12,8 @@ const MIME_TYPES: Record<string, string> = {
   '.opus': 'audio/ogg; codecs=opus',
   '.wav': 'audio/wav',
   '.webm': 'audio/webm',
-  // 视频
   '.mp4': 'video/mp4',
   '.mkv': 'video/x-matroska',
-  // 图片
   '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg',
   '.png': 'image/png',
@@ -26,30 +22,23 @@ const MIME_TYPES: Record<string, string> = {
   '.svg': 'image/svg+xml'
 };
 
-/** 从文件扩展名获取 Content-Type */
 function getMimeType(filePath: string): string {
   const ext = path.extname(filePath).toLowerCase();
   return MIME_TYPES[ext] || 'application/octet-stream';
 }
 
-/** 规范化 local:// 协议 URL 还原为真实的操作系统绝对路径 */
 export function decodeLocalProtocolUrl(rawUrl: string): string {
-  // 去除协议头 local:/// 或 local://
   const withoutScheme = rawUrl.replace(/^local:\/\/\/?/, '');
 
-  // 截断 query 参数（?param=...、?t=...）与 hash 片段
   const withoutQuery = withoutScheme.split('?')[0].split('#')[0];
 
-  // 解码可能包含的百分号编码（如中文、空格 %20、井号 %23、百分号 %25 等）
   let decoded = withoutQuery;
   try {
     decoded = decodeURIComponent(withoutQuery);
   } catch {
-    // 若含有不合规的独立 % 字符则保持原样
     decoded = withoutQuery;
   }
 
-  // Windows 驱动器盘符处理：/C:/... -> C:/...
   if (/^\/[a-zA-Z]:\//.test(decoded)) {
     decoded = decoded.slice(1);
   } else if (process.platform !== 'win32' && !decoded.startsWith('/')) {
@@ -60,7 +49,6 @@ export function decodeLocalProtocolUrl(rawUrl: string): string {
 }
 
 /**
- * 构造本地文件流式响应，完整支持 HTTP 206 Partial Content (Range)、CORS 及 Content-Type
  */
 function buildFileResponse(
   filePath: string,
@@ -122,9 +110,6 @@ function buildFileResponse(
 }
 
 /**
- * 注册 local:// 协议安全处理程序
- * 解决 local: 协议跨源 CORS 拦截、缺少 Content-Type 导致图片破损、
- * 以及文件名含空格、Unicode、#、% 和 query 参数时的路径解析失效
  */
 export function registerLocalProtocol(): void {
   try {
@@ -133,7 +118,6 @@ export function registerLocalProtocol(): void {
     }
 
     protocol.handle('local', async (request) => {
-      // 处理 CORS 预检请求
       if (request.method === 'OPTIONS') {
         return new Response(null, {
           status: 204,
@@ -150,7 +134,12 @@ export function registerLocalProtocol(): void {
 
         const stat = await fs.promises.stat(filePath).catch(() => null);
         if (!stat?.isFile()) {
-          console.warn('[localProtocol] File not found or not a file:', filePath, 'from URL:', request.url);
+          console.warn(
+            '[localProtocol] File not found or not a file:',
+            filePath,
+            'from URL:',
+            request.url
+          );
           return new Response(null, {
             status: 404,
             headers: {

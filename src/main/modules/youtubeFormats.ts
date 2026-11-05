@@ -143,17 +143,15 @@ export function mapAndGroupFormats(raw: any): YtFormatsResult {
     // Skip storyboards or protocol mhtml
     if (f.protocol === 'mhtml' || f.format_note === 'storyboard' || f.ext === 'mhtml') continue;
 
-    const isAudioOnly =
-      (f.vcodec === 'none' || !f.vcodec) &&
-      f.acodec &&
-      f.acodec !== 'none';
+    const isAudioOnly = (f.vcodec === 'none' || !f.vcodec) && f.acodec && f.acodec !== 'none';
 
     if (isAudioOnly) {
-      const abr = typeof f.abr === 'number' && f.abr > 0
-        ? Math.round(f.abr)
-        : typeof f.tbr === 'number' && f.tbr > 0
-          ? Math.round(f.tbr)
-          : 128;
+      const abr =
+        typeof f.abr === 'number' && f.abr > 0
+          ? Math.round(f.abr)
+          : typeof f.tbr === 'number' && f.tbr > 0
+            ? Math.round(f.tbr)
+            : 128;
 
       const sizeBytes = estimateSizeBytes(f.filesize, f.filesize_approx, abr, durationSec);
       const ext = f.ext || 'm4a';
@@ -197,11 +195,12 @@ export function mapAndGroupFormats(raw: any): YtFormatsResult {
 
     const hasAudio = !!(f.acodec && f.acodec !== 'none');
     const fps = typeof f.fps === 'number' ? Math.round(f.fps) : 30;
-    const vbr = typeof f.vbr === 'number' && f.vbr > 0
-      ? Math.round(f.vbr)
-      : typeof f.tbr === 'number' && f.tbr > 0
-        ? Math.round(f.tbr)
-        : 0;
+    const vbr =
+      typeof f.vbr === 'number' && f.vbr > 0
+        ? Math.round(f.vbr)
+        : typeof f.tbr === 'number' && f.tbr > 0
+          ? Math.round(f.tbr)
+          : 0;
 
     const sizeBytes = estimateSizeBytes(f.filesize, f.filesize_approx, vbr, durationSec);
 

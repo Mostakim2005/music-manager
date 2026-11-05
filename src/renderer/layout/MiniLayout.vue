@@ -1,4 +1,3 @@
-<!-- 迷你模式布局 -->
 <template>
   <div class="mini-layout">
     <mini-play-bar />

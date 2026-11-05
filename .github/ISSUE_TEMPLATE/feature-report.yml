@@ -1,0 +1,31 @@
+name: Feature request
+description: Suggest a new feature with this form.
+title: 'Describe the request'
+body:
+  - type: markdown
+    attributes:
+      value: |
+        # Thanks for helping out
+
+        Before opening an issue, please make sure you have:
+        - Searched existing issues for your request. It may already be filed,
+          or already implemented in the latest version.
+        - If a previously closed issue still applies on the latest version,
+          open a new issue instead of commenting on the old one.
+
+  - type: textarea
+    id: functionContent
+    attributes:
+      label: What problem does this solve?
+      description: Describe the use case and scenario in detail. Most importantly, explain the user-experience need behind the request. Features that existing APIs cannot easily express are fair game, but the use case should be common enough to matter.
+      placeholder: Describe the problem
+    validations:
+      required: true
+
+  - type: textarea
+    id: functionalExpectations
+    attributes:
+      label: What would you suggest?
+      placeholder: Describe your proposed solution
+    validations:
+      required: true

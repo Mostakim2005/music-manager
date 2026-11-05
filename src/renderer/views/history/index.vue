@@ -73,7 +73,6 @@
     <div class="flex-grow min-h-0 px-2 mt-2" :class="setAnimationClass('animate__bounceInLeft')">
       <n-scrollbar ref="scrollbarRef" class="h-full pr-4" :size="100" @scroll="handleScroll">
         <div class="pb-24 space-y-1">
-          <!-- 歌曲列表 -->
           <template v-if="currentCategory === 'songs'">
             <div
               v-for="(item, index) in displayList"
@@ -105,7 +104,6 @@
             </div>
           </template>
 
-          <!-- 歌单列表 -->
           <template v-if="currentCategory === 'playlists'">
             <playlist-item
               v-for="(item, index) in displayList"
@@ -121,7 +119,6 @@
             />
           </template>
 
-          <!-- 专辑列表 -->
           <template v-if="currentCategory === 'albums'">
             <album-item
               v-for="(item, index) in displayList"
@@ -137,7 +134,6 @@
             />
           </template>
 
-          <!-- 播客列表 -->
           <template v-if="currentCategory === 'podcasts'">
             <div class="mb-4 px-2">
               <div
@@ -272,7 +268,6 @@ import type { SongResult } from '@/types/music';
 import { isMobile, setAnimationClass, setAnimationDelay } from '@/utils';
 import { mapDjProgramToSongResult } from '@/utils/podcastUtils';
 
-// 扩展历史记录类型以包含 playTime
 interface HistoryRecord extends Partial<SongResult> {
   id: string | number;
   playTime?: number;
@@ -301,16 +296,13 @@ const cloudPlaylists = ref<any[]>([]);
 const cloudAlbums = ref<any[]>([]);
 const currentPodcastSubTab = ref<'episodes' | 'radios'>('episodes');
 
-// 无限滚动相关配置
 const pageSize = 100;
 const currentPage = ref(1);
 
-// 获取云端播放记录
 const getCloudRecords = async () => {
   return [];
 };
 
-// 获取云端歌单播放记录
 const getCloudPlaylists = async () => {
   if (!userStore.hasRealAuth) {
     message.warning(t('history.needLogin'));
@@ -341,7 +333,6 @@ const getCloudPlaylists = async () => {
   }
 };
 
-// 获取云端专辑播放记录
 const getCloudAlbums = async () => {
   if (!userStore.hasRealAuth) {
     message.warning(t('history.needLogin'));
@@ -370,7 +361,6 @@ const getCloudAlbums = async () => {
   }
 };
 
-// 根据当前分类和tab获取要显示的列表
 const getCurrentList = (): any[] => {
   if (currentCategory.value === 'songs') {
     switch (currentTab.value) {
@@ -403,7 +393,6 @@ const getCurrentList = (): any[] => {
   return [];
 };
 
-// 处理分类切换
 const handleCategoryChange = async (value: 'songs' | 'playlists' | 'albums' | 'podcasts') => {
   currentCategory.value = value;
   currentPage.value = 1;
@@ -414,7 +403,6 @@ const handleCategoryChange = async (value: 'songs' | 'playlists' | 'albums' | 'p
     currentTab.value = 'local';
   }
 
-  // 如果切换到云端，且还没有加载对应的云端数据，则加载
   if (currentTab.value === 'cloud') {
     loading.value = true;
     if (value === 'songs' && cloudRecords.value.length === 0) {
@@ -430,7 +418,6 @@ const handleCategoryChange = async (value: 'songs' | 'playlists' | 'albums' | 'p
   await loadHistoryData();
 };
 
-// 处理歌单点击
 const handlePlaylistClick = async (item: any) => {
   try {
     navigateToMusicList(router, {
@@ -441,12 +428,11 @@ const handlePlaylistClick = async (item: any) => {
       canRemove: false
     });
   } catch (error) {
-    console.error('打开歌单失败:', error);
-    message.error('打开歌单失败');
+    console.error('Failed to open playlist:', error);
+    message.error('Failed to open playlist');
   }
 };
 
-// 处理专辑点击
 const handleAlbumClick = async (item: any) => {
   try {
     navigateToMusicList(router, {
@@ -460,24 +446,21 @@ const handleAlbumClick = async (item: any) => {
       canRemove: false
     });
   } catch (error) {
-    console.error('打开专辑失败:', error);
-    message.error('打开专辑失败');
+    console.error('Failed to open album:', error);
+    message.error('Failed to open album');
   }
 };
 
-// 删除歌单记录
 const handleDelPlaylist = (item: any) => {
   playHistoryStore.delPlaylist(item);
   displayList.value = displayList.value.filter((playlist) => playlist.id !== item.id);
 };
 
-// 删除专辑记录
 const handleDelAlbum = (item: any) => {
   playHistoryStore.delAlbum(item);
   displayList.value = displayList.value.filter((album) => album.id !== item.id);
 };
 
-// 播客相关处理
 const mapDjProgramToSong = (program: any): SongResult => {
   return mapDjProgramToSongResult(program);
 };
@@ -515,7 +498,6 @@ const handleDelPodcastRadio = (item: any) => {
   displayList.value = displayList.value.filter((r) => r.id !== item.id);
 };
 
-// 加载历史数据（根据当前分类）
 const loadHistoryData = async () => {
   const currentList = getCurrentList();
   if (currentList.length === 0) {
@@ -529,7 +511,6 @@ const loadHistoryData = async () => {
     const endIndex = startIndex + pageSize;
     const currentPageItems = currentList.slice(startIndex, endIndex);
 
-    // 根据分类处理不同的数据
     if (currentCategory.value === 'songs') {
       // Filter out legacy Netease entries gracefully; keep local and YouTube songs
       const validSongs: SongResult[] = [];
@@ -548,7 +529,6 @@ const loadHistoryData = async () => {
         displayList.value = [...displayList.value, ...newSongs];
       }
     } else {
-      // 处理歌单、专辑、播客数据（直接显示，不需要额外请求）
       if (currentPage.value === 1) {
         displayList.value = currentPageItems;
       } else {
@@ -565,7 +545,6 @@ const loadHistoryData = async () => {
   }
 };
 
-// 处理滚动事件
 const handleScroll = (e: any) => {
   const { scrollTop, scrollHeight, offsetHeight } = e.target;
   const threshold = 100;
@@ -580,14 +559,12 @@ const handlePlay = (song: SongResult) => {
   playerStore.prepareSongPlayback(song, displayList.value);
 };
 
-// 处理 tab 切换
 const handleTabChange = async (value: 'local' | 'cloud') => {
   currentTab.value = value;
   currentPage.value = 1;
   noMore.value = false;
   displayList.value = [];
 
-  // 如果切换到云端，且还没有加载对应的云端数据，则加载
   if (value === 'cloud') {
     loading.value = true;
     if (currentCategory.value === 'songs' && cloudRecords.value.length === 0) {
@@ -610,7 +587,6 @@ onMounted(async () => {
   }
 });
 
-// 监听历史列表变化，变化时重置并重新加载
 watch(
   () => [
     playHistoryStore.musicHistory,
@@ -629,13 +605,11 @@ watch(
   { deep: true }
 );
 
-// 重写删除方法，需要同时更新 displayList
 const handleDelMusic = async (item: SongResult) => {
   playHistoryStore.delMusic(item);
   displayList.value = displayList.value.filter((music) => music.id !== item.id);
 };
 
-// 跳转到热力图页面
 const handleNavigateToHeatmap = () => {
   router.push('/heatmap');
 };

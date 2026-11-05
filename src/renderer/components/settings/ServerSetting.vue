@@ -106,10 +106,8 @@ import { useI18n } from 'vue-i18n';
 const { t } = useI18n();
 const message = useMessage();
 
-// 控制弹窗显示的属性
 const visible = defineModel('visible', { default: false });
 
-// 默认配置
 const defaultConfig: {
   enabled: boolean;
   port: number;
@@ -120,13 +118,10 @@ const defaultConfig: {
   allowedIps: []
 };
 
-// 远程控制配置
 const remoteControlConfig = ref({ ...defaultConfig });
 
-// 本地IP地址列表
 const localIpAddresses = ref<string[]>([]);
 
-// 获取本地IP地址
 const getLocalIpAddresses = () => {
   if (window.electron) {
     window.electron.ipcRenderer.invoke('get-local-ip-addresses').then((ips: string[]) => {
@@ -135,19 +130,15 @@ const getLocalIpAddresses = () => {
   }
 };
 
-// 添加IP地址
 const addIp = () => {
   remoteControlConfig.value.allowedIps.push('');
 };
 
-// 删除IP地址
 const removeIp = (index: number) => {
   remoteControlConfig.value.allowedIps.splice(index, 1);
 };
 
-// 保存配置
 const saveConfig = () => {
-  // 过滤空IP
   remoteControlConfig.value.allowedIps = remoteControlConfig.value.allowedIps.filter(
     (ip) => ip.trim() !== ''
   );
@@ -161,7 +152,6 @@ const saveConfig = () => {
   }
 };
 
-// 重置配置
 const resetConfig = () => {
   if (window.electron) {
     window.electron.ipcRenderer.invoke('get-remote-control-config').then((config) => {
@@ -174,7 +164,6 @@ const resetConfig = () => {
   }
 };
 
-// 组件挂载时，获取当前配置
 onMounted(async () => {
   if (window.electron) {
     try {
@@ -182,10 +171,9 @@ onMounted(async () => {
       if (config) {
         remoteControlConfig.value = config;
       }
-      // 获取本地IP地址
       getLocalIpAddresses();
     } catch (error) {
-      console.error('获取远程控制配置失败:', error);
+      console.error('Failed to fetch remote control config:', error);
     }
   }
 });

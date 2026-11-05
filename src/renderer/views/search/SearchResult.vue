@@ -1,5 +1,7 @@
 <template>
-  <div class="search-result-page h-full w-full bg-white dark:bg-black transition-colors duration-500">
+  <div
+    class="search-result-page h-full w-full bg-white dark:bg-black transition-colors duration-500"
+  >
     <n-scrollbar class="h-full">
       <div class="search-result-content pb-32 max-w-6xl mx-auto page-padding-x pt-8">
         <!-- Header Section -->
@@ -7,7 +9,9 @@
           <div class="flex flex-col gap-4">
             <div class="flex items-center justify-between">
               <div>
-                <h1 class="text-2xl md:text-3xl font-extrabold tracking-tight text-neutral-900 dark:text-white">
+                <h1
+                  class="text-2xl md:text-3xl font-extrabold tracking-tight text-neutral-900 dark:text-white"
+                >
                   {{ currentKeyword }}
                 </h1>
                 <p class="text-xs md:text-sm text-neutral-500 dark:text-neutral-400 mt-1">
@@ -54,7 +58,9 @@
                 :key="i"
                 class="flex items-center gap-4 p-3 rounded-2xl bg-neutral-50 dark:bg-neutral-900/40 animate-pulse"
               >
-                <div class="w-16 h-16 rounded-xl bg-neutral-200 dark:bg-neutral-800 flex-shrink-0" />
+                <div
+                  class="w-16 h-16 rounded-xl bg-neutral-200 dark:bg-neutral-800 flex-shrink-0"
+                />
                 <div class="flex-1 space-y-2">
                   <div class="h-4 w-1/3 bg-neutral-200 dark:bg-neutral-800 rounded" />
                   <div class="h-3 w-1/4 bg-neutral-200 dark:bg-neutral-800 rounded" />
@@ -103,7 +109,9 @@
                     >
                       {{ item.title }}
                     </div>
-                    <div class="flex items-center gap-3 text-xs text-neutral-500 dark:text-neutral-400 mt-1">
+                    <div
+                      class="flex items-center gap-3 text-xs text-neutral-500 dark:text-neutral-400 mt-1"
+                    >
                       <span class="truncate max-w-[200px] flex items-center gap-1 font-medium">
                         <i class="ri-user-line text-[11px]" />
                         {{ item.channel || 'YouTube' }}
@@ -156,7 +164,10 @@
                         "
                         @click="toggleFavorite(item)"
                       >
-                        <i :class="isFavorite(item.id) ? 'ri-heart-fill' : 'ri-heart-line'" class="text-lg" />
+                        <i
+                          :class="isFavorite(item.id) ? 'ri-heart-fill' : 'ri-heart-line'"
+                          class="text-lg"
+                        />
                       </button>
                     </template>
                     {{ isFavorite(item.id) ? 'Remove Favorite' : 'Add to Favorites' }}
@@ -191,7 +202,9 @@
                       </button>
                     </template>
                     <div class="quality-picker-popover p-2 min-w-[200px]">
-                      <div class="text-xs font-bold text-neutral-500 dark:text-neutral-400 mb-2 px-2 uppercase tracking-wider">
+                      <div
+                        class="text-xs font-bold text-neutral-500 dark:text-neutral-400 mb-2 px-2 uppercase tracking-wider"
+                      >
                         Select Video Quality
                       </div>
                       <div v-if="formatsLoading[item.id]" class="py-4 flex justify-center">
@@ -204,8 +217,12 @@
                           class="w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-primary/10 hover:text-primary transition-colors text-left"
                           @click="handleVideoDownload(item, fmt.height)"
                         >
-                          <span class="font-bold">{{ `${fmt.height}p${fmt.fps > 30 ? fmt.fps : ''}` }}</span>
-                          <span class="text-neutral-400 text-[11px]">{{ formatFileSize(fmt.sizeBytes) }}</span>
+                          <span class="font-bold">{{
+                            `${fmt.height}p${fmt.fps > 30 ? fmt.fps : ''}`
+                          }}</span>
+                          <span class="text-neutral-400 text-[11px]">{{
+                            formatFileSize(fmt.sizeBytes)
+                          }}</span>
                         </button>
                       </div>
                       <div v-else class="text-xs text-neutral-400 px-2 py-1">
@@ -222,7 +239,9 @@
               v-else-if="!loading"
               class="empty-state py-24 flex flex-col items-center justify-center text-center text-neutral-400"
             >
-              <div class="w-16 h-16 rounded-full bg-neutral-100 dark:bg-neutral-900 flex items-center justify-center mb-4">
+              <div
+                class="w-16 h-16 rounded-full bg-neutral-100 dark:bg-neutral-900 flex items-center justify-center mb-4"
+              >
                 <i class="ri-search-line text-2xl opacity-40" />
               </div>
               <p class="text-base font-semibold text-neutral-600 dark:text-neutral-300">
@@ -241,9 +260,9 @@
 </template>
 
 <script lang="ts" setup>
+import { NPopover, NScrollbar, NSpin, NTooltip, useMessage } from 'naive-ui';
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { NPopover, NScrollbar, NSpin, NTooltip, useMessage } from 'naive-ui';
 
 import PlayBottom from '@/components/common/PlayBottom.vue';
 import youtubeService, { type YtSearchResult, type YtVideoFormat } from '@/services/youtubeService';
@@ -265,7 +284,9 @@ const playlistStore = usePlaylistStore();
 const favoriteStore = useFavoriteStore();
 const searchStore = useSearchStore();
 
-const currentKeyword = computed(() => (route.query.keyword as string) || searchStore.searchValue || '');
+const currentKeyword = computed(
+  () => (route.query.keyword as string) || searchStore.searchValue || ''
+);
 const currentTab = ref<'music' | 'video'>('music');
 
 const searchTabs = [

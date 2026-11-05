@@ -19,13 +19,11 @@ export function useSongItem(props: { item: SongResult; canRemove?: boolean }) {
   const { downloadMusic, downloadLyric } = useDownload();
   const { navigateToArtist } = useArtist();
 
-  // 状态变量
   const showDropdown = ref(false);
   const dropdownX = ref(0);
   const dropdownY = ref(0);
   const isHovering = ref(false);
 
-  // 计算属性
   const play = computed(() => playerStore.isPlay);
   const playMusic = computed(() => playerStore.playMusic);
   const playLoading = computed(
@@ -33,7 +31,6 @@ export function useSongItem(props: { item: SongResult; canRemove?: boolean }) {
   );
   const isPlaying = computed(() => playMusic.value.id === props.item.id);
 
-  // 收藏与不喜欢状态
   const isFavorite = computed(() => {
     const numericId =
       typeof props.item.id === 'string' ? parseInt(props.item.id, 10) : props.item.id;
@@ -46,12 +43,10 @@ export function useSongItem(props: { item: SongResult; canRemove?: boolean }) {
     return playerStore.dislikeList.includes(numericId);
   });
 
-  // 获取艺术家列表
   const artists = computed(() => {
     return (props.item.ar || props.item.song?.artists)?.slice(0, 4) || [];
   });
 
-  // 处理图片加载
   const handleImageLoad = async (imageElement: HTMLImageElement) => {
     if (!imageElement) return;
 
@@ -60,21 +55,19 @@ export function useSongItem(props: { item: SongResult; canRemove?: boolean }) {
     props.item.primaryColor = primaryColor;
   };
 
-  // 播放音乐
   const playMusicEvent = async (item: SongResult) => {
     try {
       const result = await playerStore.setPlay(item);
       if (!result) {
-        throw new Error('播放失败');
+        throw new Error('Playback failed');
       }
       return true;
     } catch (error) {
-      console.error('播放出错:', error);
+      console.error('Playback error:', error);
       return false;
     }
   };
 
-  // 切换收藏状态
   const toggleFavorite = async (e: Event) => {
     e && e.stopPropagation();
     const numericId =
@@ -87,12 +80,10 @@ export function useSongItem(props: { item: SongResult; canRemove?: boolean }) {
     }
   };
 
-  // 判断当前歌曲是否为每日推荐歌曲
   const isDailyRecommendSong = computed(() => {
     return recommendStore.dailyRecommendSongs.some((song) => song.id === props.item.id);
   });
 
-  // 切换不喜欢状态
   const toggleDislike = async (e: Event) => {
     e && e.stopPropagation();
 
@@ -103,12 +94,11 @@ export function useSongItem(props: { item: SongResult; canRemove?: boolean }) {
 
     playerStore.addToDislikeList(props.item.id);
 
-    // 只有当前歌曲是每日推荐歌曲时才调用接口
     if (!isDailyRecommendSong.value) {
       return;
     }
     try {
-      console.log('发送不感兴趣请求，歌曲ID:', props.item.id);
+      console.log('Sending dislike request, song ID:', props.item.id);
       const numericId = typeof props.item.id === 'string' ? parseInt(props.item.id) : props.item.id;
       const response = await dislikeRecommendedSong(numericId);
       if (response.data.data) {
@@ -133,27 +123,24 @@ export function useSongItem(props: { item: SongResult; canRemove?: boolean }) {
         };
         recommendStore.replaceSongInDailyRecommend(props.item.id, newSong);
       } else {
-        console.warn('标记不感兴趣API成功，但未返回新歌曲。', response.data);
+        console.warn('Dislike API succeeded but returned no new song.', response.data);
       }
     } catch (error) {
-      console.error('发送不感兴趣请求时出错:', error);
+      console.error('Error sending dislike request:', error);
     }
   };
 
-  // 添加到下一首播放
   const handlePlayNext = () => {
     playerStore.addToNextPlay(props.item);
     message.success(t('songItem.message.addedToNextPlay'));
   };
 
-  // 获取歌曲时长
   const getDuration = (item: SongResult): number => {
     if (item.duration) return item.duration;
     if (typeof item.dt === 'number') return item.dt;
     return 0;
   };
 
-  // 格式化时长
   const formatDuration = (ms: number): string => {
     if (!ms) return '--:--';
     const totalSeconds = Math.floor(ms / 1000);
@@ -162,7 +149,6 @@ export function useSongItem(props: { item: SongResult; canRemove?: boolean }) {
     return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   };
 
-  // 处理右键菜单
   const handleContextMenu = (e: MouseEvent) => {
     e.preventDefault();
     showDropdown.value = true;
@@ -170,7 +156,6 @@ export function useSongItem(props: { item: SongResult; canRemove?: boolean }) {
     dropdownY.value = e.clientY;
   };
 
-  // 处理菜单点击
   const handleMenuClick = (e: MouseEvent) => {
     e.preventDefault();
     showDropdown.value = true;
@@ -178,12 +163,10 @@ export function useSongItem(props: { item: SongResult; canRemove?: boolean }) {
     dropdownY.value = e.clientY;
   };
 
-  // 处理艺术家点击
   const handleArtistClick = (id: number) => {
     navigateToArtist(id);
   };
 
-  // 鼠标悬停处理
   const handleMouseEnter = () => {
     isHovering.value = true;
   };

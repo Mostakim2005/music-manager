@@ -1,7 +1,6 @@
 import { Howl, Howler } from 'howler';
 import Tuna from 'tunajs';
 
-// 类型定义扩展
 interface HowlSound {
   _sounds: Array<{
     _node: HTMLMediaElement & {
@@ -27,10 +26,8 @@ export class EQService {
 
   private bypass = false;
 
-  // 预设频率
   private readonly frequencies = [31, 62, 125, 250, 500, 1000, 2000, 4000, 8000, 16000];
 
-  // 默认EQ设置
   private defaultEQSettings: EQSettings = Object.fromEntries(
     this.frequencies.map((f) => [f.toString(), 0])
   );
@@ -41,7 +38,6 @@ export class EQService {
     this.initializeUserGestureHandler();
   }
 
-  // 初始化用户手势处理
   private initializeUserGestureHandler() {
     const handler = async () => {
       if (this.context?.state === 'suspended') {
@@ -52,20 +48,16 @@ export class EQService {
     document.addEventListener('click', handler);
   }
 
-  // 初始化音频上下文
   public async setupAudioContext(howl: Howl) {
     try {
-      // 使用Howler的现有上下文
       this.context = (Howler.ctx as AudioContext) || new AudioContext();
 
-      // 初始化Howler的音频系统（如果需要）
       if (!Howler.ctx) {
         Howler.ctx = this.context;
         Howler.masterGain = this.context.createGain();
         Howler.masterGain.connect(this.context.destination);
       }
 
-      // 确保上下文处于运行状态
       if (this.context.state === 'suspended') {
         await this.context.resume();
       }
@@ -73,13 +65,10 @@ export class EQService {
       const sound = (howl as unknown as HowlSound)._sounds[0];
       if (!sound?._node) throw new Error('Unable to access the audio node');
 
-      // 清理现有资源
       await this.dispose();
 
-      // 创建新的处理链
       this.tuna = new Tuna(this.context);
 
-      // 创建/复用源节点
       if (!sound._node.destination) {
         this.source = this.context.createMediaElementSource(sound._node);
         sound._node.destination = this.source;
@@ -87,7 +76,6 @@ export class EQService {
         this.source = sound._node.destination;
       }
 
-      // 创建效果节点
       this.gainNode = this.context.createGain();
       this.equalizer = new this.tuna.Equalizer({
         frequencies: this.frequencies,
@@ -95,20 +83,17 @@ export class EQService {
         bypass: this.bypass
       });
 
-      // 连接节点链
       this.source!.connect(this.equalizer.input).connect(this.gainNode).connect(Howler.masterGain);
 
-      // 恢复音量设置
       const volume = localStorage.getItem('volume');
       this.gainNode.gain.value = volume ? parseFloat(volume) : 1;
     } catch (error) {
-      console.error('音频上下文初始化失败:', error);
+      console.error('Failed to initialize audio context:', error);
       await this.dispose();
       throw error;
     }
   }
 
-  // EQ功能开关
   public setEnabled(enabled: boolean) {
     this.bypass = !enabled;
     localStorage.setItem('eqBypass', JSON.stringify(this.bypass));
@@ -119,7 +104,6 @@ export class EQService {
     return !this.bypass;
   }
 
-  // 调整频率增益
   public setFrequencyGain(frequency: string, gain: number) {
     const index = this.frequencies.findIndex((f) => f.toString() === frequency);
     if (index !== -1 && this.equalizer) {
@@ -128,7 +112,6 @@ export class EQService {
     }
   }
 
-  // 重置EQ设置
   public resetEQ() {
     this.frequencies.forEach((f) => {
       this.setFrequencyGain(f.toString(), 0);
@@ -136,12 +119,10 @@ export class EQService {
     localStorage.removeItem('eqSettings');
   }
 
-  // 获取当前设置
   public getAllSettings(): EQSettings {
     return this.loadSavedSettings();
   }
 
-  // 保存/加载设置
   private saveSettings(frequency: string, gain: number) {
     const settings = this.loadSavedSettings();
     settings[frequency] = gain;
@@ -157,13 +138,11 @@ export class EQService {
     return this.loadSavedSettings()[frequency] || 0;
   }
 
-  // 清理资源
   public async dispose() {
     try {
       [this.source, this.equalizer, this.gainNode].forEach((node) => {
         if (node) {
           node.disconnect();
-          // 特殊清理Tuna节点
           if (node === this.equalizer && typeof (node as any).destroy === 'function') {
             (node as any).destroy();
           }
@@ -180,7 +159,7 @@ export class EQService {
       this.equalizer = null;
       this.gainNode = null;
     } catch (error) {
-      console.error('资源清理失败:', error);
+      console.error('Failed to clean up resources:', error);
     }
   }
 }

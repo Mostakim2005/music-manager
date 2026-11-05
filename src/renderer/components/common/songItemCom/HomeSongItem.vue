@@ -112,7 +112,6 @@ const props = withDefaults(
 
 const emit = defineEmits(['play', 'select', 'remove-song']);
 
-// 使用公共逻辑
 const {
   isPlaying,
   isFavorite,
@@ -142,6 +141,5 @@ const onMenuClick = (event: MouseEvent) => handleMenuClick(event);
 
 <style lang="scss" scoped>
 .home-song-card {
-  // 所有样式都已在模板中通过 Tailwind 类定义
 }
 </style>

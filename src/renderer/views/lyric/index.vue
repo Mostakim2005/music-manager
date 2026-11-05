@@ -10,7 +10,6 @@
     @mouseleave="handleMouseLeave"
   >
     <div class="drag-overlay"></div>
-    <!-- 顶部控制栏 -->
     <div class="control-bar" :class="{ 'control-bar-show': showControls }">
       <div class="font-size-controls">
         <n-button-group>
@@ -23,7 +22,6 @@
         </n-button-group>
         <div v-html="staticData.playMusic.name"></div>
       </div>
-      <!-- 添加播放控制按钮 -->
       <div class="play-controls">
         <div class="control-button" @click="handlePrev">
           <i class="ri-skip-back-fill"></i>
@@ -50,16 +48,16 @@
         <!-- <div class="control-button" @click="handleTop">
           <i class="ri-pushpin-line" :class="{ active: lyricSetting.isTop }"></i>
         </div> -->
-        <!-- 罗马音开关按钮（仅当歌词有罗马音时显示） -->
         <div
           v-if="hasRomanization"
           class="control-button"
           :title="showRomanization ? 'Hide romanization' : 'Show romanization'"
           @click="lyricSetting.showRomanization = !lyricSetting.showRomanization"
         >
-          <span class="text-xs font-bold leading-none" :class="{ active: showRomanization }">A</span>
+          <span class="text-xs font-bold leading-none" :class="{ active: showRomanization }"
+            >A</span
+          >
         </div>
-        <!-- 翻译开关按钮（仅当歌词有翻译时显示） -->
         <div
           v-if="hasTranslation"
           class="control-button"
@@ -69,7 +67,6 @@
           <i class="ri-translate-2" :class="{ active: showTranslation }"></i>
         </div>
 
-        <!-- 显示模式切换按钮（scroll → single → double → scroll 循环） -->
         <div
           class="control-button"
           :title="
@@ -100,7 +97,6 @@
       </div>
     </div>
 
-    <!-- 主题色选择面板 -->
     <theme-color-panel
       :visible="showThemeColorPanel"
       :current-color="currentHighlightColor"
@@ -110,9 +106,7 @@
       @reset="handleThemeColorReset"
     />
 
-    <!-- 歌词显示区域 -->
     <div ref="containerRef" class="lyric-container">
-      <!-- ① 滚动模式（默认） -->
       <div v-if="displayMode === 'scroll'" class="lyric-scroll">
         <div class="lyric-wrapper" :style="wrapperStyle">
           <template v-if="staticData.lrcArray?.length > 0">
@@ -142,7 +136,6 @@
                   {{ line.text || '' }}
                 </span>
               </div>
-              <!-- ★ 罗马音行：加入 showRomanization 控制 -->
               <div
                 v-if="showRomanization && line.romaText"
                 class="lyric-translation italic opacity-85"
@@ -150,7 +143,6 @@
               >
                 {{ line.romaText }}
               </div>
-              <!-- ★ 翻译行：加入 showTranslation 控制 -->
               <div
                 v-if="showTranslation && line.trText"
                 class="lyric-translation"
@@ -164,7 +156,6 @@
         </div>
       </div>
 
-      <!-- ② 单行模式 -->
       <div v-else-if="displayMode === 'single'" class="lyric-single-mode">
         <template v-if="staticData.lrcArray?.length > 0">
           <div class="lyric-line lyric-line-current">
@@ -209,10 +200,8 @@
         <div v-else class="lyric-empty">No lyrics</div>
       </div>
 
-      <!-- ③ 双行模式（固定分组，每 2 行为一组） -->
       <div v-else class="lyric-double-mode" :class="{ 'group-fade': isGroupTransitioning }">
         <template v-if="staticData.lrcArray?.length > 0">
-          <!-- currentGroupLines 最多 2 条，最后一组只有 1 行时自动只显示 1 行 -->
           <div
             v-for="line in currentGroupLines"
             :key="line.index"
@@ -276,13 +265,11 @@ const containerRef = ref<HTMLElement | null>(null);
 const containerHeight = ref(0);
 const lineHeight = ref(60);
 const currentIndex = ref(0);
-// 字体大小控制
-const fontSize = ref(24); // 默认字体大小
-const fontSizeStep = 2; // 每次整的步长
+const fontSize = ref(24);
+const fontSizeStep = 2;
 const animationFrameId = ref<number | null>(null);
 const lastUpdateTime = ref(performance.now());
 
-// 静态数据
 const staticData = ref<{
   lrcArray: Array<{
     text: string;
@@ -303,7 +290,6 @@ const staticData = ref<{
   playMusic: {} as SongResult
 });
 
-// 动态数据
 const dynamicData = ref({
   nowTime: 0,
   correctionTime: 0,
@@ -312,21 +298,18 @@ const dynamicData = ref({
   isPlay: true
 });
 
-// 安全加载歌词设置
 const loadLyricSettings = () => {
   try {
     const stored = localStorage.getItem('lyricData');
     if (stored) {
       const parsed = JSON.parse(stored);
 
-      // 验证 highlightColor 字段
       let validatedHighlightColor = parsed.highlightColor;
       if (validatedHighlightColor && !validateColor(validatedHighlightColor)) {
         console.warn('Invalid stored highlight color, removing it');
         validatedHighlightColor = undefined;
       }
 
-      // 确保所有必需字段存在并有效
       return {
         isTop: parsed.isTop ?? false,
         theme: parsed.theme === 'light' || parsed.theme === 'dark' ? parsed.theme : 'dark',
@@ -343,7 +326,6 @@ const loadLyricSettings = () => {
     console.error('Failed to load lyric settings:', error);
   }
 
-  // 返回默认设置
   return {
     isTop: false,
     theme: 'dark' as 'light' | 'dark',
@@ -357,15 +339,11 @@ const loadLyricSettings = () => {
 
 const lyricSetting = ref(loadLyricSettings());
 
-// 是否有翻译/罗马音（控制按钮是否显示）
 const hasTranslation = computed(() => staticData.value.lrcArray.some((line) => line.trText));
 const hasRomanization = computed(() => staticData.value.lrcArray.some((line) => line.romaText));
 
-// 双行模式：当前组索引（每 2 行为一组）
 const currentGroupIndex = computed(() => Math.floor(currentIndex.value / 2));
 
-// 双行模式：当前组的行数据（带原始索引）
-// 注：slice 在越界时自动截断，最后一组只有 1 行时安全返回长度为 1 的数组
 const currentGroupLines = computed(() => {
   const start = currentGroupIndex.value * 2;
   return staticData.value.lrcArray
@@ -373,10 +351,8 @@ const currentGroupLines = computed(() => {
     .map((line, i) => ({ ...line, index: start + i }));
 });
 
-// 双行模式过渡动画状态
 const isGroupTransitioning = ref(false);
 
-// displayMode 和 showTranslation / showRomanization 的快捷 computed，template 中更简洁
 const displayMode = computed(() => lyricSetting.value.displayMode);
 const showTranslation = computed(() => lyricSetting.value.showTranslation);
 const showRomanization = computed(() => lyricSetting.value.showRomanization);
@@ -387,11 +363,9 @@ let removeReceiveLyricListener: (() => void) | null = null;
 
 const isHovering = ref(false);
 
-// 主题色相关状态
 const showThemeColorPanel = ref(false);
 const currentHighlightColor = ref('#1db954');
 
-// 计算是否栏
 const showControls = computed(() => {
   if (lyricSetting.value.isLock) {
     return isHovering.value;
@@ -399,7 +373,6 @@ const showControls = computed(() => {
   return true;
 });
 
-// 清除隐藏定时器
 const clearHideTimer = () => {
   if (hideControlsTimer) {
     clearTimeout(hideControlsTimer);
@@ -407,13 +380,10 @@ const clearHideTimer = () => {
   }
 };
 
-// 锁定态下锁图标空闲自动淡出（#606）：
-// 光标在窗口内且无活动 2.5s 后隐藏并恢复点击穿透；再次移动鼠标即重新唤出
 const LOCKED_CONTROLS_HIDE_DELAY = 2500;
 
 const scheduleLockedControlsHide = () => {
   clearHideTimer();
-  // 主题色面板展开期间不淡出，否则面板可见却不可点（#591）
   if (showThemeColorPanel.value) return;
   hideControlsTimer = window.setTimeout(() => {
     hideControlsTimer = null;
@@ -424,7 +394,6 @@ const scheduleLockedControlsHide = () => {
   }, LOCKED_CONTROLS_HIDE_DELAY);
 };
 
-// 主题色面板收起后，锁定态重新开始空闲淡出计时（#591）
 const resumeLockedControlsHide = () => {
   if (lyricSetting.value.isLock) {
     scheduleLockedControlsHide();
@@ -440,16 +409,12 @@ const showLockedControls = () => {
   scheduleLockedControlsHide();
 };
 
-// 点击穿透开启时主进程以 forward:true 转发 mousemove，可用于重新唤出锁图标
 const handleLockedMouseMove = () => {
   if (!lyricSetting.value.isLock) return;
   showLockedControls();
 };
 
-// 控制栏位置：歌词窗口贴近屏幕顶部时，功能栏翻转到歌词下方，
-// 避免锁定等功能键被挤在屏幕最上沿难以点击（#719）
 const controlBarAtBottom = ref(false);
-/** 窗口顶边距屏幕可用区顶部小于该值时，认为歌词位于桌面顶部 */
 const CONTROL_BAR_FLIP_THRESHOLD = 90;
 
 const updateControlBarPosition = () => {
@@ -457,16 +422,13 @@ const updateControlBarPosition = () => {
     const availTop = (window.screen as any).availTop ?? 0;
     controlBarAtBottom.value = window.screenY - availTop < CONTROL_BAR_FLIP_THRESHOLD;
   } catch (error) {
-    console.error('计算控制栏位置失败:', error);
+    console.error('Failed to compute control bar position:', error);
   }
 };
 
-// 处理鼠标进入窗口
 const handleMouseEnter = () => {
   updateControlBarPosition();
   if (lyricSetting.value.isLock) {
-    // 保持锁定态原有的穿透语义，仅补上"进入即开始空闲计时"，
-    // 避免鼠标进入后静止时图标常驻（#606）
     isHovering.value = true;
     windowData.electron.ipcRenderer.send('set-ignore-mouse', true);
     scheduleLockedControlsHide();
@@ -475,34 +437,28 @@ const handleMouseEnter = () => {
   }
 };
 
-// 处理鼠标离开窗口
 const handleMouseLeave = () => {
   if (!lyricSetting.value.isLock) return;
-  // 移出窗口：隐藏控件并收起主题色面板（#606/#591），穿透开关沿用原取值
   clearHideTimer();
   isHovering.value = false;
   showThemeColorPanel.value = false;
   windowData.electron.ipcRenderer.send('set-ignore-mouse', false);
 
-  // 强制重置背景色
   const lyricWindow = document.querySelector('.lyric-window') as HTMLElement;
   if (lyricWindow) {
     lyricWindow.style.background = 'transparent';
-    // 使用 requestAnimationFrame 确保在下一帧重置
     requestAnimationFrame(() => {
       lyricWindow.style.background = 'transparent';
     });
   }
 };
 
-// 监听锁定状态变化
 watch(
   () => lyricSetting.value.isLock,
   (newLock: boolean) => {
     clearHideTimer();
     if (newLock) {
       isHovering.value = false;
-      // 锁定时自动关闭主题色面板
       showThemeColorPanel.value = false;
     }
     windowData.electron.ipcRenderer.send('set-lyric-lock-state', newLock);
@@ -510,7 +466,6 @@ watch(
 );
 
 onMounted(() => {
-  // 初始化时，如果是锁定状态，确保控制栏隐藏
   if (lyricSetting.value.isLock) {
     isHovering.value = false;
   }
@@ -525,9 +480,7 @@ onUnmounted(() => {
   window.removeEventListener('resize', updateControlBarPosition);
 });
 
-// 计算歌词滚动位置
 const wrapperStyle = computed(() => {
-  // 非 scroll 模式不渲染 .lyric-wrapper，提前返回空对象避免无效计算
   if (displayMode.value !== 'scroll') {
     return {};
   }
@@ -539,10 +492,8 @@ const wrapperStyle = computed(() => {
     };
   }
 
-  // 计算容器中心点
   const containerCenter = containerHeight.value / 2;
 
-  // 计算每行的实际高度
   const getLineHeight = (line: { text: string; trText: string; romaText?: string }) => {
     let totalHeight = lineHeight.value;
     if (showRomanization.value && line.romaText) {
@@ -554,8 +505,7 @@ const wrapperStyle = computed(() => {
     return totalHeight;
   };
 
-  // 计算当前行之前所有行的累积高度
-  let accumulatedHeight = containerHeight.value * 0.2; // 顶部padding
+  let accumulatedHeight = containerHeight.value * 0.2;
   for (let i = 0; i < currentIndex.value; i++) {
     if (i < staticData.value.lrcArray.length) {
       accumulatedHeight += getLineHeight(staticData.value.lrcArray[i]);
@@ -564,27 +514,22 @@ const wrapperStyle = computed(() => {
     }
   }
 
-  // 加上当前行的一半高度，使其居中
   const currentLineHeight =
     currentIndex.value < staticData.value.lrcArray.length
       ? getLineHeight(staticData.value.lrcArray[currentIndex.value])
       : lineHeight.value;
   accumulatedHeight += currentLineHeight;
 
-  // 计算偏移量，使当前行居中
   const targetOffset = containerCenter - accumulatedHeight;
 
-  // 计算内容总高度（包含padding）
-  let contentHeight = containerHeight.value * 0.4; // 上下padding总和
+  let contentHeight = containerHeight.value * 0.4;
   for (const line of staticData.value.lrcArray) {
     contentHeight += getLineHeight(line);
   }
 
-  // 计算最小和最大偏移量
   const minOffset = -(contentHeight - containerHeight.value);
   const maxOffset = 0;
 
-  // 限制偏移量在合理范围内
   const finalOffset = Math.min(maxOffset, Math.max(minOffset, targetOffset));
 
   return {
@@ -593,7 +538,6 @@ const wrapperStyle = computed(() => {
   };
 });
 
-// 新增：根据是否有翻译/罗马音文本动态计算每行的样式
 const getDynamicLineStyle = (
   line: { text: string; trText: string; romaText?: string },
   withTranslation = true
@@ -608,33 +552,24 @@ const getDynamicLineStyle = (
   return { height: `${totalHeight}px` };
 };
 
-// 更新容器高度和行高
 const updateContainerHeight = () => {
   if (!containerRef.value) return;
 
-  // 更新容器高度
   containerHeight.value = containerRef.value.clientHeight;
 
-  // 计算基础行高(字体大小的2.5倍)
   const baseLineHeight = fontSize.value * 2.5;
 
-  // 计算最大允许行高(容器高度的1/4)
   const maxAllowedHeight = containerHeight.value / 3;
 
-  // 设置行高(不小于40px,不大于最大允许高度)
   lineHeight.value = Math.min(maxAllowedHeight, Math.max(40, baseLineHeight));
 };
 
-// 处理字体大小变化
 const handleFontSizeChange = async () => {
-  // 先保存字体大小
   saveFontSize();
 
-  // 更新容器高度和行高
   updateContainerHeight();
 };
 
-// 增加字体大小
 const increaseFontSize = async () => {
   if (fontSize.value < 48) {
     fontSize.value += fontSizeStep;
@@ -642,7 +577,6 @@ const increaseFontSize = async () => {
   }
 };
 
-// 减小字体大小
 const decreaseFontSize = async () => {
   if (fontSize.value > 12) {
     fontSize.value -= fontSizeStep;
@@ -650,12 +584,10 @@ const decreaseFontSize = async () => {
   }
 };
 
-// 保存字体大小到本地存储
 const saveFontSize = () => {
   localStorage.setItem('lyricFontSize', fontSize.value.toString());
 };
 
-// 监听容器大小变化
 onMounted(() => {
   const resizeObserver = new ResizeObserver(() => {
     updateContainerHeight();
@@ -669,54 +601,44 @@ onMounted(() => {
     resizeObserver.disconnect();
   });
 });
-// 实际播放时间
 const actualTime = ref(0);
 
-// 计算当前行的进度（从本地 lrcTimeArray 取时间，避免依赖 IPC 传入的 startCurrentTime/nextTime）
-// 注意：lrcTimeArray 单位为毫秒（来自 yrcParser），actualTime 单位为秒，需要 * 1000 对齐
 const currentProgress = computed(() => {
   const times = staticData.value.lrcTimeArray;
   const idx = currentIndex.value;
   const startTimeMs = times[idx];
   const endTimeMs = times[idx + 1];
-  // 使用严格判断，避免 startTimeMs=0 时被误判为无效
   if (startTimeMs === undefined || endTimeMs === undefined || endTimeMs <= startTimeMs) return 0;
 
-  const currentTimeMs = actualTime.value * 1000; // seconds → ms，与 lrcTimeArray 单位对齐
+  const currentTimeMs = actualTime.value * 1000;
   const elapsed = currentTimeMs - startTimeMs;
   const duration = endTimeMs - startTimeMs;
   return Math.min(Math.max(elapsed / duration, 0), 1);
 });
 
-// 获取歌词样式
 const getLyricStyle = (index: number) => {
   if (index !== currentIndex.value) return {};
 
   const progress = currentProgress.value * 100;
 
-  // 使用更清晰的渐变实现
   return {
     background: `linear-gradient(to right, var(--highlight-color) ${progress}%, var(--text-color) ${progress}%)`,
     WebkitBackgroundClip: 'text',
     WebkitTextFillColor: 'transparent',
-    // 优化字体渲染，减少发虚
     textRendering: 'optimizeLegibility' as const,
     WebkitFontSmoothing: 'antialiased' as const,
     MozOsxFontSmoothing: 'grayscale' as const,
-    // 使用 transform 而不是直接的 transition 来提高性能
-    transform: 'translateZ(0)', // 启用硬件加速
-    backfaceVisibility: 'hidden' as const, // 减少渲染问题
+    transform: 'translateZ(0)',
+    backfaceVisibility: 'hidden' as const,
     transition: 'background 0.1s linear'
   };
 };
 
-// 逐字歌词样式函数
 const getWordStyle = (
   lineIndex: number,
   _wordIndex: number,
   word: { text: string; startTime: number; duration: number }
 ) => {
-  // 如果不是当前行，返回普通样式
   if (lineIndex !== currentIndex.value) {
     return {
       color: 'var(--text-color)',
@@ -726,15 +648,12 @@ const getWordStyle = (
     };
   }
 
-  // 当前行的逐字效果
-  const currentTime = actualTime.value * 1000; // 转换为毫秒
+  const currentTime = actualTime.value * 1000;
 
-  // 直接使用绝对时间比较
-  const wordStartTime = word.startTime; // 单词开始的绝对时间（毫秒）
+  const wordStartTime = word.startTime;
   const wordEndTime = word.startTime + word.duration;
 
   if (currentTime >= wordStartTime && currentTime < wordEndTime) {
-    // 当前正在播放的单词 - 使用渐变进度效果
     const progress = Math.min((currentTime - wordStartTime) / word.duration, 1);
     const progressPercent = Math.round(progress * 100);
 
@@ -746,14 +665,12 @@ const getWordStyle = (
       transition: 'all 0.1s ease'
     };
   } else if (currentTime >= wordEndTime) {
-    // 已经播放过的单词 - 纯色显示
     return {
       color: 'var(--highlight-color)',
       WebkitTextFillColor: 'initial',
       transition: 'none'
     };
   } else {
-    // 还未播放的单词 - 普通状态
     return {
       color: 'var(--text-color)',
       WebkitTextFillColor: 'initial',
@@ -762,10 +679,8 @@ const getWordStyle = (
   }
 };
 
-// 时间偏移量（毫秒）
 const TIME_OFFSET = 400;
 
-// 更新动画
 const updateProgress = () => {
   if (!dynamicData.value.isPlay) {
     if (animationFrameId.value) {
@@ -775,7 +690,6 @@ const updateProgress = () => {
     return;
   }
 
-  // 计算实际时间，添加偏移量与手动校准时间
   const timeDiff = (performance.now() - lastUpdateTime.value) / 1000;
   actualTime.value =
     dynamicData.value.nowTime +
@@ -783,24 +697,16 @@ const updateProgress = () => {
     timeDiff +
     TIME_OFFSET / 1000;
 
-  // 继续动画
   animationFrameId.value = requestAnimationFrame(updateProgress);
 };
 
-// 记录上次更新时间
-
-// 监听据更新
 watch(
   () => dynamicData.value,
   (newData: any) => {
-    // 更新最后更新时间
     lastUpdateTime.value = performance.now();
 
-    // 更新实际时间，包含偏移量与手动校准时间
-    actualTime.value =
-      newData.nowTime + (newData.correctionTime || 0) + TIME_OFFSET / 1000;
+    actualTime.value = newData.nowTime + (newData.correctionTime || 0) + TIME_OFFSET / 1000;
 
-    // 如果正在播放且没有动画，启动动画
     if (newData.isPlay && !animationFrameId.value) {
       updateProgress();
     }
@@ -808,7 +714,6 @@ watch(
   { deep: true }
 );
 
-// 监听播放状态变化
 watch(
   () => dynamicData.value.isPlay,
   (isPlaying: boolean) => {
@@ -822,7 +727,6 @@ watch(
   }
 );
 
-// 修改数据更新处
 const handleDataUpdate = (parsedData: {
   type?: string;
   nowTime: number;
@@ -836,15 +740,12 @@ const handleDataUpdate = (parsedData: {
   allTime?: number;
   playMusic?: SongResult;
 }) => {
-  // 确保数据存在且格式正确
   if (!parsedData) {
     console.error('Invalid update data received:', parsedData);
     return;
   }
 
-  // 根据数据类型处理
   if (parsedData.type === 'update') {
-    // 增量更新，只更新动态数据
     dynamicData.value = {
       ...dynamicData.value,
       nowTime: parsedData.nowTime || dynamicData.value.nowTime,
@@ -855,15 +756,12 @@ const handleDataUpdate = (parsedData: {
       isPlay: typeof parsedData.isPlay === 'boolean' ? parsedData.isPlay : dynamicData.value.isPlay
     };
 
-    // 更新索引（如果提供）
     if (typeof parsedData.nowIndex === 'number') {
       currentIndex.value = parsedData.nowIndex;
     }
     return;
   }
 
-  // 完整更新或空歌词提示
-  // 更新静态数据
   staticData.value = {
     lrcArray: parsedData.lrcArray || [],
     lrcTimeArray: parsedData.lrcTimeArray || [],
@@ -871,7 +769,6 @@ const handleDataUpdate = (parsedData: {
     playMusic: parsedData.playMusic || ({} as SongResult)
   };
 
-  // 更新动态数据
   dynamicData.value = {
     nowTime: parsedData.nowTime || 0,
     correctionTime: parsedData.correctionTime || 0,
@@ -880,25 +777,21 @@ const handleDataUpdate = (parsedData: {
     isPlay: parsedData.isPlay
   };
 
-  // 更新索引
   if (typeof parsedData.nowIndex === 'number') {
     currentIndex.value = parsedData.nowIndex;
   }
 };
 
 onMounted(() => {
-  // 加载保存的字体大小
   const savedFontSize = localStorage.getItem('lyricFontSize');
   if (savedFontSize) {
     fontSize.value = Number(savedFontSize);
     lineHeight.value = fontSize.value * 2.5;
   }
 
-  // 初始化容器高度
   updateContainerHeight();
   window.addEventListener('resize', updateContainerHeight);
 
-  // 监听歌词数据（保存移除函数，卸载时解绑，避免窗口复用/HMR 时监听器叠加）
   const disposeReceiveLyric = windowData.electron.ipcRenderer.on('receive-lyric', (_, data) => {
     try {
       const parsedData = JSON.parse(data);
@@ -911,7 +804,6 @@ onMounted(() => {
     removeReceiveLyricListener = disposeReceiveLyric;
   }
 
-  // 通知主窗口歌词窗口已就绪，请求发送完整歌词数据
   windowData.electron.ipcRenderer.send('lyric-ready');
 
   removeMousePresenceListener = window.ipcRenderer.on(
@@ -919,10 +811,8 @@ onMounted(() => {
     (isInside: boolean) => {
       if (lyricSetting.value.isLock) {
         if (isInside) {
-          // 进入窗口：显示锁图标并启动空闲淡出定时器（#606）
           showLockedControls();
         } else {
-          // 离开窗口：立即隐藏、收起主题色面板并恢复点击穿透
           clearHideTimer();
           isHovering.value = false;
           showThemeColorPanel.value = false;
@@ -957,11 +847,9 @@ const checkTheme = () => {
   }
 };
 
-// 主题色相关函数
 const toggleThemeColorPanel = () => {
   showThemeColorPanel.value = !showThemeColorPanel.value;
   if (showThemeColorPanel.value) {
-    // 展开期间暂停空闲淡出并保持窗口可交互，否则面板可见却点不动（#591）
     clearHideTimer();
     if (lyricSetting.value.isLock) {
       windowData.electron.ipcRenderer.send('set-ignore-mouse', false);
@@ -972,7 +860,6 @@ const toggleThemeColorPanel = () => {
 };
 
 const handleColorChange = (color: string) => {
-  // 验证颜色有效性
   if (!validateColor(color)) {
     console.error('Invalid color received:', color);
     return;
@@ -982,14 +869,11 @@ const handleColorChange = (color: string) => {
     currentHighlightColor.value = color;
     updateThemeColorWithTransition(color);
 
-    // 更新 lyricSetting 中的 highlightColor
     lyricSetting.value.highlightColor = color;
 
-    // 同时保存到专用的主题色存储
     saveLyricThemeColor(color);
   } catch (error) {
     console.error('Failed to handle color change:', error);
-    // 恢复到默认颜色
     const defaultColor = getCurrentLyricThemeColor(lyricSetting.value.theme);
     currentHighlightColor.value = defaultColor;
     updateThemeColorWithTransition(defaultColor);
@@ -1001,24 +885,19 @@ const handleThemeColorPanelClose = () => {
   resumeLockedControlsHide();
 };
 
-// 面板"恢复默认"：关闭自定义主题色并收起面板（#591）
 const handleThemeColorReset = () => {
   resetThemeColor();
   showThemeColorPanel.value = false;
   resumeLockedControlsHide();
 };
 
-// 重置主题色到默认（主题色面板"恢复默认"按钮调用）
 const resetThemeColor = () => {
-  // 重置到默认颜色
   const defaultColor = getCurrentLyricThemeColor(lyricSetting.value.theme);
 
-  // 更新所有相关状态
   currentHighlightColor.value = defaultColor;
   lyricSetting.value.highlightColor = undefined;
   updateThemeColorWithTransition(defaultColor);
 
-  // 清除专用存储
   try {
     const settings = loadLyricSettings();
     delete settings.highlightColor;
@@ -1028,10 +907,8 @@ const resetThemeColor = () => {
   }
 };
 
-// 验证和修复颜色设置
 const validateAndFixColorSettings = () => {
   try {
-    // 检查当前高亮颜色是否有效
     if (currentHighlightColor.value && !validateColor(currentHighlightColor.value)) {
       console.warn('Current highlight color is invalid, resetting to default');
       const defaultColor = getCurrentLyricThemeColor(lyricSetting.value.theme);
@@ -1040,14 +917,12 @@ const validateAndFixColorSettings = () => {
       updateCSSVariable('--lyric-highlight-color', defaultColor);
     }
 
-    // 检查 lyricSetting 中的颜色是否有效
     if (lyricSetting.value.highlightColor && !validateColor(lyricSetting.value.highlightColor)) {
       console.warn('Stored highlight color is invalid, removing it');
       lyricSetting.value.highlightColor = undefined;
     }
   } catch (error) {
     console.error('Failed to validate color settings:', error);
-    // 完全重置到默认状态
     const defaultColor = getCurrentLyricThemeColor(lyricSetting.value.theme);
     currentHighlightColor.value = defaultColor;
     lyricSetting.value.highlightColor = undefined;
@@ -1055,7 +930,6 @@ const validateAndFixColorSettings = () => {
   }
 };
 
-// 暴露函数
 defineExpose({
   resetThemeColor,
   validateAndFixColorSettings
@@ -1066,16 +940,13 @@ const updateCSSVariable = (name: string, value: string) => {
 };
 
 const updateThemeColorWithTransition = (newColor: string) => {
-  // 添加过渡类
   const lyricWindow = document.querySelector('.lyric-window');
   if (lyricWindow) {
     lyricWindow.classList.add('color-transitioning');
   }
 
-  // 更新CSS变量
   updateCSSVariable('--lyric-highlight-color', newColor);
 
-  // 移除过渡类
   setTimeout(() => {
     if (lyricWindow) {
       lyricWindow.classList.remove('color-transitioning');
@@ -1084,13 +955,10 @@ const updateThemeColorWithTransition = (newColor: string) => {
 };
 
 const initializeThemeColor = () => {
-  // 优先从 lyricSetting 中读取颜色
   let savedColor = lyricSetting.value.highlightColor;
 
-  // 如果 lyricSetting 中没有，则从专用存储中读取
   if (!savedColor) {
     savedColor = loadLyricThemeColor();
-    // 如果从专用存储中读取到了颜色，同步到 lyricSetting
     if (savedColor) {
       lyricSetting.value.highlightColor = savedColor;
     }
@@ -1101,7 +969,6 @@ const initializeThemeColor = () => {
     currentHighlightColor.value = optimizedColor;
     updateCSSVariable('--lyric-highlight-color', optimizedColor);
   } else {
-    // 如果没有保存的颜色，使用默认颜色
     const defaultColor = getCurrentLyricThemeColor(lyricSetting.value.theme);
     currentHighlightColor.value = defaultColor;
     updateCSSVariable('--lyric-highlight-color', defaultColor);
@@ -1128,7 +995,6 @@ const cycleDisplayMode = () => {
   lyricSetting.value.displayMode = modes[(current + 1) % modes.length];
 };
 
-// 安全保存歌词设置
 const saveLyricSettings = (settings: typeof lyricSetting.value) => {
   try {
     localStorage.setItem('lyricData', JSON.stringify(settings));
@@ -1145,7 +1011,6 @@ watch(
   { deep: true }
 );
 
-// 监听主题切换，自动调整颜色
 watch(
   () => lyricSetting.value.theme,
   (newTheme) => {
@@ -1157,8 +1022,6 @@ watch(
   }
 );
 
-// 双行模式：分组切换时触发淡出淡入过渡
-// timer 类型必须为 ReturnType<typeof setTimeout> | null，不能用 number
 let groupFadeTimer: ReturnType<typeof setTimeout> | null = null;
 
 watch(currentGroupIndex, () => {
@@ -1171,15 +1034,12 @@ watch(currentGroupIndex, () => {
   }, 300);
 });
 
-// 添加拖动相关变量
 const isDragging = ref(false);
 const startPosition = ref({ x: 0, y: 0 });
 const lastMoveTime = ref(0);
-const moveThrottleMs = 10; // 限制拖动事件发送频率，提高性能
+const moveThrottleMs = 10;
 
-// 处理鼠标按下事件
 const handleMouseDown = (e: MouseEvent) => {
-  // 如果点击的是控制按钮区域或窗口被锁定，不处理拖动
   if (
     lyricSetting.value.isLock ||
     (e.target as HTMLElement).closest('.control-buttons') ||
@@ -1189,21 +1049,17 @@ const handleMouseDown = (e: MouseEvent) => {
     return;
   }
 
-  // 只响应鼠标左键
   if (e.button !== 0) return;
 
   isDragging.value = true;
   startPosition.value = { x: e.screenX, y: e.screenY };
   lastMoveTime.value = performance.now();
 
-  // 发送拖动开始信号到主进程
   windowData.electron.ipcRenderer.send('lyric-drag-start');
 
-  // 添加全局鼠标事件监听
   const handleMouseMove = (e: MouseEvent) => {
     if (!isDragging.value) return;
 
-    // 时间节流，避免过于频繁的更新
     const now = performance.now();
     if (now - lastMoveTime.value < moveThrottleMs) return;
     lastMoveTime.value = now;
@@ -1211,12 +1067,9 @@ const handleMouseDown = (e: MouseEvent) => {
     const deltaX = e.screenX - startPosition.value.x;
     const deltaY = e.screenY - startPosition.value.y;
 
-    // 只有在实际移动时才发送事件
     if (Math.abs(deltaX) > 0 || Math.abs(deltaY) > 0) {
-      // 发送移动事件到主进程
       windowData.electron.ipcRenderer.send('lyric-drag-move', { deltaX, deltaY });
       startPosition.value = { x: e.screenX, y: e.screenY };
-      // 拖动过程中实时判断是否需要把控制栏翻到歌词下方（#719）
       updateControlBarPosition();
     }
   };
@@ -1225,21 +1078,17 @@ const handleMouseDown = (e: MouseEvent) => {
     if (!isDragging.value) return;
     isDragging.value = false;
 
-    // 发送拖动结束信号到主进程
     windowData.electron.ipcRenderer.send('lyric-drag-end');
     updateControlBarPosition();
 
-    // 移除事件监听
     document.removeEventListener('mousemove', handleMouseMove);
     document.removeEventListener('mouseup', handleMouseUp);
   };
 
-  // 添加全局事件监听
   document.addEventListener('mousemove', handleMouseMove);
   document.addEventListener('mouseup', handleMouseUp);
 };
 
-// 组件卸载时清理
 onUnmounted(() => {
   isDragging.value = false;
   if (groupFadeTimer !== null) {
@@ -1257,14 +1106,12 @@ onMounted(() => {
       }
     };
     lyricLock.onmouseleave = () => {
-      // 主题色面板展开时不恢复穿透，否则面板可见却点不动（#591）
       if (lyricSetting.value.isLock && !showThemeColorPanel.value) {
         windowData.electron.ipcRenderer.send('set-ignore-mouse', true);
       }
     };
   }
 
-  // 锁定态下主题色按钮与锁图标一样需要"悬停即可点"（#591）
   const themeColorButton = document.querySelector<HTMLElement>('.theme-color-button');
   if (themeColorButton) {
     themeColorButton.onmouseenter = () => {
@@ -1274,14 +1121,11 @@ onMounted(() => {
     };
   }
 
-  // 初始化主题色
   initializeThemeColor();
 
-  // 验证和修复颜色设置
   validateAndFixColorSettings();
 });
 
-// 添加播放控制相关的函数
 const handlePlayPause = () => {
   windowData.electron.ipcRenderer.send('control-back', 'playpause');
 };
@@ -1329,7 +1173,6 @@ body,
     }
   }
 
-  // 非锁定态：悬停窗口即显示控制栏
   &:hover:not(.lyric_lock) {
     .control-bar {
       &-show {
@@ -1339,8 +1182,6 @@ body,
     }
   }
 
-  // 锁定态：显隐完全由 isHovering 决定（空闲后淡出，见 #606）；
-  // 若仍跟随 :hover，鼠标停在窗口上时锁图标永远不会隐藏
   &.lyric_lock .control-bar-show {
     opacity: 1;
     visibility: visible;
@@ -1420,7 +1261,6 @@ body,
   }
 }
 
-/* 歌词窗口贴近屏幕顶部时，功能栏整体翻转到歌词下方（#719） */
 .lyric-window.bar-bottom {
   .control-bar {
     top: auto;
@@ -1489,7 +1329,6 @@ body,
   z-index: 100;
 }
 
-// 单行模式容器：垂直居中，单行展示
 .lyric-single-mode {
   height: 100%;
   display: flex;
@@ -1503,7 +1342,6 @@ body,
   }
 }
 
-// 双行模式容器
 .lyric-double-mode {
   height: 100%;
   display: flex;
@@ -1512,7 +1350,6 @@ body,
   justify-content: center;
   gap: 8px;
   padding: 0 20px;
-  // 分组切换淡出淡入
   transition: opacity 0.15s ease;
 
   &.group-fade {
@@ -1522,7 +1359,6 @@ body,
   .lyric-line {
     width: 100%;
     text-align: center;
-    // 同组非当前行：稍微暗化
     opacity: 0.55;
     transition: opacity 0.25s ease;
 
@@ -1563,15 +1399,11 @@ body,
     transform: scale(1.05);
     opacity: 1;
 
-    // 当前播放歌词的特殊样式
     .lyric-text {
-      // 移除阴影，避免干扰渐变效果
       text-shadow: none;
 
       .lyric-text-inner {
-        // 为渐变文字添加轻微的外发光
         filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.5));
-        // 确保渐变效果清晰
         -webkit-font-smoothing: antialiased;
       }
     }
@@ -1590,12 +1422,10 @@ body,
   word-break: break-all;
   transition: transform 0.2s ease;
   line-height: 1.4;
-  // 优化字体渲染
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 
-  // 为非当前播放的歌词添加阴影效果
   text-shadow:
     0 0 2px rgba(0, 0, 0, 0.8),
     0 1px 1px rgba(0, 0, 0, 0.6),
@@ -1605,7 +1435,6 @@ body,
     transition: background 0.3s ease;
   }
 
-  // 逐字歌词样式
   .word-by-word-lyric {
     display: inline-block;
     text-align: center;
@@ -1631,7 +1460,6 @@ body,
   transition: font-size 0.2s ease;
   line-height: 1.4;
 
-  // 为翻译文本也添加阴影效果，但稍微轻一些
   text-shadow:
     0 0 2px rgba(0, 0, 0, 0.7),
     0 1px 1px rgba(0, 0, 0, 0.5),
@@ -1646,7 +1474,6 @@ body,
   font-size: 16px;
   padding: 20px;
 
-  // 为空歌词提示也添加阴影效果
   text-shadow:
     0 0 2px rgba(0, 0, 0, 0.7),
     0 1px 1px rgba(0, 0, 0, 0.5),
@@ -1669,7 +1496,6 @@ body {
 .control-bar {
   .control-buttons {
     .control-button {
-      // 锁定时仅保留锁图标与主题色按钮：锁定后仍需有入口关闭歌词主题色（#591）
       &:not(:has(.ri-lock-line)):not(:has(.ri-lock-unlock-line)):not(.theme-color-button) {
         .lyric_lock & {
           display: none;
@@ -1700,12 +1526,10 @@ body {
     background: var(--control-bg);
   }
 
-  /* 锁定态下主题色按钮同样常显底色，避免叠在歌词上看不清（#591） */
   .theme-color-button {
     background: var(--control-bg);
   }
 
-  /* 控制栏翻转到下方时，锁定按钮同步贴到控制栏底部（#719） */
   &.bar-bottom #lyric-lock {
     top: auto;
     bottom: 0;

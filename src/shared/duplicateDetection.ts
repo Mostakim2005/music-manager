@@ -71,7 +71,10 @@ export function findFingerprintDuplicatePairs(
   return pairs;
 }
 
-function pickSurvivor(a: DuplicateCandidate, b: DuplicateCandidate): [DuplicateCandidate, DuplicateCandidate] {
+function pickSurvivor(
+  a: DuplicateCandidate,
+  b: DuplicateCandidate
+): [DuplicateCandidate, DuplicateCandidate] {
   const variantsA = a.variantCount ?? 0;
   const variantsB = b.variantCount ?? 0;
   if (variantsA !== variantsB) {

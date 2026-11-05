@@ -5,7 +5,7 @@ let dbusModule: any;
 try {
   dbusModule = require('@httptoolkit/dbus-native');
 } catch {
-  // dbus-native 不可用（非 Linux 环境）
+  // Ignore platforms without MPRIS support
 }
 
 interface SongInfo {
@@ -33,7 +33,6 @@ let currentPosition = 0;
 let trayLyricIface: any = null;
 let trayLyricBus: any = null;
 
-// 保存 IPC 处理函数引用，用于清理
 let onPositionUpdate: ((event: any, position: number) => void) | null = null;
 let onTrayLyricUpdate: ((event: any, lrcObj: string) => void) | null = null;
 

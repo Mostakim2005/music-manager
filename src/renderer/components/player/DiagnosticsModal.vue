@@ -8,14 +8,17 @@
     <div
       class="diagnostics-modal p-6 rounded-3xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shadow-2xl max-w-2xl w-[92vw] max-h-[85vh] flex flex-col"
     >
-      <div class="flex items-center justify-between pb-3 border-b border-neutral-200 dark:border-neutral-800">
+      <div
+        class="flex items-center justify-between pb-3 border-b border-neutral-200 dark:border-neutral-800"
+      >
         <div>
           <h3 class="text-lg font-bold text-neutral-900 dark:text-white flex items-center gap-2">
             <i class="ri-radar-line text-green-500" />
             Error Watch &amp; Diagnostics Center
           </h3>
           <p class="text-xs text-neutral-500 dark:text-neutral-400">
-            Automatic crash telemetry &amp; live HTTP/SSE diagnostic watch endpoint for external debugging
+            Automatic crash telemetry &amp; live HTTP/SSE diagnostic watch endpoint for external
+            debugging
           </p>
         </div>
         <button
@@ -41,9 +44,7 @@
           </code>
         </div>
         <div class="flex items-center gap-2">
-          <n-button size="tiny" secondary @click="copyWatchUrl">
-            Copy API URL
-          </n-button>
+          <n-button size="tiny" secondary @click="copyWatchUrl"> Copy API URL </n-button>
           <n-button size="tiny" secondary type="warning" @click="handleTriggerTest">
             Test Error
           </n-button>
@@ -58,10 +59,7 @@
 
       <!-- Error List -->
       <div class="mt-4 flex-1 overflow-y-auto space-y-2 pr-1">
-        <div
-          v-if="reports.length === 0"
-          class="py-12 text-center text-sm text-neutral-400"
-        >
+        <div v-if="reports.length === 0" class="py-12 text-center text-sm text-neutral-400">
           No errors recorded. System is healthy.
         </div>
         <div
@@ -90,7 +88,7 @@
           <pre
             v-if="item.stack"
             class="mt-1.5 p-2 rounded bg-black/5 dark:bg-black/40 text-[10px] text-neutral-500 overflow-x-auto max-h-28"
-          >{{ item.stack }}</pre>
+            >{{ item.stack }}</pre>
         </div>
       </div>
     </div>

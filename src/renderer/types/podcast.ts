@@ -1,8 +1,6 @@
 /**
- * 播客/电台相关类型定义
  */
 
-// 电台分类
 export type DjCategory = {
   id: number;
   name: string;
@@ -10,14 +8,12 @@ export type DjCategory = {
   pic84x84Url?: string;
 };
 
-// 电台主播信息
 export type DjUser = {
   userId: number;
   nickname: string;
   avatarUrl: string;
 };
 
-// 电台信息
 export type DjRadio = {
   id: number;
   name: string;
@@ -35,20 +31,17 @@ export type DjRadio = {
   rcmdText?: string;
 };
 
-// 电台节目歌曲信息
 export type DjMainSong = {
   id: number;
   name: string;
   duration: number;
 };
 
-// 电台节目电台信息
 export type DjProgramRadio = {
   id: number;
   name: string;
 };
 
-// 电台节目
 export type DjProgram = {
   id: number;
   mainSong: DjMainSong;
@@ -63,7 +56,6 @@ export type DjProgram = {
   name?: string;
 };
 
-// API 响应类型
 export type DjSublistResponse = {
   djRadios: DjRadio[];
   count: number;

@@ -1,9 +1,9 @@
 /**
- * 修复 Linux 下 Electron sandbox 权限问题
- * chrome-sandbox 需要 root 拥有且权限为 4755
+ * Fix Electron sandbox permissions on Linux
+ * chrome-sandbox must be owned by root with mode 4755
  *
- * 注意：此脚本需要 sudo 权限，仅在 CI 环境或手动执行时使用
- * 用法：sudo npm run fix-sandbox
+ * Note: requires sudo; intended for CI or manual runs only
+ * Usage: sudo npm run fix-sandbox
  */
 const { execSync } = require('child_process');
 const fs = require('fs');

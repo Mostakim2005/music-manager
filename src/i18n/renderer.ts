@@ -3,7 +3,6 @@ import { createI18n } from 'vue-i18n';
 import { DEFAULT_LANGUAGE, FALLBACK_LANGUAGE } from './languages';
 import { buildLanguageMessages } from './utils';
 
-// 使用工具函数构建语言消息对象
 const messages = buildLanguageMessages();
 
 const i18n = createI18n({

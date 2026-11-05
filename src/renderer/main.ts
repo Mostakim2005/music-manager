@@ -14,11 +14,10 @@ import App from './App.vue';
 import directives from './directive';
 import { initRendererErrorMonitor } from './services/errorMonitor';
 
-// Web 端注册最小 Service Worker，使站点满足 PWA 可安装条件（#640/#382）
 if (!isElectron && import.meta.env.PROD && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js').catch((error) => {
-      console.warn('[PWA] Service Worker 注册失败:', error);
+      console.warn('[PWA] Service worker registration failed:', error);
     });
   });
 }

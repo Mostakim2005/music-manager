@@ -26,10 +26,8 @@ const handleTest = async () => {
   isTesting.value = true;
 
   try {
-    // 使用与播放器相同的 AudioContext 测试
     const audioContext = new AudioContext();
 
-    // 应用当前选择的设备
     const deviceId = playerStore.audioOutputDeviceId;
     if (deviceId && deviceId !== 'default' && (audioContext as any).setSinkId) {
       await (audioContext as any).setSinkId(deviceId);
@@ -51,7 +49,7 @@ const handleTest = async () => {
       isTesting.value = false;
     }, 500);
   } catch (error) {
-    console.error('测试音频失败:', error);
+    console.error('Audio test failed:', error);
     isTesting.value = false;
   }
 };

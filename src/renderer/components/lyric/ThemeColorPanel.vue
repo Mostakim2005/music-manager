@@ -19,9 +19,7 @@
     </div>
 
     <div class="panel-content">
-      <!-- 横向紧凑布局 -->
       <div class="compact-layout">
-        <!-- 预设颜色 -->
         <div class="preset-section">
           <div class="section-label">{{ t('settings.themeColor.presetColors') }}</div>
           <div class="preset-colors">
@@ -39,10 +37,8 @@
           </div>
         </div>
 
-        <!-- 分隔线 -->
         <div class="divider"></div>
 
-        <!-- 自定义颜色 -->
         <div class="custom-section">
           <div class="section-label">{{ t('settings.themeColor.customColor') }}</div>
           <div class="custom-controls">
@@ -69,10 +65,8 @@
           </div>
         </div>
 
-        <!-- 分隔线 -->
         <div class="divider"></div>
 
-        <!-- 效果预览 -->
         <div class="preview-section">
           <div class="section-label">{{ t('settings.themeColor.preview') }}</div>
           <div class="preview-text" :style="getPreviewStyle()">
@@ -81,7 +75,6 @@
         </div>
       </div>
 
-      <!-- 颜色选择器（展开时显示） -->
       <div v-if="showColorPicker" class="color-picker-dropdown">
         <n-color-picker
           v-model:value="pickerColor"
@@ -130,13 +123,11 @@ const emit = defineEmits<Emits>();
 
 const { t } = useI18n();
 
-// 响应式数据
 const presetColors = ref<LyricThemeColor[]>(getLyricThemeColors());
 const showColorPicker = ref(false);
 const colorInput = ref('');
 const pickerColor = ref(props.currentColor);
 
-// 计算属性
 const getColorValue = (color: LyricThemeColor): string => {
   return getPresetColorValue(color.id, props.theme);
 };
@@ -151,7 +142,7 @@ const getColorName = (color: LyricThemeColor): string => {
 };
 
 const getPreviewStyle = () => {
-  const progress = 60; // 模拟60%的播放进度
+  const progress = 60;
   return {
     background: `linear-gradient(to right, ${props.currentColor} ${progress}%, var(--text-color) ${progress}%)`,
     WebkitBackgroundClip: 'text',
@@ -161,13 +152,11 @@ const getPreviewStyle = () => {
   };
 };
 
-// 事件处理
 const handleClose = () => {
   showColorPicker.value = false;
   emit('close');
 };
 
-// 恢复默认：关闭自定义主题色（#591 此前设置后无任何入口可关闭）
 const handleReset = () => {
   showColorPicker.value = false;
   emit('reset');
@@ -178,7 +167,6 @@ const handlePresetColorSelect = (color: LyricThemeColor) => {
   const optimizedColor = optimizeColorForTheme(colorValue, props.theme);
   emit('colorChange', optimizedColor);
 
-  // 更新输入框和选择器
   colorInput.value = optimizedColor;
   pickerColor.value = optimizedColor;
 };
@@ -191,7 +179,6 @@ const handleColorInput = () => {
       emit('colorChange', optimizedColor);
     } catch (error) {
       console.error('Failed to optimize color:', error);
-      // 恢复到当前有效颜色
       colorInput.value = props.currentColor;
       pickerColor.value = props.currentColor;
     }
@@ -205,13 +192,11 @@ const handleColorInputConfirm = () => {
       emit('colorChange', optimizedColor);
     } catch (error) {
       console.error('Failed to optimize color:', error);
-      // 恢复到当前有效颜色
       colorInput.value = props.currentColor;
       pickerColor.value = props.currentColor;
     }
   } else {
     console.warn('Invalid color input:', colorInput.value);
-    // 恢复到当前有效颜色
     colorInput.value = props.currentColor;
     pickerColor.value = props.currentColor;
   }
@@ -225,7 +210,6 @@ const handlePickerColorChange = (color: string) => {
       emit('colorChange', optimizedColor);
     } catch (error) {
       console.error('Failed to optimize picker color:', error);
-      // 恢复到当前有效颜色
       colorInput.value = props.currentColor;
       pickerColor.value = props.currentColor;
     }
@@ -234,7 +218,6 @@ const handlePickerColorChange = (color: string) => {
   }
 };
 
-// 监听属性变化
 watch(
   () => props.currentColor,
   (newColor) => {
@@ -285,7 +268,6 @@ watch(
     pointer-events: auto;
   }
 
-  // 小屏幕适配
   @media (max-width: 520px) {
     min-width: calc(100vw - 40px);
     left: 20px;
@@ -388,7 +370,6 @@ watch(
   }
 }
 
-// 预设颜色区域
 .preset-section {
   .preset-colors {
     display: flex;
@@ -424,7 +405,6 @@ watch(
   }
 }
 
-// 自定义颜色区域
 .custom-section {
   .custom-controls {
     display: flex;
@@ -479,7 +459,6 @@ watch(
   }
 }
 
-// 预览区域
 .preview-section {
   .preview-text {
     font-size: 14px;
@@ -494,7 +473,6 @@ watch(
   }
 }
 
-// 颜色选择器下拉
 .color-picker-dropdown {
   margin-top: 8px;
   padding: 8px;
@@ -507,7 +485,6 @@ watch(
   }
 }
 
-// 小屏幕适配
 @media (max-width: 520px) {
   .compact-layout {
     flex-direction: column;

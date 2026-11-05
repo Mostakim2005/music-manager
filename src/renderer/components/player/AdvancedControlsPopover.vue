@@ -13,7 +13,6 @@
         <div class="advanced-controls-btn">
           <i class="iconfont ri-settings-3-line"></i>
 
-          <!-- 激活状态的小标记 -->
           <div v-if="hasActiveSettings" class="active-indicator">
             <span v-if="hasActiveSleepTimer" class="timer-badge">
               <i class="ri-time-line"></i>
@@ -25,7 +24,6 @@
     </n-tooltip>
   </n-dropdown>
 
-  <!-- EQ 均衡器弹窗 -->
   <n-modal
     v-model:show="showEQModal"
     :mask-closable="true"
@@ -40,7 +38,6 @@
     </div>
   </n-modal>
 
-  <!-- 定时关闭弹窗 -->
   <n-modal
     v-model:show="playerStore.showSleepTimer"
     :mask-closable="true"
@@ -55,7 +52,6 @@
     </div>
   </n-modal>
 
-  <!-- 播放速度设置弹窗 -->
   <n-modal
     v-model:show="showSpeedModal"
     :mask-closable="true"
@@ -92,7 +88,6 @@
     </div>
   </n-modal>
 
-  <!-- 智能过渡与离线缓存设置弹窗 -->
   <n-modal
     v-model:show="showTransitionsModal"
     :mask-closable="true"
@@ -108,17 +103,14 @@
         <div class="flex items-center justify-between">
           <div>
             <div class="font-medium text-sm">Equal-Power Crossfade</div>
-            <div class="text-xs opacity-70">Smooth transition between tracks ({{ crossfadeSeconds }}s)</div>
+            <div class="text-xs opacity-70">
+              Smooth transition between tracks ({{ crossfadeSeconds }}s)
+            </div>
           </div>
           <n-switch v-model:value="crossfadeEnabled" />
         </div>
         <div v-if="crossfadeEnabled" class="px-1">
-          <n-slider
-            v-model:value="crossfadeSeconds"
-            :min="1"
-            :max="10"
-            :step="1"
-          />
+          <n-slider v-model:value="crossfadeSeconds" :min="1" :max="10" :step="1" />
         </div>
         <div class="flex items-center justify-between">
           <div>
@@ -137,11 +129,15 @@
         <div class="flex items-center justify-between">
           <div>
             <div class="font-medium text-sm">Waveform Seekbar</div>
-            <div class="text-xs opacity-70">Display interactive amplitude peaks on the player bar</div>
+            <div class="text-xs opacity-70">
+              Display interactive amplitude peaks on the player bar
+            </div>
           </div>
           <n-switch v-model:value="waveformSeekbarEnabled" />
         </div>
-        <div class="pt-3 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
+        <div
+          class="pt-3 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between"
+        >
           <div>
             <div class="font-medium text-sm">IndexedDB Offline Audio &amp; Lyric Cache</div>
             <div class="text-xs opacity-70">
@@ -160,13 +156,10 @@
     </div>
   </n-modal>
 
-  <!-- 错误监控与诊断弹窗 -->
   <diagnostics-modal v-model:show="showDiagnosticsModal" />
 
-  <!-- A-B 区间循环与歌曲书签弹窗 -->
   <ab-loop-modal v-model:show="showAbLoopModal" />
 
-  <!-- 个人听歌统计与年度报告弹窗 -->
   <listening-stats-modal v-model:show="showListeningStatsModal" />
 </template>
 
@@ -187,7 +180,6 @@ import { clearDB, countDBSize } from '@/utils/db';
 const { t } = useI18n();
 const playerStore = usePlayerStore();
 
-// 下拉菜单状态
 const showDropdown = ref(false);
 const showEQModal = ref(false);
 const showSpeedModal = ref(false);
@@ -245,10 +237,8 @@ const handleClearCache = async () => {
   await refreshCacheStats();
 };
 
-// 监听弹窗状态，确保互斥
 watch(showEQModal, (newValue) => {
   if (newValue) {
-    // 如果EQ弹窗打开，关闭其他弹窗
     playerStore.showSleepTimer = false;
     showSpeedModal.value = false;
   }
@@ -258,7 +248,6 @@ watch(
   () => playerStore.showSleepTimer,
   (newValue) => {
     if (newValue) {
-      // 如果睡眠定时器弹窗打开，关闭其他弹窗
       showEQModal.value = false;
       showSpeedModal.value = false;
     }
@@ -267,16 +256,13 @@ watch(
 
 watch(showSpeedModal, (newValue) => {
   if (newValue) {
-    // 如果播放速度弹窗打开，关闭其他弹窗
     showEQModal.value = false;
     playerStore.showSleepTimer = false;
   }
 });
 
-// 播放速度状态
 const playbackRate = computed(() => playerStore.playbackRate);
 
-// 播放速度选项
 const playbackRateOptions = [
   { label: '0.5x', key: 0.5 },
   { label: '0.75x', key: 0.75 },
@@ -286,15 +272,12 @@ const playbackRateOptions = [
   { label: '2.0x', key: 2.0 }
 ];
 
-// 是否有激活的睡眠定时器
 const hasActiveSleepTimer = computed(() => playerStore.hasSleepTimerActive);
 
-// 检查是否有任何高级设置是激活状态
 const hasActiveSettings = computed(() => {
   return playbackRate.value !== 1.0 || hasActiveSleepTimer.value || isEQVisible.value;
 });
 
-// 下拉菜单选项
 const dropdownOptions = computed<DropdownOption[]>(() => [
   {
     label: t('player.playBar.eq'),
@@ -305,14 +288,12 @@ const dropdownOptions = computed<DropdownOption[]>(() => [
     label: t('player.sleepTimer.title'),
     key: 'timer',
     icon: () => h('i', { class: 'ri-timer-line' }),
-    // 如果有激活的定时器，添加标记
     suffix: () => (hasActiveSleepTimer.value ? h('span', { class: 'active-option-mark' }) : null)
   },
   {
     label: t('player.playBar.playbackSpeed') + `(${playbackRate.value}x)`,
     key: 'speed',
     icon: () => h('i', { class: 'ri-speed-line' }),
-    // 如果播放速度不是1.0，添加标记
     suffix: () =>
       playbackRate.value !== 1.0
         ? h('span', { class: 'active-option-mark' }, `${playbackRate.value}x`)
@@ -332,9 +313,7 @@ const dropdownOptions = computed<DropdownOption[]>(() => [
     key: 'abLoop',
     icon: () => h('i', { class: 'ri-repeat-2-line' }),
     suffix: () =>
-      audioService.getAbLoop().enabled
-        ? h('span', { class: 'active-option-mark' }, 'A-B')
-        : null
+      audioService.getAbLoop().enabled ? h('span', { class: 'active-option-mark' }, 'A-B') : null
   },
   {
     label: 'Listening Stats & Wrapped',
@@ -348,9 +327,7 @@ const dropdownOptions = computed<DropdownOption[]>(() => [
   }
 ]);
 
-// 处理菜单选择
 const handleSelect = (key: string) => {
-  // 先关闭所有弹窗
   showEQModal.value = false;
   playerStore.showSleepTimer = false;
   showSpeedModal.value = false;
@@ -359,7 +336,6 @@ const handleSelect = (key: string) => {
   showAbLoopModal.value = false;
   showListeningStatsModal.value = false;
 
-  // 然后仅打开所选弹窗
   switch (key) {
     case 'eq':
       showEQModal.value = true;
@@ -387,7 +363,6 @@ const handleSelect = (key: string) => {
   }
 };
 
-// 选择播放速度
 const selectSpeed = (speed: number) => {
   playerStore.setPlaybackRate(speed);
 };

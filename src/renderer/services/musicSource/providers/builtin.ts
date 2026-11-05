@@ -6,6 +6,7 @@
  */
 import type { SongResult } from '@/types/music';
 import type { PluginMediaSource } from '@/types/musicSourcePlugin';
+
 import youtubeService from '../../youtubeService';
 import type { MusicSourceProvider } from '../types';
 
@@ -44,6 +45,4 @@ export const youtubeProvider: MusicSourceProvider = {
   }
 };
 
-export const builtinProviders: MusicSourceProvider[] = [
-  youtubeProvider
-];
+export const builtinProviders: MusicSourceProvider[] = [youtubeProvider];

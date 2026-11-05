@@ -102,10 +102,9 @@ const toggleMenu = () => {
 }
 
 .app-menu-list {
-  max-height: calc(100vh - 120px); /* 为header预留空间，防止菜单项被遮挡 */
+  max-height: calc(100vh - 120px);
   overflow-y: auto;
   overflow-x: hidden;
-  /* 自定义滚动条样式 - 默认隐藏，悬停时显示 */
   scrollbar-width: thin;
   scrollbar-color: transparent transparent;
   padding-bottom: 20px;
@@ -125,7 +124,6 @@ const toggleMenu = () => {
     transition: background-color 0.3s ease;
   }
 
-  /* 悬停时显示滚动条 */
   &:hover {
     scrollbar-color: rgba(156, 163, 175, 0.5) transparent;
 
@@ -184,8 +182,8 @@ const toggleMenu = () => {
 
     &-list {
       @apply flex justify-between px-4;
-      max-height: none !important; /* 移动端不限制高度 */
-      overflow: visible !important; /* 移动端不需要滚动 */
+      max-height: none !important;
+      overflow: visible !important;
     }
 
     &-item {

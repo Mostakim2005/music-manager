@@ -1,12 +1,10 @@
 import { ref } from 'vue';
 
-// 定义表配置的泛型接口
 export interface StoreConfig<T extends string> {
   name: T;
   keyPath?: string;
 }
 
-// 创建一个使用 IndexedDB 的组合函数
 const useIndexedDB = async <T extends string, S extends Record<T, Record<string, any>>>(
   dbName: string,
   stores: StoreConfig<T>[],
@@ -14,7 +12,6 @@ const useIndexedDB = async <T extends string, S extends Record<T, Record<string,
 ) => {
   const db = ref<IDBDatabase | null>(null);
 
-  // 打开数据库并创建表
   const initDB = () => {
     return new Promise<void>((resolve, reject) => {
       if (typeof indexedDB === 'undefined') {
@@ -48,7 +45,6 @@ const useIndexedDB = async <T extends string, S extends Record<T, Record<string,
 
   await initDB();
 
-  // 通用新增数据
   const addData = <K extends T>(storeName: K, value: S[K]) => {
     return new Promise<void>((resolve, reject) => {
       if (!db.value) return resolve();
@@ -58,18 +54,17 @@ const useIndexedDB = async <T extends string, S extends Record<T, Record<string,
       const request = store.add(value);
 
       request.onsuccess = () => {
-        console.log('成功');
+        console.log('Success');
         resolve();
       };
 
       request.onerror = (event) => {
-        console.error('新增失败:', (event.target as IDBRequest).error);
+        console.error('Failed to add:', (event.target as IDBRequest).error);
         reject((event.target as IDBRequest).error);
       };
     });
   };
 
-  // 通用保存数据（新增或更新）
   const saveData = <K extends T>(storeName: K, value: S[K]) => {
     return new Promise<void>((resolve, reject) => {
       if (!db.value) return resolve();
@@ -78,7 +73,7 @@ const useIndexedDB = async <T extends string, S extends Record<T, Record<string,
       const request = store.put(value);
 
       request.onsuccess = () => {
-        console.log('成功');
+        console.log('Success');
         resolve();
       };
 
@@ -88,7 +83,6 @@ const useIndexedDB = async <T extends string, S extends Record<T, Record<string,
     });
   };
 
-  // 通用获取数据
   const getData = <K extends T>(storeName: K, key: string | number) => {
     return new Promise<S[K]>((resolve, reject) => {
       if (!db.value) return resolve(undefined as any);
@@ -100,7 +94,7 @@ const useIndexedDB = async <T extends string, S extends Record<T, Record<string,
         if (event.target) {
           resolve((event.target as IDBRequest).result);
         } else {
-          reject('事件目标为空');
+          reject('Event target is empty');
         }
       };
 
@@ -110,7 +104,6 @@ const useIndexedDB = async <T extends string, S extends Record<T, Record<string,
     });
   };
 
-  // 删除数据
   const deleteData = <K extends T>(storeName: K, key: string | number) => {
     return new Promise<void>((resolve, reject) => {
       if (!db.value) return resolve();
@@ -119,7 +112,7 @@ const useIndexedDB = async <T extends string, S extends Record<T, Record<string,
       const request = store.delete(key);
 
       request.onsuccess = () => {
-        console.log('删除成功');
+        console.log('Deleted');
         resolve();
       };
 
@@ -129,7 +122,6 @@ const useIndexedDB = async <T extends string, S extends Record<T, Record<string,
     });
   };
 
-  // 查询所有数据
   const getAllData = <K extends T>(storeName: K) => {
     return new Promise<S[K][]>((resolve, reject) => {
       if (!db.value) return resolve([]);
@@ -141,7 +133,7 @@ const useIndexedDB = async <T extends string, S extends Record<T, Record<string,
         if (event.target) {
           resolve((event.target as IDBRequest).result);
         } else {
-          reject('事件目标为空');
+          reject('Event target is empty');
         }
       };
 
@@ -151,7 +143,6 @@ const useIndexedDB = async <T extends string, S extends Record<T, Record<string,
     });
   };
 
-  // 分页查询数据
   const getDataWithPagination = <K extends T>(storeName: K, page: number, pageSize: number) => {
     return new Promise<S[K][]>((resolve, reject) => {
       if (!db.value) return resolve([]);

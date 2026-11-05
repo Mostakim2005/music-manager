@@ -17,9 +17,7 @@
           : '#000000'
     }"
   >
-    <!-- Mini模式 - 在musicFullVisible为false时显示 -->
     <div v-if="!playerStore.musicFull" class="mobile-mini-controls">
-      <!-- 歌曲信息 -->
       <div class="mini-song-info" @click="setMusicFull">
         <n-image
           :src="getImgUrl(playMusic?.picUrl, '100y100')"
@@ -50,7 +48,6 @@
       </div>
     </div>
 
-    <!-- 全屏播放器 -->
     <music-full-wrapper
       ref="MusicFullRef"
       v-model="playerStore.musicFull"
@@ -76,13 +73,10 @@ const shouldShowMobileMenu = inject('shouldShowMobileMenu') as Ref<boolean>;
 const playerStore = usePlayerStore();
 const settingsStore = useSettingsStore();
 
-// 播放控制
 const { isPlaying: play, playMusicEvent, handleNext, handlePrev } = usePlaybackControl();
 
-// 背景颜色
 const background = ref('#000');
 
-// 全屏播放器
 const MusicFullRef = ref<any>(null);
 
 const setMusicFull = () => {
@@ -94,16 +88,13 @@ const setMusicFull = () => {
 
 watch(
   () => playerStore.musicFull,
-  (_newVal) => {
-    // 状态栏样式更新已在 Web 环境下禁用
-  }
+  (_newVal) => {}
 );
 
 const openPlayListDrawer = () => {
   playerStore.setPlayListDrawerVisible(true);
 };
 
-// 滑动切歌
 const playBarRef = ref<HTMLElement | null>(null);
 onMounted(() => {
   if (playBarRef.value) {
@@ -142,8 +133,8 @@ watch(
 
   &.play-bar-expanded {
     @apply bg-transparent;
-    height: auto; /* 自动适应内容高度 */
-    max-height: 230px; /* 限制最大高度 */
+    height: auto;
+    max-height: 230px;
     background: linear-gradient(
       to bottom,
       rgba(0, 0, 0, 0) 0%,
@@ -157,7 +148,6 @@ watch(
     @apply h-14 py-0;
   }
 
-  // 进度条
   .music-progress-bar {
     @apply flex items-center justify-between px-4 py-2 relative z-10;
 
@@ -177,20 +167,20 @@ watch(
           --n-rail-color: rgba(255, 255, 255, 0.15);
           --n-rail-color-dark: rgba(255, 255, 255, 0.15);
           --n-fill-color: #22c55e;
-          --n-handle-size: 0px; /* 隐藏滑块 */
+          --n-handle-size: 0px;
           --n-handle-color: #22c55e;
 
           &:hover {
-            --n-handle-size: 10px; /* 鼠标悬停时显示滑块 */
+            --n-handle-size: 10px;
           }
 
           .n-slider-rail {
-            @apply rounded-full !important; /* 圆角进度条 */
+            @apply rounded-full !important;
           }
 
           .n-slider-fill {
             @apply rounded-full !important;
-            box-shadow: 0 0 4px rgba(30, 215, 96, 0.5); /* 发光效果 */
+            box-shadow: 0 0 4px rgba(30, 215, 96, 0.5);
           }
 
           .n-slider-handle {
@@ -212,7 +202,6 @@ watch(
     }
   }
 
-  // 主控制区
   .player-controls {
     @apply flex items-center justify-between px-8 py-3 relative z-10 pb-8;
 
@@ -251,7 +240,6 @@ watch(
     }
   }
 
-  // Mini模式样式
   .mobile-mini-controls {
     @apply flex items-center justify-between pr-4 mx-3 h-12 rounded-full bg-light-100 dark:bg-dark-100 shadow-lg;
 

@@ -90,9 +90,9 @@ describe('playback recovery ownership (#769)', () => {
     vi.stubGlobal('document', { title: '', createElement: () => ({}) });
     vi.stubGlobal('window', { dispatchEvent: mocks.dispatchEvent, addEventListener: vi.fn() });
     setActivePinia(createPinia());
-    // 必须在 resetModules 之后取 store：playbackController 与其 store 依赖的
-    // playbackRequestManager 属于重置后的模块图，用静态 import 的实例取消请求
-    // 只会 bump 另一个单例的 generation，取消不到正在进行的播放。
+    // The store must be read after resetModules: playbackController and the store
+    // playbackRequestManager that it depends on live in the reset module graph; cancelling
+    // through a statically imported instance only bumps a different singleton and misses playback.
     const { usePlayerCoreStore: useFreshPlayerCoreStore } =
       await import('@/store/modules/playerCore');
     mocks.core = useFreshPlayerCoreStore();
@@ -235,8 +235,8 @@ describe('playback recovery ownership (#769)', () => {
   });
 
   it('reports a failed reparse playback as a failure', async () => {
-    // playTrack 内部会清缓存并重解析重试一次，所以要否掉所有播放尝试，
-    // 只 stub 第一次失败的话第二次会成功，测不到失败传播。
+    // playTrack clears the cache and retries the resolve once, so every attempt must
+    // be denied; stubbing only the first failure lets the second succeed and hides it.
     mocks.audio.play.mockRejectedValue(new Error('Cannot decode audio'));
 
     expect(await controller.reparseCurrentSong('migu')).toBe(false);

@@ -28,7 +28,6 @@ export const useDownloadStore = defineStore(
 
     // Track whether IPC listeners have been registered
     let listenersInitialised = false;
-    // 合并连续完成事件触发的已下载列表刷新，避免批量下载时高频 IPC（#703）
     let refreshCompletedTimer: ReturnType<typeof setTimeout> | null = null;
 
     // ── Computed ───────────────────────────────────────────────────────────
@@ -46,9 +45,6 @@ export const useDownloadStore = defineStore(
     const downloadingCount = computed(() => downloadingList.value.length);
 
     /**
-     * 失败任务列表。
-     * downloadingList 只含排队/下载/暂停三种状态，失败任务不在其中，
-     * 下载页因此完全不显示失败任务（"点了没反应、也没进度"，#757）。
      */
     const failedList = computed(() =>
       [...tasks.value.values()]
@@ -101,7 +97,6 @@ export const useDownloadStore = defineStore(
       await window.api.downloadResume(taskId);
     };
 
-    /** 重试失败的任务：主进程 resumeTask 同时接受 paused / error，会重新排队下载 */
     const retryTask = async (taskId: string) => {
       if (!isElectron) return;
       await window.api.downloadResume(taskId);

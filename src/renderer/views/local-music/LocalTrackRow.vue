@@ -6,7 +6,10 @@
   >
     <!-- 1. Index / Playing Animation -->
     <div class="w-7 text-center font-mono text-xs text-neutral-400 dark:text-neutral-500 shrink-0">
-      <div v-if="isPlaying && isPlay" class="playing-bars flex items-end justify-center gap-0.5 h-3">
+      <div
+        v-if="isPlaying && isPlay"
+        class="playing-bars flex items-end justify-center gap-0.5 h-3"
+      >
         <span class="bar bar-1 bg-primary w-0.5 rounded-full" />
         <span class="bar bar-2 bg-primary w-0.5 rounded-full" />
         <span class="bar bar-3 bg-primary w-0.5 rounded-full" />
@@ -37,13 +40,18 @@
       >
         {{ item.name }}
       </div>
-      <div class="text-xs text-neutral-500 dark:text-neutral-400 truncate mt-0.5" :title="artistString">
+      <div
+        class="text-xs text-neutral-500 dark:text-neutral-400 truncate mt-0.5"
+        :title="artistString"
+      >
         {{ artistString }}
       </div>
     </div>
 
     <!-- 4. Duration -->
-    <div class="font-mono text-xs tabular-nums text-neutral-400 dark:text-neutral-500 shrink-0 px-3">
+    <div
+      class="font-mono text-xs tabular-nums text-neutral-400 dark:text-neutral-500 shrink-0 px-3"
+    >
       {{ formattedDuration }}
     </div>
 
@@ -66,14 +74,13 @@
       <button
         type="button"
         class="w-8 h-8 rounded-full flex items-center justify-center bg-neutral-100 dark:bg-neutral-800 hover:bg-primary hover:text-white transition active:scale-95 shadow-sm"
-        :class="isPlaying && isPlay ? 'bg-primary text-white' : 'text-neutral-700 dark:text-neutral-300'"
+        :class="
+          isPlaying && isPlay ? 'bg-primary text-white' : 'text-neutral-700 dark:text-neutral-300'
+        "
         :title="isPlaying && isPlay ? 'Pause' : 'Play'"
         @click.stop="handlePlay"
       >
-        <i
-          class="text-base"
-          :class="isPlaying && isPlay ? 'ri-pause-fill' : 'ri-play-fill'"
-        />
+        <i class="text-base" :class="isPlaying && isPlay ? 'ri-pause-fill' : 'ri-play-fill'" />
       </button>
 
       <!-- Edit Tags & File Button -->
@@ -133,7 +140,10 @@ const isPlaying = computed(() => playerStore.playMusic?.id === props.item.id);
 
 const isFavorite = computed(() => {
   const numericId = typeof props.item.id === 'string' ? parseInt(props.item.id, 10) : props.item.id;
-  return playerStore.favoriteList.includes(numericId) || playerStore.favoriteList.includes(props.item.id as any);
+  return (
+    playerStore.favoriteList.includes(numericId) ||
+    playerStore.favoriteList.includes(props.item.id as any)
+  );
 });
 
 function toggleFavorite() {
@@ -147,7 +157,7 @@ function toggleFavorite() {
 }
 
 const artistString = computed(() => {
-  if (props.entry.artist && props.entry.artist !== '未知艺术家') {
+  if (props.entry.artist && props.entry.artist !== 'Unknown Artist') {
     return props.entry.artist;
   }
   const arList = props.item.ar || props.item.song?.artists || [];

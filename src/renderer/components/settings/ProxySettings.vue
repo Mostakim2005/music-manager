@@ -91,7 +91,6 @@ const proxyRules: FormRules = {
     trigger: ['blur', 'change'],
     validator: (_rule, value) => {
       if (!value) return false;
-      // 简单的IP或域名验证
       const ipRegex =
         /^(\d{1,3}\.){3}\d{1,3}$|^localhost$|^[a-zA-Z0-9][-a-zA-Z0-9]{0,62}(\.[a-zA-Z0-9][-a-zA-Z0-9]{0,62})+$/;
       return ipRegex.test(value);
@@ -107,7 +106,6 @@ const proxyRules: FormRules = {
   }
 };
 
-// 同步外部show属性变化
 watch(
   () => props.show,
   (newVal) => {
@@ -115,7 +113,6 @@ watch(
   }
 );
 
-// 同步内部visible变化
 watch(
   () => visible.value,
   (newVal) => {
@@ -123,7 +120,6 @@ watch(
   }
 );
 
-// 同步外部config变化
 watch(
   () => props.config,
   (newVal) => {
@@ -143,7 +139,7 @@ const handleProxyConfirm = async () => {
     visible.value = false;
     message.success(t('settings.network.messages.proxySuccess'));
   } catch (err) {
-    console.error('代理设置验证失败:', err);
+    console.error('Proxy validation failed:', err);
     message.error(t('settings.network.messages.proxyError'));
   }
 };

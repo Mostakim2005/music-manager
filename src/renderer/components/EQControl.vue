@@ -81,7 +81,6 @@ const eqValues = ref<{ [key: string]: number }>({});
 const isEnabled = ref(audioService.isEQEnabled());
 const currentPreset = ref(audioService.getCurrentPreset() || 'flat');
 
-// 预设配置
 const presets = {
   flat: {
     label: t('player.eq.presets.flat'),
@@ -230,11 +229,9 @@ const applyPreset = (presetName: string) => {
 };
 
 onMounted(() => {
-  // 恢复 EQ 设置
   const settings = audioService.getAllEQSettings();
   eqValues.value = settings;
 
-  // 如果有保存的预设，应用该预设
   const savedPreset = audioService.getCurrentPreset();
   if (savedPreset && presets[savedPreset as keyof typeof presets]) {
     currentPreset.value = savedPreset;
@@ -248,11 +245,9 @@ const updateEQ = (frequency: string, gain: number) => {
     [frequency]: gain
   };
 
-  // 检查当前值是否与任何预设匹配
   const currentValues = eqValues.value;
   let matchedPreset: string | null = null;
 
-  // 检查是否与任何预设完全匹配
   Object.entries(presets).forEach(([presetName, preset]) => {
     const isMatch = Object.entries(preset.values).every(
       ([freq, value]) => Math.abs(currentValues[freq] - value) < 0.1
@@ -262,12 +257,10 @@ const updateEQ = (frequency: string, gain: number) => {
     }
   });
 
-  // 更新当前预设状态
   if (matchedPreset !== null) {
     currentPreset.value = matchedPreset;
     audioService.setCurrentPreset(matchedPreset);
   } else if (currentPreset.value !== 'custom') {
-    // 如果与任何预设都不匹配，将状态设置为自定义
     currentPreset.value = 'custom';
     audioService.setCurrentPreset('custom');
   }

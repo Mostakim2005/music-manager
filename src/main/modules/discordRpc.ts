@@ -1,4 +1,5 @@
 import { Client } from '@xhayper/discord-rpc';
+
 import { getSharedStore } from './config';
 
 const DISCORD_CLIENT_ID = '1123456789012345678';

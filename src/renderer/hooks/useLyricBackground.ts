@@ -5,10 +5,6 @@ import { animateGradient, getHoverBackgroundColor, getTextColors } from '@/utils
 
 type UseLyricBackgroundOptions = {
   /**
-   * 可选：返回需要写入 --bg-color CSS 变量的颜色字符串。
-   * - 不提供：完全不写 --bg-color（桌面全屏场景）
-   * - 提供：有背景分支调用以取值，undefined 时落回 DEFAULT_BG_COLOR；
-   *   空背景分支固定写入 DEFAULT_BG_COLOR（与移动端原有行为一致）
    */
   writeBgColor?: () => string | undefined;
 };

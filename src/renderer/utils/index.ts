@@ -2,11 +2,9 @@ import { computed } from 'vue';
 
 import { useSettingsStore } from '@/store/modules/settings';
 
-// 设置歌手背景图片
 export const setBackgroundImg = (url: String) => {
   return `background-image:url(${url})`;
 };
-// 设置动画类型
 export const setAnimationClass = (type: String) => {
   const settingsStore = useSettingsStore();
   if (settingsStore.setData && settingsStore.setData.noAnimate) {
@@ -22,7 +20,6 @@ export const setAnimationClass = (type: String) => {
 
   return `animate__animated ${type}${speedClass ? ` ${speedClass}` : ''}`;
 };
-// 设置动画延时
 export const setAnimationDelay = (index: number = 6, time: number = 50) => {
   const settingsStore = useSettingsStore();
   if (settingsStore.setData?.noAnimate) {
@@ -32,20 +29,16 @@ export const setAnimationDelay = (index: number = 6, time: number = 50) => {
   return `animation-delay:${(index * time) / (speed * 2)}ms`;
 };
 
-// 计算动画延迟(秒) - 用于新的动画效果
-// 根据动画速度配置自动调整延迟时间
 export const calculateAnimationDelay = (index: any, baseDelay: number = 0.03): string => {
   const settingsStore = useSettingsStore();
   if (settingsStore.setData?.noAnimate) {
     return '0s';
   }
   const speed = settingsStore.setData?.animationSpeed || 1;
-  // 速度越快，延迟应该越短，所以除以 speed
   const delay = (index * baseDelay) / speed;
   return `${delay.toFixed(3)}s`;
 };
 
-// 将秒转换为时长字符串：<1 小时为 mm:ss，>=1 小时进位为 h:mm:ss
 export const secondToMinute = (s: number) => {
   if (!s || s < 0) {
     return '00:00';
@@ -60,10 +53,9 @@ export const secondToMinute = (s: number) => {
   return `${pad(minute)}:${pad(second)}`;
 };
 
-// 格式化数字 千,万, 百万, 千万,亿
 const units = [
-  { value: 1e8, symbol: '亿' },
-  { value: 1e4, symbol: '万' }
+  { value: 1e9, symbol: 'B' },
+  { value: 1e6, symbol: 'M' }
 ];
 
 export const formatNumber = (num: string | number) => {
@@ -79,11 +71,9 @@ export const formatNumber = (num: string | number) => {
 export const getImgUrl = (url: string | undefined, size: string = '') => {
   if (!url) return '';
 
-  // base64 Data URL 和本地文件路径不需要添加尺寸参数
   if (url.startsWith('data:') || url.startsWith('local://')) return url;
 
   if (url.includes('thumbnail')) {
-    // 只替换最后一个 thumbnail 参数的尺寸
     return url.replace(/thumbnail=\d+y\d+(?!.*thumbnail)/, `thumbnail=${size}`);
   }
 

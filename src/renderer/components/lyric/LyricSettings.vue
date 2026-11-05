@@ -2,14 +2,12 @@
   <div
     class="w-[27rem] max-w-[92vw] rounded-2xl bg-black/30 backdrop-blur-3xl border border-white/10 shadow-2xl overflow-hidden"
   >
-    <!-- 标题栏 -->
     <div class="px-6 py-4 border-b border-white/5">
       <h2 class="text-lg font-semibold tracking-tight text-white/90">
         {{ t('settings.lyricSettings.title') }}
       </h2>
     </div>
 
-    <!-- 标签页导航 -->
     <div class="px-4 pt-3 pb-2">
       <div class="flex gap-1 p-1 bg-black/20 rounded-xl">
         <button
@@ -30,11 +28,9 @@
       </div>
     </div>
 
-    <!-- 内容区域 -->
     <div
       class="px-3 pb-3 max-h-[450px] overflow-y-auto scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent"
     >
-      <!-- 显示设置 -->
       <div v-show="activeTab === 'display'" class="space-y-2 pt-2">
         <n-tooltip trigger="hover" placement="top" :style="{ maxWidth: '280px' }">
           <template #trigger>
@@ -71,11 +67,12 @@
         </div>
       </div>
 
-      <!-- 界面设置 -->
       <div v-show="activeTab === 'interface'" class="space-y-4 pt-3">
         <!-- Player Layout Selection -->
         <div class="space-y-1.5">
-          <label class="text-xs font-semibold uppercase tracking-wider text-white/50">Player Layout</label>
+          <label class="text-xs font-semibold uppercase tracking-wider text-white/50"
+            >Player Layout</label
+          >
           <div class="grid grid-cols-2 gap-2">
             <button
               type="button"
@@ -139,7 +136,6 @@
         </div>
       </div>
 
-      <!-- 文字设置 -->
       <div v-show="activeTab === 'typography'" class="space-y-4 pt-3">
         <div class="slider-group">
           <label class="slider-label">{{ t('settings.lyricSettings.fontSize') }}</label>
@@ -210,14 +206,12 @@
         </div>
       </div>
 
-      <!-- 背景设置 -->
       <div v-show="activeTab === 'background'" class="space-y-4 pt-3">
         <div class="setting-item">
           <span>{{ t('settings.lyricSettings.background.useCustomBackground') }}</span>
           <input type="checkbox" v-model="config.useCustomBackground" class="toggle-switch" />
         </div>
 
-        <!-- 主题选择 -->
         <div v-if="!config.useCustomBackground" class="radio-group">
           <label class="radio-label">{{ t('settings.lyricSettings.backgroundTheme') }}</label>
           <div class="space-y-2">
@@ -236,7 +230,6 @@
           </div>
         </div>
 
-        <!-- 背景模式选择 -->
         <div v-if="config.useCustomBackground" class="radio-group">
           <label class="radio-label">{{
             t('settings.lyricSettings.background.backgroundMode')
@@ -276,7 +269,6 @@
           </div>
         </div>
 
-        <!-- 纯色模式 -->
         <div
           v-if="config.useCustomBackground && config.backgroundMode === 'solid'"
           class="color-picker-group"
@@ -287,7 +279,6 @@
           <input type="color" v-model="config.solidColor" class="color-picker" />
         </div>
 
-        <!-- 渐变模式 -->
         <div
           v-if="config.useCustomBackground && config.backgroundMode === 'gradient'"
           class="space-y-3"
@@ -333,7 +324,6 @@
           </div>
         </div>
 
-        <!-- 图片模式 -->
         <div
           v-if="config.useCustomBackground && config.backgroundMode === 'image'"
           class="space-y-3"
@@ -415,7 +405,6 @@
           </p>
         </div>
 
-        <!-- CSS 模式 -->
         <div v-if="config.useCustomBackground && config.backgroundMode === 'css'" class="space-y-2">
           <label class="color-picker-label">{{
             t('settings.lyricSettings.background.customCss')
@@ -557,7 +546,6 @@ defineExpose({
 </script>
 
 <style scoped>
-/* 设置项 */
 .setting-item {
   display: flex;
   align-items: center;
@@ -575,7 +563,6 @@ defineExpose({
   background: rgba(255, 255, 255, 0.06);
 }
 
-/* 切换开关 */
 .toggle-switch {
   appearance: none;
   width: 44px;
@@ -607,7 +594,6 @@ defineExpose({
   left: 22px;
 }
 
-/* 滑块组 */
 .slider-group {
   padding: 10px 12px;
   background: rgba(255, 255, 255, 0.05);
@@ -664,7 +650,6 @@ defineExpose({
   opacity: 0.5;
 }
 
-/* 单选框组 */
 .radio-group {
   padding: 16px;
   background: rgba(255, 255, 255, 0.03);
@@ -698,7 +683,6 @@ defineExpose({
   background: rgba(255, 255, 255, 0.05);
 }
 
-/* 紧凑版单选项（用于横向布局） */
 .radio-item-compact {
   display: flex;
   align-items: center;
@@ -747,7 +731,6 @@ defineExpose({
   top: 2px;
 }
 
-/* 颜色选择器 */
 .color-picker-group {
   padding: 16px;
   background: rgba(255, 255, 255, 0.03);
@@ -784,7 +767,6 @@ defineExpose({
   border-radius: 8px;
 }
 
-/* 小尺寸颜色选择器（用于渐变） */
 .color-picker-small {
   width: 56px;
   height: 56px;
@@ -803,7 +785,6 @@ defineExpose({
   border-radius: 12px;
 }
 
-/* 下拉选择 */
 .select-group {
   padding: 16px;
   background: rgba(255, 255, 255, 0.03);
@@ -839,7 +820,6 @@ defineExpose({
   box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
 }
 
-/* 滚动条 */
 .scrollbar-thin::-webkit-scrollbar {
   width: 6px;
 }

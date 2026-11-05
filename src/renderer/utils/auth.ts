@@ -1,8 +1,5 @@
 /**
- * 登录状态管理工具
  *
- * 注意：这个工具主要用于在组件外部或 store 初始化之前检查登录状态。
- * 在组件内部，建议直接使用 userStore 中的状态。
  */
 
 export interface LoginInfo {
@@ -14,8 +11,6 @@ export interface LoginInfo {
 }
 
 /**
- * 检查登录状态
- * @returns 登录信息对象
  */
 export function checkLoginStatus(): LoginInfo {
   const token = localStorage.getItem('token');
@@ -31,18 +26,15 @@ export function checkLoginStatus(): LoginInfo {
     try {
       user = JSON.parse(userData);
     } catch (error) {
-      console.error('解析用户数据失败:', error);
+      console.error('Failed to parse user data:', error);
     }
   }
 
-  // 判断是否已登录
   let isLoggedIn = false;
 
   if (loginType === 'uid' || uidLogin === 'true') {
-    // UID登录：只需要有用户数据即可
     isLoggedIn = hasUser && !!user;
   } else {
-    // 其他登录方式：需要token和用户数据
     isLoggedIn = hasToken && hasUser && !!user;
   }
 
@@ -56,9 +48,6 @@ export function checkLoginStatus(): LoginInfo {
 }
 
 /**
- * 检查是否有访问权限
- * @param requireAuth 是否需要真实登录权限（token）
- * @returns 是否有权限
  */
 export function hasPermission(requireAuth: boolean = false): boolean {
   const loginInfo = checkLoginStatus();
@@ -67,7 +56,6 @@ export function hasPermission(requireAuth: boolean = false): boolean {
     return false;
   }
 
-  // 如果需要真实登录权限，UID登录无法满足
   if (requireAuth && loginInfo.loginType === 'uid') {
     return false;
   }
@@ -76,7 +64,6 @@ export function hasPermission(requireAuth: boolean = false): boolean {
 }
 
 /**
- * 清除登录状态
  */
 export function clearLoginStatus(): void {
   localStorage.removeItem('token');
@@ -86,9 +73,6 @@ export function clearLoginStatus(): void {
 }
 
 /**
- * 设置登录状态（不包括用户数据，用户数据应通过 userStore.setUser 设置）
- * @param loginType 登录类型
- * @param token 登录token（可选）
  */
 export function setLoginStatus(loginType: LoginInfo['loginType'], token?: string): void {
   localStorage.setItem('loginType', loginType || '');
@@ -103,19 +87,16 @@ export function setLoginStatus(loginType: LoginInfo['loginType'], token?: string
 }
 
 /**
- * 获取登录错误信息
- * @param requireAuth 是否需要真实登录权限
- * @returns 错误信息
  */
 export function getLoginErrorMessage(requireAuth: boolean = false): string {
   const loginInfo = checkLoginStatus();
 
   if (!loginInfo.isLoggedIn) {
-    return '请先登录';
+    return 'Please sign in first';
   }
 
   if (requireAuth && loginInfo.loginType === 'uid') {
-    return 'UID登录无法访问此功能，请使用Cookie或二维码登录';
+    return 'UID login cannot access this feature. Use cookie or QR login.';
   }
 
   return '';

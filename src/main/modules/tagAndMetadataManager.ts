@@ -16,10 +16,10 @@ import * as path from 'path';
 
 import { generateRomanizedLyricLrc } from '../../shared/transliteration';
 
-/** 获取可用 ffmpeg 静态可执行文件路径 */
 function getFfmpegPath(): string {
   try {
-    const raw = typeof ffmpegStatic === 'string' ? ffmpegStatic : (require('ffmpeg-static') as string);
+    const raw =
+      typeof ffmpegStatic === 'string' ? ffmpegStatic : (require('ffmpeg-static') as string);
     if (!raw) return '';
     return raw.replace('app.asar', 'app.asar.unpacked');
   } catch {
@@ -27,8 +27,12 @@ function getFfmpegPath(): string {
   }
 }
 
-/** 在 Windows 等环境安全重命名，遇到短暂 EBUSY/EPERM 锁时指数回退重试 */
-async function safeRename(source: string, target: string, retries = 5, delayMs = 200): Promise<void> {
+async function safeRename(
+  source: string,
+  target: string,
+  retries = 5,
+  delayMs = 200
+): Promise<void> {
   for (let attempt = 0; attempt < retries; attempt++) {
     try {
       await fs.promises.rename(source, target);
@@ -43,7 +47,6 @@ async function safeRename(source: string, target: string, retries = 5, delayMs =
   }
 }
 
-/** 安全原子覆盖替换文件 */
 async function safeReplaceFile(source: string, target: string): Promise<void> {
   try {
     await safeRename(source, target);
@@ -58,7 +61,6 @@ async function safeReplaceFile(source: string, target: string): Promise<void> {
 }
 
 /**
- * 使用 FFmpeg 写入 MP4/M4A/OPUS/OGG 标签与内嵌封面
  */
 async function writeFfmpegTags(
   filePath: string,
@@ -79,7 +81,10 @@ async function writeFfmpegTags(
 
   const dir = path.dirname(filePath);
   const ext = path.extname(filePath);
-  const tempOut = path.join(dir, `.tmp_tag_${Date.now()}_${Math.random().toString(36).slice(2)}${ext}`);
+  const tempOut = path.join(
+    dir,
+    `.tmp_tag_${Date.now()}_${Math.random().toString(36).slice(2)}${ext}`
+  );
   let coverTemp: string | null = null;
 
   try {
@@ -87,7 +92,10 @@ async function writeFfmpegTags(
 
     if (coverResolved) {
       const coverExt = extToMime(coverResolved.mime) === 'image/png' ? '.png' : '.jpg';
-      coverTemp = path.join(dir, `.tmp_covr_${Date.now()}_${Math.random().toString(36).slice(2)}${coverExt}`);
+      coverTemp = path.join(
+        dir,
+        `.tmp_covr_${Date.now()}_${Math.random().toString(36).slice(2)}${coverExt}`
+      );
       await fs.promises.writeFile(coverTemp, coverResolved.buffer);
       args.push('-i', coverTemp);
       args.push('-map', '0:a');
@@ -118,7 +126,9 @@ async function writeFfmpegTags(
     const res = spawnSync(ffmpeg, args, { stdio: 'pipe' });
     if (res.status !== 0) {
       const errOut = res.stderr ? res.stderr.toString('utf8') : 'Unknown error';
-      throw new Error(`FFmpeg tagging failed with exit code ${res.status}: ${errOut.slice(0, 300)}`);
+      throw new Error(
+        `FFmpeg tagging failed with exit code ${res.status}: ${errOut.slice(0, 300)}`
+      );
     }
 
     await safeReplaceFile(tempOut, filePath);
@@ -177,7 +187,6 @@ export interface MultiSourceLyricsResult {
 const HTTP_USER_AGENT = 'MusicManager/5.1.0 (https://github.com/music-manager)';
 const REQUEST_TIMEOUT_MS = 10000;
 
-/** 从文件扩展名推断 MIME 类型 */
 function extToMime(extWithDot: string): string {
   const ext = extWithDot.toLowerCase().replace(/^\./, '');
   if (ext === 'png') return 'image/png';
@@ -186,7 +195,6 @@ function extToMime(extWithDot: string): string {
   return 'image/jpeg';
 }
 
-/** 规范化 local:// 协议 URL 还原为本地文件路径 */
 function resolveLocalUrlToFilePath(url: string): string {
   let filePath = decodeURIComponent(url.replace(/^local:\/\/\/?/, ''));
   if (/^\/[a-zA-Z]:\//.test(filePath)) {
@@ -198,7 +206,6 @@ function resolveLocalUrlToFilePath(url: string): string {
   return path.normalize(filePath);
 }
 
-/** 将封面来源解析为 Buffer */
 async function resolveCoverBuffer(
   coverSource: string | undefined
 ): Promise<{ buffer: Buffer; mime: string } | null> {
@@ -223,7 +230,7 @@ async function resolveCoverBuffer(
           : 'image/jpeg';
       return { buffer: Buffer.from(response.data), mime };
     } catch (error) {
-      console.warn('下载在线封面失败:', trimmed, error);
+      console.warn('Failed to download online cover:', trimmed, error);
       return null;
     }
   }
@@ -238,12 +245,11 @@ async function resolveCoverBuffer(
         return { buffer, mime };
       }
     } catch (error) {
-      console.warn('解析 base64 封面失败:', error);
+      console.warn('Failed to parse base64 cover:', error);
       return null;
     }
   }
 
-  // 3. local:// 协议 URL
   if (trimmed.startsWith('local://')) {
     try {
       const diskPath = resolveLocalUrlToFilePath(trimmed);
@@ -253,12 +259,11 @@ async function resolveCoverBuffer(
         return { buffer, mime };
       }
     } catch (error) {
-      console.warn('读取 local:// 协议封面失败:', trimmed, error);
+      console.warn('Failed to read local:// cover:', trimmed, error);
       return null;
     }
   }
 
-  // 4. 普通本地文件路径
   try {
     const normalizedPath = path.normalize(trimmed);
     if (fs.existsSync(normalizedPath)) {
@@ -267,19 +272,15 @@ async function resolveCoverBuffer(
       return { buffer, mime };
     }
   } catch (error) {
-    console.warn('读取本地封面文件失败:', trimmed, error);
+    console.warn('Failed to read local cover file:', trimmed, error);
   }
 
   return null;
 }
 
-/** 查询 iTunes Search API (含自动降级与关键词清洗检索) */
-async function fetchFromITunes(
-  title: string,
-  artist?: string
-): Promise<MetadataOnlineResult[]> {
+async function fetchFromITunes(title: string, artist?: string): Promise<MetadataOnlineResult[]> {
   try {
-    let term = [title, artist].filter(Boolean).join(' ').trim();
+    const term = [title, artist].filter(Boolean).join(' ').trim();
     let url = `https://itunes.apple.com/search?term=${encodeURIComponent(
       term
     )}&media=music&limit=5`;
@@ -290,9 +291,10 @@ async function fetchFromITunes(
 
     let items = res.data?.results || [];
 
-    // 若未搜出结果且 title 包含 (feat. ...) 或 [Remix] 等额外修饰词，自动剔除后重试
     if (items.length === 0) {
-      const stripped = title.replace(/\s*[\(\[][^\)\]]*(?:feat|ft|remix|version|mix)[^\)\]]*[\)\]]/gi, '').trim();
+      const stripped = title
+        .replace(/\s*[\(\[][^\)\]]*(?:feat|ft|remix|version|mix)[^\)\]]*[\)\]]/gi, '')
+        .trim();
       if (stripped && stripped !== title) {
         const fallbackTerm = [stripped, artist].filter(Boolean).join(' ').trim();
         url = `https://itunes.apple.com/search?term=${encodeURIComponent(fallbackTerm)}&media=music&limit=5`;
@@ -306,10 +308,7 @@ async function fetchFromITunes(
 
     return items.map((item) => {
       const rawCover: string = item.artworkUrl100 || '';
-      // 提取 1000x1000 高清大图
-      const coverUrl = rawCover
-        ? rawCover.replace('100x100bb', '1000x1000bb')
-        : '';
+      const coverUrl = rawCover ? rawCover.replace('100x100bb', '1000x1000bb') : '';
       const year = item.releaseDate ? String(item.releaseDate).slice(0, 4) : '';
 
       return {
@@ -329,15 +328,19 @@ async function fetchFromITunes(
   }
 }
 
-/** 查询 MusicBrainz API + Cover Art Archive (含特殊字符清洗避免 400 Bad Request) */
 async function fetchFromMusicBrainz(
   title: string,
   artist?: string
 ): Promise<MetadataOnlineResult[]> {
   try {
-    // 清理 Lucene 保留字符，防止语法解析错误
-    const cleanTitle = title.replace(/[+\-!(){}\[\]^"~*?:\\\/]/g, ' ').replace(/\s+/g, ' ').trim();
-    const cleanArtist = (artist || '').replace(/[+\-!(){}\[\]^"~*?:\\\/]/g, ' ').replace(/\s+/g, ' ').trim();
+    const cleanTitle = title
+      .replace(/[+\-!(){}\[\]^"~*?:\\\/]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    const cleanArtist = (artist || '')
+      .replace(/[+\-!(){}\[\]^"~*?:\\\/]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
 
     let query = `recording:"${cleanTitle || title}"`;
     if (cleanArtist) {
@@ -359,16 +362,11 @@ async function fetchFromMusicBrainz(
     return recordings.map((rec) => {
       const recTitle: string = rec.title || title;
       const artistCredit =
-        rec['artist-credit']?.[0]?.name ||
-        rec['artist-credit']?.[0]?.artist?.name ||
-        artist ||
-        '';
+        rec['artist-credit']?.[0]?.name || rec['artist-credit']?.[0]?.artist?.name || artist || '';
       const firstRelease = rec.releases?.[0];
       const recAlbum: string = firstRelease?.title || '';
       const recYear: string =
-        firstRelease?.date?.slice(0, 4) ||
-        rec['first-release-date']?.slice(0, 4) ||
-        '';
+        firstRelease?.date?.slice(0, 4) || rec['first-release-date']?.slice(0, 4) || '';
       const recGenre: string = rec.tags?.[0]?.name || '';
       const releaseId: string | undefined = firstRelease?.id;
       const coverUrl = releaseId
@@ -393,7 +391,6 @@ async function fetchFromMusicBrainz(
 }
 
 /**
- * 生成符合 M3U8 标准规范的播放列表文件内容 (UTF-8)
  */
 export function generateM3u8Content(
   tracks: Array<{ filePath: string; title?: string; artist?: string; duration?: number }>
@@ -411,14 +408,12 @@ export function generateM3u8Content(
 }
 
 /**
- * 解析 M3U / M3U8 文件内容并提取去重后的有效绝对路径
  */
 export function parseM3u8Content(content: string, baseDir?: string): string[] {
   if (!content || typeof content !== 'string') {
     return [];
   }
 
-  // 剔除可能存在的 UTF-8 BOM
   const cleanContent = content.charCodeAt(0) === 0xfeff ? content.slice(1) : content;
   const lines = cleanContent.split(/\r?\n/);
   const result: string[] = [];
@@ -430,7 +425,6 @@ export function parseM3u8Content(content: string, baseDir?: string): string[] {
       continue;
     }
 
-    // 去除双引号或单引号包裹
     if (
       (line.startsWith('"') && line.endsWith('"')) ||
       (line.startsWith("'") && line.endsWith("'"))
@@ -438,7 +432,6 @@ export function parseM3u8Content(content: string, baseDir?: string): string[] {
       line = line.slice(1, -1).trim();
     }
 
-    // 处理 file:// 协议本地文件路径
     if (line.startsWith('file://')) {
       try {
         const fileUrl = new URL(line);
@@ -471,7 +464,6 @@ export function parseM3u8Content(content: string, baseDir?: string): string[] {
 }
 
 /**
- * 初始化音频元数据与标签管理模块
  */
 export function initializeTagAndMetadataManager(): void {
   // Remove a single downloaded/local variant file from disk.
@@ -487,7 +479,6 @@ export function initializeTagAndMetadataManager(): void {
     }
   });
 
-  // 1. 在线元数据与封面检索
   ipcMain.handle(
     'metadata:fetch-online',
     async (
@@ -504,17 +495,14 @@ export function initializeTagAndMetadataManager(): void {
         fetchFromMusicBrainz(title.trim(), artist?.trim())
       ]);
 
-      const itunesList =
-        itunesRes.status === 'fulfilled' ? itunesRes.value : [];
+      const itunesList = itunesRes.status === 'fulfilled' ? itunesRes.value : [];
       const mbList = mbRes.status === 'fulfilled' ? mbRes.value : [];
 
-      // iTunes 结果优先（封面高清且命中率高），MusicBrainz 补充
       const combined = [...itunesList, ...mbList];
       return { results: combined };
     }
   );
 
-  // 2. 多源歌词检索（LRCLIB 全球开源歌词库 + 自动生成罗马音音译）
   ipcMain.handle(
     'lyrics:fetch-multi-source',
     async (
@@ -539,28 +527,24 @@ export function initializeTagAndMetadataManager(): void {
 
       try {
         const queryTerm = [title, artist].filter(Boolean).join(' ').trim();
-        const url = `https://lrclib.net/api/search?q=${encodeURIComponent(
-          queryTerm
-        )}`;
+        const url = `https://lrclib.net/api/search?q=${encodeURIComponent(queryTerm)}`;
         const res = await axios.get<any[]>(url, {
           timeout: REQUEST_TIMEOUT_MS,
           headers: { 'User-Agent': HTTP_USER_AGENT }
         });
 
         const rawList = Array.isArray(res.data) ? res.data : [];
-        const candidates: Array<LyricCandidate & { duration?: number }> =
-          rawList.map((item) => ({
-            id: item.id,
-            trackName: item.trackName || item.name || '',
-            artistName: item.artistName || '',
-            albumName: item.albumName || '',
-            syncedLyrics: item.syncedLyrics || '',
-            plainLyrics: item.plainLyrics || '',
-            duration: typeof item.duration === 'number' ? item.duration : 0,
-            source: 'LRCLIB'
-          }));
+        const candidates: Array<LyricCandidate & { duration?: number }> = rawList.map((item) => ({
+          id: item.id,
+          trackName: item.trackName || item.name || '',
+          artistName: item.artistName || '',
+          albumName: item.albumName || '',
+          syncedLyrics: item.syncedLyrics || '',
+          plainLyrics: item.plainLyrics || '',
+          duration: typeof item.duration === 'number' ? item.duration : 0,
+          source: 'LRCLIB'
+        }));
 
-        // 排序规则：优先有时间轴歌词的候选项；如果有传入时长，优先匹配误差在 5 秒内的条目
         candidates.sort((a, b) => {
           const aSynced = Boolean(a.syncedLyrics);
           const bSynced = Boolean(b.syncedLyrics);
@@ -578,7 +562,6 @@ export function initializeTagAndMetadataManager(): void {
 
         const best = candidates[0] || null;
         const lrc = best ? best.syncedLyrics || best.plainLyrics || '' : '';
-        // 自动为日语假名和孟加拉语歌词生成罗马音音轨 (romalrc)
         const romalrc = lrc ? generateRomanizedLyricLrc(lrc) : '';
 
         return {
@@ -609,7 +592,6 @@ export function initializeTagAndMetadataManager(): void {
     }
   );
 
-  // 3. 本地音频标签更新、内嵌封面写入、侧车歌词落盘与物理文件重命名
   ipcMain.handle(
     'local-music:update-tags-and-file',
     async (
@@ -619,17 +601,13 @@ export function initializeTagAndMetadataManager(): void {
       try {
         const { filePath } = payload;
         if (!filePath || !fs.existsSync(filePath)) {
-          return { ok: false, error: `音频文件不存在: ${filePath}` };
+          return { ok: false, error: `Audio file not found: ${filePath}` };
         }
 
         const ext = path.extname(filePath).toLowerCase();
 
-        // 1. 解析传入封面（HTTP URL / base64 DataURL / local:// / 本地文件路径）
-        const coverResolved = await resolveCoverBuffer(
-          payload.coverDataUrlOrPath
-        );
+        const coverResolved = await resolveCoverBuffer(payload.coverDataUrlOrPath);
 
-        // 2. 根据文件格式写入 ID3v2 / FLAC Vorbis / MP4 / Opus / Ogg 标签与内嵌封面
         if (ext === '.mp3') {
           const id3Tags: NodeID3.Tags = {
             title: payload.title,
@@ -695,8 +673,14 @@ export function initializeTagAndMetadataManager(): void {
           }
 
           await writeFlacTags(flacTags, filePath);
-        } else if (ext === '.m4a' || ext === '.mp4' || ext === '.opus' || ext === '.ogg' || ext === '.wav' || ext === '.webm') {
-          // 使用 ffmpeg-static 为 M4A (AAC)、OPUS、OGG 等容器写入元数据与封面
+        } else if (
+          ext === '.m4a' ||
+          ext === '.mp4' ||
+          ext === '.opus' ||
+          ext === '.ogg' ||
+          ext === '.wav' ||
+          ext === '.webm'
+        ) {
           await writeFfmpegTags(
             filePath,
             {
@@ -711,17 +695,11 @@ export function initializeTagAndMetadataManager(): void {
           );
         }
 
-        // 3. 写入同名侧车 .lrc 文件（默认为 true）
         if (payload.saveSidecarLrc !== false && payload.lyrics?.trim()) {
           const sidecarLrcPath = filePath.replace(/\.[^.]+$/, '.lrc');
-          await fs.promises.writeFile(
-            sidecarLrcPath,
-            payload.lyrics.trim(),
-            'utf8'
-          );
+          await fs.promises.writeFile(sidecarLrcPath, payload.lyrics.trim(), 'utf8');
         }
 
-        // 4. 物理文件重命名（若提供了 newFileName 且与当前文件名不同）
         let finalPath = filePath;
         if (payload.newFileName && payload.newFileName.trim()) {
           const origExt = path.extname(filePath);
@@ -730,7 +708,6 @@ export function initializeTagAndMetadataManager(): void {
             .replace(/[<>:"/\\|?*\x00-\x1F]/g, '_')
             .replace(/\s+/g, ' ');
 
-          // 保持原文件扩展名
           if (!sanitized.toLowerCase().endsWith(origExt.toLowerCase())) {
             sanitized += origExt;
           }
@@ -740,19 +717,15 @@ export function initializeTagAndMetadataManager(): void {
             const dir = path.dirname(filePath);
             const targetPath = path.join(dir, sanitized);
 
-            if (
-              targetPath.toLowerCase() !== filePath.toLowerCase() &&
-              fs.existsSync(targetPath)
-            ) {
+            if (targetPath.toLowerCase() !== filePath.toLowerCase() && fs.existsSync(targetPath)) {
               return {
                 ok: false,
-                error: `目标文件名已存在: ${sanitized}`
+                error: `Target file name already exists: ${sanitized}`
               };
             }
 
             await safeRename(filePath, targetPath);
 
-            // 同时迁移同名 sidecar .lrc 文件
             const oldLrc = filePath.replace(/\.[^.]+$/, '.lrc');
             const newLrc = targetPath.replace(/\.[^.]+$/, '.lrc');
             if (fs.existsSync(oldLrc)) {
@@ -763,13 +736,9 @@ export function initializeTagAndMetadataManager(): void {
           }
         }
 
-        // 5. 将封面缓存落盘到 userData/AudioCovers/<sha256>.jpg，保证本地音乐库立即刷新显示
         const coverDir = path.join(app.getPath('userData'), 'AudioCovers');
         await fs.promises.mkdir(coverDir, { recursive: true });
-        const hash = crypto
-          .createHash('sha256')
-          .update(finalPath)
-          .digest('hex');
+        const hash = crypto.createHash('sha256').update(finalPath).digest('hex');
         let coverPath: string | null = null;
 
         if (coverResolved) {
@@ -777,7 +746,6 @@ export function initializeTagAndMetadataManager(): void {
           await fs.promises.writeFile(cachedCoverFile, coverResolved.buffer);
           coverPath = cachedCoverFile;
         } else {
-          // 查找是否已存在该文件的封面缓存
           const possibleJpg = path.join(coverDir, `${hash}.jpg`);
           const possiblePng = path.join(coverDir, `${hash}.png`);
           if (fs.existsSync(possibleJpg)) {
@@ -787,16 +755,13 @@ export function initializeTagAndMetadataManager(): void {
           }
         }
 
-        // 6. 重新解析文件时长与大小以返回完整的 LocalMusicMeta
         const stat = await fs.promises.stat(finalPath);
         let duration = 0;
         try {
           const parsed = await mm.parseFile(finalPath);
-          duration = parsed.format.duration
-            ? Math.round(parsed.format.duration * 1000)
-            : 0;
+          duration = parsed.format.duration ? Math.round(parsed.format.duration * 1000) : 0;
         } catch {
-          // 忽略格式解析错误
+          // Ignore a partially written tag
         }
 
         const updatedEntry = {
@@ -813,13 +778,12 @@ export function initializeTagAndMetadataManager(): void {
 
         return { ok: true, updatedEntry };
       } catch (err: any) {
-        console.error('更新本地音乐元数据失败:', err);
-        return { ok: false, error: err?.message || '更新标签失败' };
+        console.error('Failed to update local music metadata: ', err);
+        return { ok: false, error: err?.message || 'Failed to update tags' };
       }
     }
   );
 
-  // 3.1 单独保存时间戳歌词（同时内嵌至音频 ID3 / Vorbis / MP4 标签并落盘 .lrc 侧车文件）
   ipcMain.handle(
     'local-music:save-synced-lyrics',
     async (
@@ -838,7 +802,6 @@ export function initializeTagAndMetadataManager(): void {
         const trimmed = lyrics.trim();
         const ext = path.extname(filePath).toLowerCase();
 
-        // 1. 尝试将歌词内嵌到音频文件
         if (ext === '.mp3') {
           await NodeID3.Promise.update(
             {
@@ -857,7 +820,13 @@ export function initializeTagAndMetadataManager(): void {
             UNSYNCEDLYRICS: trimmed
           };
           await writeFlacTags({ tagMap, picture: (existing as any).picture }, filePath);
-        } else if (ext === '.m4a' || ext === '.mp4' || ext === '.opus' || ext === '.ogg' || ext === '.wav') {
+        } else if (
+          ext === '.m4a' ||
+          ext === '.mp4' ||
+          ext === '.opus' ||
+          ext === '.ogg' ||
+          ext === '.wav'
+        ) {
           const meta = await mm.parseFile(filePath).catch(() => null);
           const title = meta?.common.title || path.basename(filePath, ext);
           const artist = meta?.common.artist || '';
@@ -874,7 +843,6 @@ export function initializeTagAndMetadataManager(): void {
           );
         }
 
-        // 2. 落盘保存同名 .lrc 侧车文件
         if (saveSidecar) {
           const sidecarLrcPath = filePath.replace(/\.[^.]+$/, '.lrc');
           await fs.promises.writeFile(sidecarLrcPath, trimmed, 'utf8');
@@ -882,13 +850,12 @@ export function initializeTagAndMetadataManager(): void {
 
         return { ok: true };
       } catch (err: any) {
-        console.error('保存同步歌词失败:', err);
+        console.error('Failed to save synced lyrics:', err);
         return { ok: false, error: err?.message || 'Failed to save synced lyrics' };
       }
     }
   );
 
-  // 4. 打开对话框选择本地封面图片并返回 Data URL
   ipcMain.handle(
     'local-music:select-cover-file',
     async (): Promise<{
@@ -898,11 +865,11 @@ export function initializeTagAndMetadataManager(): void {
     }> => {
       try {
         const result = await dialog.showOpenDialog({
-          title: '选择封面图片',
+          title: 'Choose cover image',
           properties: ['openFile'],
           filters: [
             {
-              name: '图片文件',
+              name: 'Image file',
               extensions: ['jpg', 'jpeg', 'png', 'webp']
             }
           ]
@@ -923,13 +890,12 @@ export function initializeTagAndMetadataManager(): void {
           dataUrl
         };
       } catch (err: any) {
-        console.error('选择封面图片失败:', err);
+        console.error('Failed to choose cover image:', err);
         return { canceled: true, filePath: null, dataUrl: null };
       }
     }
   );
 
-  // 5. 导出 M3U8 播放列表
   ipcMain.handle(
     'library:export-m3u8',
     async (
@@ -955,13 +921,12 @@ export function initializeTagAndMetadataManager(): void {
 
         return { ok: true, filePath: result.filePath };
       } catch (err: any) {
-        console.error('导出 M3U8 播放列表失败:', err);
-        return { ok: false, error: err?.message || '导出播放列表失败' };
+        console.error('Failed to export M3U8 playlist:', err);
+        return { ok: false, error: err?.message || 'Failed to export playlist' };
       }
     }
   );
 
-  // 6. 导入 M3U / M3U8 播放列表
   ipcMain.handle(
     'library:import-m3u8',
     async (): Promise<{
@@ -992,13 +957,12 @@ export function initializeTagAndMetadataManager(): void {
           playlistFilePath: selectedFile
         };
       } catch (err: any) {
-        console.error('导入 M3U8 播放列表失败:', err);
-        return { ok: false, filePaths: [], error: err?.message || '导入播放列表失败' };
+        console.error('Failed to import M3U8 playlist:', err);
+        return { ok: false, filePaths: [], error: err?.message || 'Failed to import playlist' };
       }
     }
   );
 
-  // 7. 导出完整音乐库 JSON 备份
   ipcMain.handle(
     'library:export-backup-json',
     async (
@@ -1025,21 +989,16 @@ export function initializeTagAndMetadataManager(): void {
           ...payload
         };
 
-        await fs.promises.writeFile(
-          result.filePath,
-          JSON.stringify(backupData, null, 2),
-          'utf8'
-        );
+        await fs.promises.writeFile(result.filePath, JSON.stringify(backupData, null, 2), 'utf8');
 
         return { ok: true, filePath: result.filePath };
       } catch (err: any) {
-        console.error('导出 JSON 备份失败:', err);
-        return { ok: false, error: err?.message || '导出备份失败' };
+        console.error('Failed to export JSON backup:', err);
+        return { ok: false, error: err?.message || 'Failed to export backup' };
       }
     }
   );
 
-  // 8. 导入完整音乐库 JSON 备份
   ipcMain.handle(
     'library:import-backup-json',
     async (): Promise<{
@@ -1069,8 +1028,8 @@ export function initializeTagAndMetadataManager(): void {
           filePath: selectedFile
         };
       } catch (err: any) {
-        console.error('导入 JSON 备份失败:', err);
-        return { ok: false, error: err?.message || '导入备份失败' };
+        console.error('Failed to import JSON backup:', err);
+        return { ok: false, error: err?.message || 'Failed to import backup' };
       }
     }
   );

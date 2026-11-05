@@ -4,32 +4,28 @@ import { computed, type ComputedRef, nextTick, onUnmounted, ref, watch } from 'v
 import { musicDB } from '@/hooks/IndexDBHook';
 import { audioService } from '@/services/audioService';
 import { playbackRequestManager } from '@/services/playbackRequestManager';
+import { getSongKey, savePosition } from '@/services/songLibrary';
 import type { usePlayerStore } from '@/store';
 import type { Artist, ILyricText, SongResult } from '@/types/music';
 import { isElectron } from '@/utils';
 import { getTextColors } from '@/utils/linearColor';
 import { savePlaybackProgress } from '@/utils/playerUtils';
-import { getSongKey, savePosition } from '@/services/songLibrary';
 import { isEditableTarget } from '@/utils/shortcutKeyboard';
 import { parseLyrics } from '@/utils/yrcParser';
 
 const windowData = window as any;
 
-// 全局 playerStore 引用，通过 initMusicHook 函数注入
 let playerStore: ReturnType<typeof usePlayerStore> | null = null;
 
-// 初始化函数，接受 store 实例
 export const initMusicHook = (store: ReturnType<typeof usePlayerStore>): void => {
   if (playerStore === store) return;
   playerStore = store;
 
-  // 创建 computed 属性
   playMusic = computed(() => getPlayerStore().playMusic as SongResult);
   artistList = computed(
     () => (getPlayerStore().playMusic.ar || getPlayerStore().playMusic?.song?.artists) as Artist[]
   );
 
-  // 在 store 注入后初始化需要 store 的功能
   setupKeyboardListeners();
   setupMusicWatchers();
   setupCorrectionTimeWatcher();
@@ -37,7 +33,6 @@ export const initMusicHook = (store: ReturnType<typeof usePlayerStore>): void =>
   setupAudioListeners();
 };
 
-// 获取 playerStore 的辅助函数
 const getPlayerStore = () => {
   if (!playerStore) {
     throw new Error('MusicHook not initialized. Call initMusicHook first.');
@@ -53,28 +48,25 @@ const isPlaybackActive = (): boolean => {
   const store = getPlayerStore();
   return Boolean(store.play || store.isPlay);
 };
-export const lrcArray = ref<ILyricText[]>([]); // 歌词数组
-export const lrcTimeArray = ref<number[]>([]); // 歌词时间数组
-export const nowTime = ref(0); // 当前播放时间
-export const allTime = ref(0); // 总播放时间
-export const nowIndex = ref(0); // 当前播放歌词
-export const currentLrcProgress = ref(0); // 来存储当前歌词的进度
+export const lrcArray = ref<ILyricText[]>([]);
+export const lrcTimeArray = ref<number[]>([]);
+export const nowTime = ref(0);
+export const allTime = ref(0);
+export const nowIndex = ref(0);
+export const currentLrcProgress = ref(0);
 export const sound = ref<HTMLAudioElement | null>(audioService.getCurrentSound());
-export const isLyricWindowOpen = ref(false); // 新增状态
+export const isLyricWindowOpen = ref(false);
 export const textColors = ref<any>(getTextColors());
 
-// 这些 computed 属性需要在初始化后创建
 export let playMusic: ComputedRef<SongResult>;
 export let artistList: ComputedRef<Artist[]>;
 
 let lastIndex = -1;
 
-// 缓存平台信息，避免每次歌词变化时同步 IPC 调用
 const cachedPlatform = isElectron ? window.electron.ipcRenderer.sendSync('get-platform') : 'web';
 
 export { musicDB };
 
-// 键盘事件处理器（提取为命名函数，防止重复注册）
 const handleKeyUp = (e: KeyboardEvent) => {
   if (
     e.defaultPrevented ||
@@ -107,9 +99,6 @@ const setupKeyboardListeners = () => {
 let audioListenersInitialized = false;
 
 /**
- * 解析歌词字符串并转换为ILyricText格式
- * @param lyricsStr 歌词字符串
- * @returns 解析后的歌词数据
  */
 const parseLyricsString = async (
   lyricsStr: string
@@ -123,7 +112,7 @@ const parseLyricsString = async (
     console.log('parseResult', parseResult);
 
     if (!parseResult.success) {
-      console.error('歌词解析失败:', parseResult.error.message);
+      console.error('Failed to parse lyrics:', parseResult.error.message);
       return { lrcArray: [], lrcTimeArray: [], hasWordByWord: false };
     }
 
@@ -133,7 +122,6 @@ const parseLyricsString = async (
     let hasWordByWord = false;
 
     for (const line of lyrics) {
-      // 检查是否有逐字歌词
       const hasWords = line.words && line.words.length > 0;
       if (hasWords) {
         hasWordByWord = true;
@@ -141,7 +129,7 @@ const parseLyricsString = async (
 
       lrcArray.push({
         text: line.fullText,
-        trText: '', // 翻译文本稍后处理
+        trText: '',
         words: hasWords
           ? line.words.map((word) => ({
               ...word
@@ -152,14 +140,11 @@ const parseLyricsString = async (
         duration: line.duration
       });
 
-      // yrcParser 的 startTime 是毫秒；lrcTimeArray 全链路（nowTime 对比、
-      // setAudioTime seek）以秒为单位，必须换算，否则点击歌词会 seek 到
-      // 远超时长的位置被钳到末尾、直接触发切歌
       lrcTimeArray.push(line.startTime / 1000);
     }
     return { lrcArray, lrcTimeArray, hasWordByWord };
   } catch (error) {
-    console.error('解析歌词时发生错误:', error);
+    console.error('Error while parsing lyrics:', error);
     return { lrcArray: [], lrcTimeArray: [], hasWordByWord: false };
   }
 };
@@ -194,7 +179,7 @@ const ensureLyricsLoaded = async (force = false) => {
       if (!isCurrent()) return;
       result.lrcArray = await translateLyrics(rawLrc as any);
     } catch (e) {
-      console.error('翻译歌词失败，使用原始歌词：', e);
+      console.error('Lyric translation failed, using original lyrics: ', e);
     }
   } else {
     const url = playMusic.value.playMusicUrl;
@@ -215,7 +200,7 @@ const ensureLyricsLoaded = async (force = false) => {
         result = await loadLrc(songId);
       }
     } catch (error) {
-      console.error('加载歌词失败:', error);
+      console.error('Failed to load lyrics:', error);
     }
   }
   if (!isCurrent()) return;
@@ -230,7 +215,6 @@ const ensureLyricsLoaded = async (force = false) => {
 const setupMusicWatchers = () => {
   const store = getPlayerStore();
 
-  // 切歌时 id 变化, 强制重新解析
   watch(
     () => store.playMusic.id,
     async (newId, oldId) => {
@@ -248,13 +232,10 @@ const setupMusicWatchers = () => {
     { immediate: true }
   );
 
-  // 同一首歌但 lyric 字段后到 (播放后异步加载元数据 / 重启 + autoPlay 关闭场景)
   watch(
     () => playMusic.value?.lyric,
     (newLyric) => {
       if (!playMusic.value?.id) return;
-      // 完整歌词对象（含 yrc 逐字/翻译，时间单位为秒）后到时强制重新解析，
-      // 替换掉先行的 API 兜底纯 lrc 歌词
       const isRichLyric =
         !!newLyric && typeof newLyric === 'object' && (newLyric.lrcArray?.length ?? 0) > 0;
       if (lrcArray.value.length === 0 || isRichLyric) {
@@ -265,14 +246,12 @@ const setupMusicWatchers = () => {
 };
 
 const setupAudioListeners = () => {
-  // 监听器只注册一次，避免重复绑定和误清理全局恢复监听器
   if (audioListenersInitialized) {
     return () => {};
   }
   audioListenersInitialized = true;
 
   let interval: number | null = null;
-  // 播放状态恢复定时器：当 interval 因异常被清除时，自动恢复
   let recoveryTimer: number | null = null;
   let lyricThrottleCounter = 0;
   let lastSavedProgress = 0;
@@ -292,14 +271,11 @@ const setupAudioListeners = () => {
   };
 
   /**
-   * 启动进度更新 interval
-   * 从 audioService 实时获取 sound 引用，避免闭包中 sound.value 过期
    */
   const startProgressInterval = () => {
     clearInterval();
     interval = window.setInterval(() => {
       try {
-        // 每次从 audioService 获取最新的 sound 引用，而不是依赖闭包中的 sound.value
         const store = getPlayerStore();
         const isVideoMode = store.playbackMode === 'video';
         const currentSound = audioService.getCurrentSound();
@@ -310,17 +286,14 @@ const setupAudioListeners = () => {
         // lyrics, the progress bar and the lyric window.
         if (!isVideoMode) {
           if (!currentSound || audioService.getCurrentTrack()?.id !== store.playMusic.id) {
-            // sound 暂时为空（可能在切歌/重建中），不清除 interval，等待恢复
             return;
           }
 
           const audioTime = currentSound.currentTime;
           if (typeof audioTime !== 'number' || Number.isNaN(audioTime)) {
-            // 无效时间，跳过本次更新
             return;
           }
 
-          // 同步 sound.value 引用（确保外部也能拿到最新的）
           if (sound.value !== currentSound) {
             sound.value = currentSound;
           }
@@ -334,11 +307,10 @@ const setupAudioListeners = () => {
         // Every lyric/tray/MPRIS consumer below uses this single clock.
         const currentTime = isVideoMode ? nowTime.value : currentSound!.currentTime;
 
-        // === 歌词索引更新 ===
         const newIndex = getLrcIndex(nowTime.value);
         if (newIndex !== nowIndex.value) {
           nowIndex.value = newIndex;
-          currentLrcProgress.value = 0; // 换行时重置进度
+          currentLrcProgress.value = 0;
           if (isElectron && isLyricWindowOpen.value) {
             sendLyricToWin();
           }
@@ -350,7 +322,6 @@ const setupAudioListeners = () => {
           }
         }
 
-        // === 逐字歌词行内进度 ===
         const { start, end } = currentLrcTiming.value;
         if (typeof start === 'number' && typeof end === 'number' && start !== end) {
           const elapsed = currentTime + correctionTime.value - start;
@@ -359,7 +330,6 @@ const setupAudioListeners = () => {
           currentLrcProgress.value = Math.min(Math.max(progress, 0), 100);
         }
 
-        // === 节流发送轻量歌词进度更新（每 ~200ms / 约每 4 个 tick）===
         lyricThrottleCounter++;
         if (isElectron && isLyricWindowOpen.value && lyricThrottleCounter % 4 === 0) {
           try {
@@ -373,11 +343,10 @@ const setupAudioListeners = () => {
               })
             );
           } catch {
-            // 忽略发送失败
+            // Ignore storage quota errors
           }
         }
 
-        // === 进度保存（每 ~5 秒）===
         if (
           !isVideoMode &&
           Math.floor(currentTime) % 5 === 0 &&
@@ -394,24 +363,20 @@ const setupAudioListeners = () => {
           }
         }
 
-        // === MPRIS 进度更新（每 ~1 秒）===
         if (isElectron && !isVideoMode && lyricThrottleCounter % 20 === 0) {
           try {
             window.electron.ipcRenderer.send('mpris-position-update', currentTime);
           } catch {
-            // 忽略发送失败
+            // Ignore MPRIS update failures
           }
         }
       } catch (error) {
-        console.error('进度更新 interval 出错:', error);
-        // 出错时不清除 interval，让下一次 tick 继续尝试
+        console.error('Progress update interval error:', error);
       }
     }, 50);
   };
 
   /**
-   * 启动播放状态恢复监控
-   * 每 500ms 检查一次：如果 store 认为在播放但 interval 已丢失，则恢复
    */
   const startRecoveryMonitor = () => {
     stopRecovery();
@@ -430,12 +395,11 @@ const setupAudioListeners = () => {
           }
         }
       } catch {
-        // 静默忽略
+        // Ignore errors from the recovery monitor
       }
     }, 500);
   };
 
-  // 启动恢复监控
   startRecoveryMonitor();
 
   // Entering video mode pauses the audio element; keep the shared lyric clock
@@ -451,29 +415,23 @@ const setupAudioListeners = () => {
     }
   );
 
-  // 监听seek开始事件，立即更新UI
   audioService.on('seek_start', (time) => {
-    // 直接更新显示位置，不检查拖动状态
     nowTime.value = time;
   });
 
-  // 监听seek完成事件
   audioService.on('seek', () => {
     try {
       if (getPlayerStore().playbackMode === 'video') return;
       const currentSound = audioService.getCurrentSound();
       if (currentSound) {
-        // 立即更新显示时间，不进行任何检查
         const currentTime = currentSound.currentTime;
         if (typeof currentTime === 'number' && !Number.isNaN(currentTime)) {
           nowTime.value = currentTime;
 
-          // === MPRIS seek 时同步进度 ===
           if (isElectron) {
             window.electron.ipcRenderer.send('mpris-position-update', currentTime);
           }
 
-          // 检查是否需要更新歌词
           const newIndex = getLrcIndex(nowTime.value);
           if (newIndex !== nowIndex.value) {
             nowIndex.value = newIndex;
@@ -484,46 +442,40 @@ const setupAudioListeners = () => {
         }
       }
     } catch (error) {
-      console.error('处理seek事件出错:', error);
+      console.error('Error handling seek event:', error);
     }
   });
 
-  // 立即更新一次时间和进度（解决初始化时进度条不显示问题）
   const updateCurrentTimeAndDuration = () => {
     const currentSound = audioService.getCurrentSound();
     if (currentSound) {
       try {
-        // 更新当前时间和总时长
         const currentTime = currentSound.currentTime;
         if (typeof currentTime === 'number' && !Number.isNaN(currentTime)) {
           nowTime.value = currentTime;
           allTime.value = currentSound.duration;
         }
       } catch (error) {
-        console.error('初始化时间和进度失败:', error);
+        console.error('Failed to initialize time and progress:', error);
       }
     }
   };
 
-  // 立即执行一次更新
   updateCurrentTimeAndDuration();
 
-  // 监听播放
   audioService.on('play', () => {
     getPlayerStore().setIsPlay(true);
     if (isElectron) {
       window.api.sendSong(cloneDeep(getPlayerStore().playMusic));
     }
-    // 兜底: 重启后首次点播放时 lrcArray 仍为空则主动加载
     if (lrcArray.value.length === 0 && playMusic.value?.id) {
       ensureLyricsLoaded();
     }
     startProgressInterval();
   });
 
-  // 监听暂停
   audioService.on('pause', () => {
-    console.log('音频暂停事件触发');
+    console.log('Audio paused');
     getPlayerStore().setIsPlay(false);
     // The pause is expected when switching to video mode; the video clock still
     // needs this interval to advance lyrics.
@@ -535,9 +487,8 @@ const setupAudioListeners = () => {
     }
   });
 
-  // 监听结束
   audioService.on('end', async (track: SongResult) => {
-    console.log('音频播放结束事件触发');
+    console.log('Audio ended');
     clearInterval();
 
     const gen = playbackRequestManager.getGeneration();
@@ -569,11 +520,9 @@ export const pause = (): void => {
   getPlayerStore().handlePause();
 };
 
-// 歌词矫正时间映射（每首歌独立）
 const CORRECTION_KEY = 'lyric-correction-map';
 const correctionTimeMap = ref<Record<string, number>>({});
 
-// 初始化 correctionTimeMap
 const loadCorrectionMap = () => {
   try {
     const raw = localStorage.getItem(CORRECTION_KEY);
@@ -588,12 +537,9 @@ const saveCorrectionMap = () => {
 
 loadCorrectionMap();
 
-// 歌词矫正时间，当前歌曲
 export const correctionTime = ref(0);
 
-// 设置歌词矫正时间的监听器
 const setupCorrectionTimeWatcher = () => {
-  // 切歌时自动读取矫正时间
   watch(
     () => playMusic.value?.id,
     (id) => {
@@ -621,8 +567,6 @@ export const setCorrectionTime = (value: number) => {
 };
 
 /**
- * 调整歌词矫正时间（每首歌独立）
- * @param delta 增加/减少的秒数（正为加，负为减）
  */
 export const adjustCorrectionTime = (delta: number) => {
   const id = playMusic.value?.id;
@@ -639,38 +583,31 @@ export const adjustCorrectionTime = (delta: number) => {
   }
 };
 
-// 获取当前播放歌词
 export const isCurrentLrc = (index: number, time: number): boolean => {
   const currentTime = lrcTimeArray.value[index];
 
-  // 如果是最后一句歌词，只需要判断时间是否大于等于当前句的开始时间
   if (index === lrcTimeArray.value.length - 1) {
     const correctedTime = time + correctionTime.value;
     return correctedTime >= currentTime;
   }
 
-  // 非最后一句歌词，需要判断时间在当前句和下一句之间
   const nextTime = lrcTimeArray.value[index + 1];
   const correctedTime = time + correctionTime.value;
   return correctedTime >= currentTime && correctedTime < nextTime;
 };
 
-// 获取当前播放歌词INDEX
 export const getLrcIndex = (time: number): number => {
   const correctedTime = time + correctionTime.value;
 
-  // 如果歌词数组为空，返回当前索引
   if (lrcTimeArray.value.length === 0) {
     return 0;
   }
 
-  // 处理最后一句歌词的情况
   const lastIndex = lrcTimeArray.value.length - 1;
   if (correctedTime >= lrcTimeArray.value[lastIndex]) {
     return lastIndex;
   }
 
-  // 查找当前时间对应的歌词索引
   for (let i = 0; i < lrcTimeArray.value.length - 1; i++) {
     const currentTime = lrcTimeArray.value[i];
     const nextTime = lrcTimeArray.value[i + 1];
@@ -683,21 +620,18 @@ export const getLrcIndex = (time: number): number => {
   return 0;
 };
 
-// 获取当前播放歌词进度
 const currentLrcTiming = computed(() => {
   const start = lrcTimeArray.value[nowIndex.value] || 0;
   const end = lrcTimeArray.value[nowIndex.value + 1] || start + 1;
   return { start, end };
 });
 
-// 获取歌词样式
 export const getLrcStyle = (index: number) => {
   const currentTime = nowTime.value + correctionTime.value;
   const start = lrcTimeArray.value[index];
   const end = lrcTimeArray.value[index + 1] ?? start + 1;
 
   if (currentTime >= start && currentTime < end) {
-    // 当前句，显示进度
     const progress = ((currentTime - start) / (end - start)) * 100;
     return {
       backgroundImage: `linear-gradient(to right, #ffffff ${progress}%, #ffffff8a ${progress}%)`,
@@ -707,13 +641,10 @@ export const getLrcStyle = (index: number) => {
       transition: 'background-image 0.1s linear'
     };
   }
-  // 其它句
   return {};
 };
 
-// 播放进度
 export const useLyricProgress = () => {
-  // 如果已经在全局更新进度，立即返回
   return {
     getLrcStyle
   };
@@ -725,7 +656,6 @@ export const registerVideoSeekHandler = (handler: ((time: number) => void) | nul
   videoSeekHandler = handler;
 };
 
-// 设置当前播放时间
 export const setAudioTime = (index: number): void => {
   const time = lrcTimeArray.value[index];
   if (!Number.isFinite(time)) return;
@@ -744,7 +674,6 @@ export const setAudioTime = (index: number): void => {
   void play();
 };
 
-// 获取当前播放的歌词
 export const getCurrentLrc = () => {
   const index = getLrcIndex(nowTime.value);
   return {
@@ -753,13 +682,11 @@ export const getCurrentLrc = () => {
   };
 };
 
-// 获取一句歌词播放时间几秒到几秒
 export const getLrcTimeRange = (index: number) => ({
   currentTime: lrcTimeArray.value[index],
   nextTime: lrcTimeArray.value[index + 1]
 });
 
-// 监听歌词数组变化，当切换歌曲时重新初始化歌词窗口
 watch(
   () => lrcArray.value,
   (newLrcArray) => {
@@ -769,48 +696,44 @@ watch(
   }
 );
 
-// 发送歌词更新数据
 export const sendLyricToWin = () => {
   if (!isElectron || !isLyricWindowOpen.value) {
     return;
   }
 
-  // 检查是否有播放的歌曲
   if (!playMusic.value || !playMusic.value.id) {
     return;
   }
 
   try {
-    // 记录歌词发送状态
     if (lrcArray.value && lrcArray.value.length > 0) {
       const nowIndex = getLrcIndex(nowTime.value);
-      // 构建完整的歌词更新数据
       const updateData = {
         type: 'full',
         nowIndex,
         nowTime: nowTime.value,
         correctionTime: correctionTime.value,
         startCurrentTime: lrcTimeArray.value[nowIndex] || 0,
-        nextTime: lrcTimeArray.value[nowIndex + 1] || 0,          isPlay: isPlaybackActive(),
+        nextTime: lrcTimeArray.value[nowIndex + 1] || 0,
+        isPlay: isPlaybackActive(),
         lrcArray: lrcArray.value,
         lrcTimeArray: lrcTimeArray.value,
         allTime: allTime.value,
         playMusic: playMusic.value
       };
 
-      // 发送数据到歌词窗口
       window.api.sendLyric(JSON.stringify(updateData));
     } else {
       console.log('No lyric data available, sending empty lyric message');
 
-      // 发送没有歌词的提示
       const emptyLyricData = {
         type: 'empty',
         nowIndex: 0,
         nowTime: nowTime.value,
         startCurrentTime: 0,
-        nextTime: 0,          isPlay: isPlaybackActive(),
-        lrcArray: [{ text: '当前歌曲暂无歌词', trText: '' }],
+        nextTime: 0,
+        isPlay: isPlaybackActive(),
+        lrcArray: [{ text: 'This song has no lyrics', trText: '' }],
         lrcTimeArray: [0],
         allTime: allTime.value,
         playMusic: playMusic.value
@@ -822,7 +745,6 @@ export const sendLyricToWin = () => {
   }
 };
 
-// 发送歌词到系统托盘歌词（TrayLyric）
 const sendTrayLyric = (index: number) => {
   if (!isElectron || cachedPlatform !== 'linux') return;
 
@@ -846,12 +768,9 @@ const sendTrayLyric = (index: number) => {
   }
 };
 
-// 歌词同步定时器
 let lyricSyncInterval: any = null;
 
-// 开始歌词同步
 const startLyricSync = () => {
-  // 清除已有的定时器
   if (lyricSyncInterval) {
     clearInterval(lyricSyncInterval);
   }
@@ -875,7 +794,6 @@ const startLyricSync = () => {
   }, 1000);
 };
 
-// 停止歌词同步
 const stopLyricSync = () => {
   if (lyricSyncInterval) {
     clearInterval(lyricSyncInterval);
@@ -887,7 +805,7 @@ export const openLyric = async () => {
   if (!isElectron) return;
 
   if (!playMusic.value || !playMusic.value.id) {
-    console.log('没有正在播放的歌曲，无法打开歌词窗口');
+    console.log('No track is playing, cannot open the lyrics window');
     return;
   }
 
@@ -895,86 +813,69 @@ export const openLyric = async () => {
   if (isLyricWindowOpen.value) {
     window.api.openLyric();
 
-    // 先发"加载中"占位, 防止窗口启动期间显示"无歌词"
     if (!lrcArray.value || lrcArray.value.length === 0) {
       const emptyLyricData = {
         type: 'empty',
         nowIndex: 0,
         nowTime: nowTime.value,
         startCurrentTime: 0,
-        nextTime: 0,          isPlay: isPlaybackActive(),
-        lrcArray: [{ text: '加载歌词中...', trText: '' }],
+        nextTime: 0,
+        isPlay: isPlaybackActive(),
+        lrcArray: [{ text: 'Loading lyrics...', trText: '' }],
         lrcTimeArray: [0],
         allTime: allTime.value,
         playMusic: playMusic.value
       };
       window.api.sendLyric(JSON.stringify(emptyLyricData));
 
-      // 关键: 主动加载歌词, 不依赖 watcher
-      // (重启场景下 playerCore.playMusic 整体替换可能未触发 lyric watcher)
       await ensureLyricsLoaded(true);
     } else {
       sendLyricToWin();
     }
 
-    // 延迟重发, 防窗口加载慢丢消息
     setTimeout(() => {
       if (isLyricWindowOpen.value) {
         sendLyricToWin();
       }
     }, 500);
 
-    // 启动歌词同步
     startLyricSync();
   } else {
     closeLyric();
-    // 停止歌词同步
     stopLyricSync();
   }
 };
 
-// 修改closeLyric函数，确保停止定时同步
 export const closeLyric = () => {
   if (!isElectron) return;
-  isLyricWindowOpen.value = false; // 确保状态更新
+  isLyricWindowOpen.value = false;
   windowData.electron.ipcRenderer.send('close-lyric');
 
-  // 停止歌词同步
   stopLyricSync();
 };
 
-// 设置播放状态监听器
 const setupPlayStateWatcher = () => {
-  // 在组件挂载时设置对播放状态的监听
-  watch(
-    [() => getPlayerStore().play, () => getPlayerStore().isPlay],
-    ([isPlaying]) => {
-      // 如果歌词窗口打开，根据播放状态控制同步
-      if (isElectron && isLyricWindowOpen.value) {
-        if (isPlaying) {
-          startLyricSync();
-        } else {
-          // 如果暂停播放，发送一次暂停状态的更新
-          const pauseData = {
-            type: 'update',
-            isPlay: false
-          };
-          window.api.sendLyric(JSON.stringify(pauseData));
-        }
+  watch([() => getPlayerStore().play, () => getPlayerStore().isPlay], ([isPlaying]) => {
+    if (isElectron && isLyricWindowOpen.value) {
+      if (isPlaying) {
+        startLyricSync();
+      } else {
+        const pauseData = {
+          type: 'update',
+          isPlay: false
+        };
+        window.api.sendLyric(JSON.stringify(pauseData));
       }
     }
-  );
+  });
 };
 
-// 在组件卸载时清理资源
 onUnmounted(() => {
   stopLyricSync();
 });
 
-// 导出歌词解析函数供外部使用
 export { parseLyricsString };
 
-// 添加播放控制命令监听
 if (isElectron) {
   windowData.electron.ipcRenderer.on('lyric-control-back', (_, command: string) => {
     switch (command) {
@@ -990,7 +891,7 @@ if (isElectron) {
         getPlayerStore().nextPlay();
         break;
       case 'close':
-        isLyricWindowOpen.value = false; // 确保状态更新
+        isLyricWindowOpen.value = false;
         break;
       default:
         console.log('Unknown command:', command);
@@ -999,20 +900,16 @@ if (isElectron) {
   });
 }
 
-// 在组件挂载时设置监听器
 export const initAudioListeners = async () => {
   try {
-    // 确保有正在播放的音乐
     if (!getPlayerStore().playMusic || !getPlayerStore().playMusic.id) {
-      console.log('没有正在播放的音乐，跳过音频监听器初始化');
+      console.log('No track is playing, skipping audio listener setup');
       return;
     }
 
-    // 确保有音频实例
     const initialSound = audioService.getCurrentSound();
     if (!initialSound) {
-      console.log('没有音频实例，等待音频加载...');
-      // 等待音频加载完成
+      console.log('No audio instance yet, waiting for audio to load...');
       await new Promise<void>((resolve) => {
         const checkInterval = setInterval(() => {
           const sound = audioService.getCurrentSound();
@@ -1022,26 +919,22 @@ export const initAudioListeners = async () => {
           }
         }, 100);
 
-        // 设置超时
         setTimeout(() => {
           clearInterval(checkInterval);
-          console.log('等待音频加载超时');
+          console.log('Timed out waiting for audio to load');
           resolve();
         }, 5000);
       });
     }
 
-    // 初始化音频监听器
     setupAudioListeners();
 
-    // 监听歌词窗口事件
     if (isElectron) {
       window.api.onLyricWindowClosed(() => {
         isLyricWindowOpen.value = false;
       });
       window.api.onLyricWindowReady(async () => {
         if (!isLyricWindowOpen.value) return;
-        // 窗口加载完成时再兜底加载一次, 防止 openLyric 阶段 lyric 字段尚未到位
         if (lrcArray.value.length === 0 && playMusic.value?.id) {
           await ensureLyricsLoaded(true);
         }
@@ -1049,20 +942,17 @@ export const initAudioListeners = async () => {
       });
     }
 
-    // 获取最新的音频实例
     const finalSound = audioService.getCurrentSound();
     if (finalSound) {
-      // 更新全局 sound 引用
       sound.value = finalSound;
     } else {
-      console.warn('无法获取音频实例，跳过进度更新初始化');
+      console.warn('Audio instance unavailable, skipping progress updates');
     }
   } catch (error) {
-    console.error('初始化音频监听器失败:', error);
+    console.error('Failed to initialize audio listeners:', error);
   }
 };
 
-// 音频就绪事件处理器（提取为命名函数，防止重复注册）
 const handleAudioReady = ((event: CustomEvent) => {
   try {
     const { sound: newSound } = event.detail;
@@ -1079,10 +969,9 @@ const handleAudioReady = ((event: CustomEvent) => {
       }
     }
   } catch (error) {
-    console.error('处理音频就绪事件出错:', error);
+    console.error('Error handling audio ready event:', error);
   }
 }) as EventListener;
 
-// 先移除再注册，防止重复
 window.removeEventListener('audio-ready', handleAudioReady);
 window.addEventListener('audio-ready', handleAudioReady);

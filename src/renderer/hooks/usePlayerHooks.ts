@@ -25,14 +25,10 @@ export { copyLyric, lyricParser, parseLyric };
 
 const { message } = createDiscreteApi(['message']);
 
-/** 未配置音源提醒节流：切歌连播时不要每首都弹 */
 let noSourceHintAt = 0;
 const NO_SOURCE_HINT_INTERVAL = 5 * 60 * 1000;
 
 /**
- * VIP/无版权歌曲播放失败且没有任何可用的解析音源时提醒用户。
- * 判定：启用集合里除「网易云官方」外没有任何可用 provider（没装插件、
- * 也没启用 gdmusic/pyncmd/自定义API）—— 这时官方受限歌曲必然无法播放。
  */
 const warnIfNoSourceConfigured = (): void => {
   if (Date.now() - noSourceHintAt < NO_SOURCE_HINT_INTERVAL) return;
@@ -46,7 +42,7 @@ const warnIfNoSourceConfigured = (): void => {
       message.warning(i18n.global.t('player.reparse.noSourceConfigured'), { duration: 6000 });
     }
   } catch {
-    // store 未就绪等场景不打扰播放链路
+    // Ignore cache read errors
   }
 };
 
@@ -89,18 +85,14 @@ const resolveCachedPlaybackUrl = async (
       return result.url;
     }
   } catch (error) {
-    console.warn('解析缓存播放地址失败，回退到在线地址:', error);
+    console.warn('Failed to resolve cached playback URL, falling back to online URL:', error);
   }
 
   return url;
 };
 
 /**
- * 获取歌曲播放URL（独立函数）
  *
- * 重构后唯一的编排：本地直通 → resolveSong（统一注册表按用户排序逐源
- * 尝试：自定义API/网易云官方/插件/GD/unblock 同一条链）→ 磁盘播放缓存。
- * 旧的「内联降级 + MusicParser 策略工厂」双轨编排已收敛进 resolver。
  */
 export const getSongUrl = async (
   id: string | number,
@@ -112,7 +104,7 @@ export const getSongUrl = async (
 
   const ensureRequestValid = () => {
     if (requestId && !playbackRequestManager.isRequestValid(requestId)) {
-      console.log(`[getSongUrl] 请求已失效: ${requestId}`);
+      console.log(`[getSongUrl] Request expired: ${requestId}`);
       throw new Error('Request cancelled');
     }
   };
@@ -137,14 +129,13 @@ export const getSongUrl = async (
     ensureRequestValid();
 
     if (!result) {
-      console.warn(`[getSongUrl] 全部音源未命中: ${songData.name}(${numericId})`);
-      // 官方受限歌曲 + 没有任何可用解析源：提醒用户去配置音源
+      console.warn(`[getSongUrl] No source matched: ${songData.name}(${numericId})`);
       warnIfNoSourceConfigured();
       return null;
     }
 
     console.log(
-      `[getSongUrl] 解析成功: ${result.providerName} → ${result.media.url.slice(0, 60)}…`
+      `[getSongUrl] Resolved: ${result.providerName} → ${result.media.url.slice(0, 60)}…`
     );
     if (isDownloaded) {
       return { url: result.media.url, type: result.media.format, br: result.media.br } as any;
@@ -164,20 +155,18 @@ export const getSongUrl = async (
     if ((error as Error).message === 'Request cancelled') {
       throw error;
     }
-    console.error(`[getSongUrl] 解析异常: ${songData.name}(${numericId})`, error);
+    console.error(`[getSongUrl] Resolve error: ${songData.name}(${numericId})`, error);
     return null;
   }
 };
 
 /**
- * useSongUrl hook（兼容旧代码）
  */
 export const useSongUrl = () => {
   return { getSongUrl };
 };
 
 /**
- * 使用新的yrcParser解析歌词（独立函数）
  */
 const parseLyrics = (lyricsString: string): { lyrics: ILyricText[]; times: number[] } => {
   if (!lyricsString || typeof lyricsString !== 'string') {
@@ -188,7 +177,7 @@ const parseLyrics = (lyricsString: string): { lyrics: ILyricText[]; times: numbe
     const parseResult = parseYrcLyrics(lyricsString);
 
     if (!parseResult.success) {
-      console.error('歌词解析失败:', parseResult.error.message);
+      console.error('Failed to parse lyrics:', parseResult.error.message);
       return { lyrics: [], times: [] };
     }
 
@@ -197,36 +186,30 @@ const parseLyrics = (lyricsString: string): { lyrics: ILyricText[]; times: numbe
     const times: number[] = [];
 
     for (const line of parsedLyrics) {
-      // 检查是否有逐字歌词
       const hasWords = line.words && line.words.length > 0;
 
       lyrics.push({
         text: line.fullText,
-        trText: '', // 翻译文本稍后处理
+        trText: '',
         words: hasWords ? (line.words as IWordData[]) : undefined,
         hasWordByWord: hasWords,
         startTime: line.startTime,
         duration: line.duration
       });
 
-      // 时间数组使用秒为单位（与原有逻辑保持一致）
       times.push(line.startTime / 1000);
     }
 
     return { lyrics, times };
   } catch (error) {
-    console.error('解析歌词时发生错误:', error);
+    console.error('Error while parsing lyrics:', error);
     return { lyrics: [], times: [] };
   }
 };
 
 /**
- * 加载歌词（独立函数）
  */
-export const loadLrc = async (
-  id: string | number,
-  song?: SongResult
-): Promise<ILyric> => {
+export const loadLrc = async (id: string | number, song?: SongResult): Promise<ILyric> => {
   try {
     const cacheKey = id;
     let lyricData: any;
@@ -235,7 +218,7 @@ export const loadLrc = async (
       try {
         lyricData = await window.electron.ipcRenderer.invoke('get-cached-lyric', cacheKey);
       } catch (error) {
-        console.warn('读取磁盘歌词缓存失败:', error);
+        console.warn('Failed to read disk lyric cache:', error);
       }
     }
 
@@ -254,7 +237,7 @@ export const loadLrc = async (
       if (isElectron && lyricData) {
         void window.electron.ipcRenderer
           .invoke('cache-lyric', cacheKey, lyricData)
-          .catch((error) => console.warn('写入磁盘歌词缓存失败:', error));
+          .catch((error) => console.warn('Failed to write disk lyric cache:', error));
       }
     }
 
@@ -277,7 +260,6 @@ export const loadLrc = async (
       }
     }
 
-    // 检查是否有逐字歌词
     let hasWordByWord = false;
     for (const lyric of lyrics) {
       if (lyric.hasWordByWord) {
@@ -346,27 +328,23 @@ export const loadLrc = async (
 };
 
 /**
- * useLyrics hook（兼容旧代码）
  */
 export const useLyrics = () => {
   return { loadLrc, parseLyrics };
 };
 
 /**
- * 获取歌曲详情（优化版 - 只获取URL，背景色在播放后异步获取）
  */
 export const useSongDetail = () => {
   const getSongDetail = async (playMusic: SongResult, requestId?: string) => {
-    // 验证请求
     if (requestId && !playbackRequestManager.isRequestValid(requestId)) {
-      console.log(`[getSongDetail] 请求已失效: ${requestId}`);
+      console.log(`[getSongDetail] Request expired: ${requestId}`);
       throw new Error('Request cancelled');
     }
 
     if (playMusic.expiredAt && playMusic.expiredAt < Date.now()) {
-      // 本地音乐（local:// 协议）不会过期，跳过清除
       if (!playMusic.playMusicUrl?.startsWith('local://')) {
-        console.info(`歌曲已过期，重新获取: ${playMusic.name}`);
+        console.info(`Song expired, refetching: ${playMusic.name}`);
         playMusic.playMusicUrl = undefined;
       }
     }
@@ -375,24 +353,21 @@ export const useSongDetail = () => {
       const playMusicUrl =
         playMusic.playMusicUrl || (await getSongUrl(playMusic.id, playMusic, false, requestId));
 
-      // 验证请求
       if (requestId && !playbackRequestManager.isRequestValid(requestId)) {
-        console.log(`[getSongDetail] URL获取后请求已失效: ${requestId}`);
+        console.log(`[getSongDetail] Request expired after URL fetch: ${requestId}`);
         throw new Error('Request cancelled');
       }
 
       playMusic.createdAt = Date.now();
-      // 半小时后过期
       playMusic.expiredAt = playMusic.createdAt + 1800000;
 
       playMusic.playLoading = false;
-      // 返回歌曲信息，背景色和歌词将在播放后异步加载
       return { ...playMusic, playMusicUrl } as SongResult;
     } catch (error) {
       if ((error as Error).message === 'Request cancelled') {
         throw error;
       }
-      console.error('获取音频URL失败:', error);
+      console.error('Failed to fetch audio URL:', error);
       playMusic.playLoading = false;
       throw error;
     }

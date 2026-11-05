@@ -5,10 +5,14 @@
         <!-- Greeting Header -->
         <div class="greeting-header">
           <div class="flex items-center gap-3 mb-2">
-            <div class="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
+            <div
+              class="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary"
+            >
               <i class="ri-music-2-fill text-xl" />
             </div>
-            <h1 class="text-3xl md:text-4xl font-extrabold tracking-tight text-neutral-900 dark:text-white">
+            <h1
+              class="text-3xl md:text-4xl font-extrabold tracking-tight text-neutral-900 dark:text-white"
+            >
               {{ greeting }}
             </h1>
           </div>
@@ -19,7 +23,9 @@
 
         <!-- Quick Links -->
         <section class="quick-links-section">
-          <h2 class="text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-neutral-500 mb-4">
+          <h2
+            class="text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-neutral-500 mb-4"
+          >
             Quick Access
           </h2>
           <div class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -28,10 +34,14 @@
               class="quick-card group cursor-pointer p-5 rounded-2xl bg-neutral-50 dark:bg-neutral-900/60 border border-neutral-100 dark:border-neutral-800/60 hover:border-primary/40 dark:hover:border-primary/40 transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5"
               @click="router.push('/local-music')"
             >
-              <div class="w-12 h-12 rounded-xl bg-blue-500/10 text-blue-500 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+              <div
+                class="w-12 h-12 rounded-xl bg-blue-500/10 text-blue-500 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform"
+              >
                 <i class="ri-folder-music-fill text-2xl" />
               </div>
-              <h3 class="text-base font-bold text-neutral-900 dark:text-white group-hover:text-primary transition-colors">
+              <h3
+                class="text-base font-bold text-neutral-900 dark:text-white group-hover:text-primary transition-colors"
+              >
                 Local Music
               </h3>
               <p class="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
@@ -44,10 +54,14 @@
               class="quick-card group cursor-pointer p-5 rounded-2xl bg-neutral-50 dark:bg-neutral-900/60 border border-neutral-100 dark:border-neutral-800/60 hover:border-primary/40 dark:hover:border-primary/40 transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5"
               @click="router.push('/search')"
             >
-              <div class="w-12 h-12 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+              <div
+                class="w-12 h-12 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform"
+              >
                 <i class="ri-search-line text-2xl" />
               </div>
-              <h3 class="text-base font-bold text-neutral-900 dark:text-white group-hover:text-primary transition-colors">
+              <h3
+                class="text-base font-bold text-neutral-900 dark:text-white group-hover:text-primary transition-colors"
+              >
                 Search
               </h3>
               <p class="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
@@ -60,10 +74,14 @@
               class="quick-card group cursor-pointer p-5 rounded-2xl bg-neutral-50 dark:bg-neutral-900/60 border border-neutral-100 dark:border-neutral-800/60 hover:border-primary/40 dark:hover:border-primary/40 transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5"
               @click="router.push('/favorite')"
             >
-              <div class="w-12 h-12 rounded-xl bg-rose-500/10 text-rose-500 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+              <div
+                class="w-12 h-12 rounded-xl bg-rose-500/10 text-rose-500 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform"
+              >
                 <i class="ri-heart-fill text-2xl" />
               </div>
-              <h3 class="text-base font-bold text-neutral-900 dark:text-white group-hover:text-primary transition-colors">
+              <h3
+                class="text-base font-bold text-neutral-900 dark:text-white group-hover:text-primary transition-colors"
+              >
                 Favorites
               </h3>
               <p class="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
@@ -76,10 +94,14 @@
               class="quick-card group cursor-pointer p-5 rounded-2xl bg-neutral-50 dark:bg-neutral-900/60 border border-neutral-100 dark:border-neutral-800/60 hover:border-primary/40 dark:hover:border-primary/40 transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5"
               @click="router.push('/history')"
             >
-              <div class="w-12 h-12 rounded-xl bg-violet-500/10 text-violet-500 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+              <div
+                class="w-12 h-12 rounded-xl bg-violet-500/10 text-violet-500 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform"
+              >
                 <i class="ri-history-line text-2xl" />
               </div>
-              <h3 class="text-base font-bold text-neutral-900 dark:text-white group-hover:text-primary transition-colors">
+              <h3
+                class="text-base font-bold text-neutral-900 dark:text-white group-hover:text-primary transition-colors"
+              >
                 History
               </h3>
               <p class="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
@@ -111,7 +133,10 @@
           </div>
 
           <!-- Recent Tracks Grid -->
-          <div v-if="recentTracks.length > 0" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          <div
+            v-if="recentTracks.length > 0"
+            class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"
+          >
             <div
               v-for="(item, index) in recentTracks"
               :key="item.id || index"
@@ -119,7 +144,9 @@
               @click="handlePlayTrack(item)"
             >
               <!-- Artwork -->
-              <div class="relative w-14 h-14 rounded-xl overflow-hidden bg-neutral-200 dark:bg-neutral-800 flex-shrink-0">
+              <div
+                class="relative w-14 h-14 rounded-xl overflow-hidden bg-neutral-200 dark:bg-neutral-800 flex-shrink-0"
+              >
                 <img
                   v-if="getCoverUrl(item)"
                   :src="getCoverUrl(item)"
@@ -131,8 +158,12 @@
                   <i class="ri-music-2-line text-2xl" />
                 </div>
                 <!-- Play overlay icon -->
-                <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                  <div class="w-8 h-8 rounded-full bg-white text-neutral-900 flex items-center justify-center shadow-md">
+                <div
+                  class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"
+                >
+                  <div
+                    class="w-8 h-8 rounded-full bg-white text-neutral-900 flex items-center justify-center shadow-md"
+                  >
                     <i class="ri-play-fill text-lg ml-0.5" />
                   </div>
                 </div>
@@ -140,7 +171,9 @@
 
               <!-- Track Info -->
               <div class="min-w-0 flex-1">
-                <p class="text-sm font-semibold text-neutral-900 dark:text-white truncate group-hover:text-primary transition-colors">
+                <p
+                  class="text-sm font-semibold text-neutral-900 dark:text-white truncate group-hover:text-primary transition-colors"
+                >
                   {{ item.name || 'Unknown Track' }}
                 </p>
                 <p class="text-xs text-neutral-500 dark:text-neutral-400 truncate mt-0.5">
@@ -155,14 +188,17 @@
             v-else
             class="empty-state p-10 rounded-2xl bg-neutral-50 dark:bg-neutral-900/30 border border-dashed border-neutral-200 dark:border-neutral-800 text-center flex flex-col items-center justify-center"
           >
-            <div class="w-14 h-14 rounded-2xl bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-neutral-400 mb-3">
+            <div
+              class="w-14 h-14 rounded-2xl bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-neutral-400 mb-3"
+            >
               <i class="ri-headphone-line text-2xl" />
             </div>
             <h3 class="text-base font-semibold text-neutral-900 dark:text-white mb-1">
               No recent playback yet
             </h3>
             <p class="text-xs text-neutral-500 dark:text-neutral-400 max-w-sm mb-4">
-              Play songs from your local folders or search for music to build your listening history.
+              Play songs from your local folders or search for music to build your listening
+              history.
             </p>
             <button
               class="px-5 py-2 rounded-xl bg-primary hover:bg-primary/90 text-white font-medium text-xs transition-colors shadow-sm"
@@ -178,9 +214,9 @@
 </template>
 
 <script lang="ts" setup>
+import { NScrollbar } from 'naive-ui';
 import { computed } from 'vue';
 import { useRouter } from 'vue-router';
-import { NScrollbar } from 'naive-ui';
 
 import { usePlayerStore } from '@/store/modules/player';
 import { usePlayHistoryStore } from '@/store/modules/playHistory';

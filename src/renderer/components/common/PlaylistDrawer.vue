@@ -19,7 +19,6 @@
 
       <n-scrollbar class="h-full">
         <div class="flex flex-col gap-5 px-5 py-4">
-          <!-- 创建新歌单 -->
           <div class="flex flex-col">
             <button
               class="flex items-center gap-4 rounded-2xl p-3 transition-all duration-200"
@@ -45,7 +44,6 @@
               </span>
             </button>
 
-            <!-- 创建歌单表单 -->
             <div
               class="overflow-hidden transition-all duration-300 ease-in-out"
               :class="isCreating ? 'mt-4 max-h-[200px] opacity-100' : 'max-h-0 opacity-0'"
@@ -99,7 +97,6 @@
             </div>
           </div>
 
-          <!-- 歌单列表 -->
           <div class="flex flex-col gap-1.5 pb-32">
             <div
               v-for="(playlist, index) in playlists"
@@ -108,7 +105,6 @@
               :style="{ animationDelay: `${index * 0.03}s` }"
               @click="handleAddToPlaylist(playlist)"
             >
-              <!-- 封面 -->
               <div
                 class="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-xl bg-neutral-100 shadow-sm dark:bg-neutral-800"
               >
@@ -120,7 +116,6 @@
                 />
               </div>
 
-              <!-- 信息 -->
               <div class="min-w-0 flex-1">
                 <div class="truncate text-sm font-semibold text-neutral-800 dark:text-neutral-100">
                   {{ playlist.name }}
@@ -130,7 +125,6 @@
                 </div>
               </div>
 
-              <!-- 添加按钮 -->
               <div
                 class="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-neutral-300 transition-all duration-200 group-hover:bg-primary/10 group-hover:text-primary dark:text-neutral-600 dark:group-hover:text-primary"
               >
@@ -148,6 +142,7 @@
 import { useMessage } from 'naive-ui';
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
+
 import { getImgUrl } from '@/utils';
 
 const { t } = useI18n();
@@ -194,12 +189,10 @@ const saveLocalPlaylists = (list: any[]) => {
   localStorage.setItem('local_playlists', JSON.stringify(list));
 };
 
-// 获取用户歌单
 const fetchUserPlaylists = async () => {
   playlists.value = getLocalPlaylists();
 };
 
-// 添加到歌单
 const handleAddToPlaylist = async (playlist: any) => {
   if (!props.songId) return;
 
@@ -218,12 +211,11 @@ const handleAddToPlaylist = async (playlist: any) => {
     message.success(t('comp.playlistDrawer.addSuccess'));
     emit('update:modelValue', false);
   } catch (error: any) {
-    console.error('添加到歌单失败:', error);
+    console.error('Failed to add to playlist:', error);
     message.error(error.message || t('comp.playlistDrawer.addFailed'));
   }
 };
 
-// 创建歌单
 const handleCreatePlaylist = async () => {
   if (!formValue.value.name) {
     message.error(t('comp.playlistDrawer.inputPlaylistName'));
@@ -249,14 +241,13 @@ const handleCreatePlaylist = async () => {
     formValue.value.privacy = false;
     await fetchUserPlaylists();
   } catch (error) {
-    console.error('创建歌单失败:', error);
+    console.error('Failed to create playlist:', error);
     message.error(t('comp.playlistDrawer.createFailed'));
   } finally {
     creating.value = false;
   }
 };
 
-// 监听显示状态变化
 watch(
   () => props.modelValue,
   (newVal) => {

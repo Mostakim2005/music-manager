@@ -1,6 +1,3 @@
-// 本地音乐工具函数
-// 提供格式过滤、元数据 fallback、类型转换、搜索过滤、增量扫描等功能
-
 import type { LocalMusicEntry, LocalMusicMeta } from '@/types/localMusic';
 import { SUPPORTED_AUDIO_FORMATS } from '@/types/localMusic';
 import type { ILyric, ILyricText, IWordData, SongResult } from '@/types/music';
@@ -12,10 +9,6 @@ import { filePathToLocalUrl } from '../../shared/localUrl';
 export { filePathToLocalUrl };
 
 /**
- * 判断文件路径是否为支持的音频格式
- * 通过提取文件扩展名（不区分大小写）与支持格式列表比对
- * @param filePath 文件路径
- * @returns 是否为支持的音频格式
  */
 export function isSupportedAudioFormat(filePath: string): boolean {
   const ext = filePath.slice(filePath.lastIndexOf('.')).toLowerCase();
@@ -23,15 +16,10 @@ export function isSupportedAudioFormat(filePath: string): boolean {
 }
 
 /**
- * 从文件路径中提取歌曲标题（去除目录和扩展名）
- * @param filePath 文件路径
- * @returns 歌曲标题
  */
 export function extractTitleFromFilename(filePath: string): string {
-  // 兼容 Windows 和 Unix 路径分隔符
   const separator = filePath.includes('\\') ? '\\' : '/';
   const filename = filePath.split(separator).pop() || filePath;
-  // 去除扩展名
   const dotIndex = filename.lastIndexOf('.');
   if (dotIndex > 0) {
     return filename.slice(0, dotIndex);
@@ -40,10 +28,6 @@ export function extractTitleFromFilename(filePath: string): string {
 }
 
 /**
- * 构建缺失元数据时的 fallback 元数据对象
- * 使用文件名作为标题，"未知艺术家"和"未知专辑"作为默认值
- * @param filePath 文件路径
- * @returns 默认的 LocalMusicMeta 对象
  */
 export function buildFallbackMeta(filePath: string): LocalMusicMeta {
   return {
@@ -60,10 +44,6 @@ export function buildFallbackMeta(filePath: string): LocalMusicMeta {
 }
 
 /**
- * 将 LRC 格式歌词字符串解析为 ILyric 对象
- * 复用 yrcParser 解析能力，兼容标准 LRC 和 YRC 格式
- * @param lrcString LRC 格式歌词文本
- * @returns ILyric 对象，解析失败返回 null
  */
 export function parseLrcToILyric(lrcString: string | null): ILyric | null {
   if (!lrcString || typeof lrcString !== 'string') {
@@ -109,10 +89,6 @@ export function parseLrcToILyric(lrcString: string | null): ILyric | null {
 }
 
 /**
- * 多艺术家与流派分隔符解析（Namida 风格）
- * 支持 feat., ft., &, ;, ,, /, 空字符(\x00) 等多种分隔符拆分并去重
- * @param raw 原始艺术家或流派字符串
- * @returns 拆分后的独立名称列表
  */
 export function parseMultiArtists(raw: string | null | undefined): string[] {
   if (!raw || typeof raw !== 'string') return ['Unknown Artist'];
@@ -136,17 +112,10 @@ export function parseMultiGenres(raw: string | null | undefined): string[] {
 }
 
 /**
- * 将 LocalMusicEntry 转换为 SongResult，以复用现有播放系统
- * @param entry 本地音乐条目
- * @returns 兼容播放系统的 SongResult 对象
  */
 export function toSongResult(entry: LocalMusicEntry): SongResult {
-  // 解析内嵌歌词为 ILyric 对象
   const lyric = parseLrcToILyric(entry.lyrics);
 
-  // 封面统一走落盘文件 + local:// 协议；缺 coverPath 时给空串，
-  // SongItem 模板用 v-if="item.picUrl" 自动跳过渲染。
-  // 用户重新扫描会让主进程落盘新封面（参见 scanFolders 的自愈条件）
   const coverUrl = entry.coverPath ? filePathToLocalUrl(entry.coverPath) : '';
   const parsedArtists = parseMultiArtists(entry.artist);
   const localMediaUrl = filePathToLocalUrl(entry.filePath);
@@ -222,21 +191,13 @@ export function toSongResult(entry: LocalMusicEntry): SongResult {
     dt: entry.duration,
     source: 'local' as any,
     count: 0,
-    // 内嵌歌词（如果有）
     lyric: lyric ?? undefined,
-    // 本地音乐 URL 不会过期，设置一个极大的过期时间
     createdAt: Date.now(),
     expiredAt: Date.now() + 365 * 24 * 60 * 60 * 1000
   };
 }
 
 /**
- * 按关键词搜索过滤本地音乐列表
- * 不区分大小写，匹配歌曲标题或艺术家名称
- * 空关键词返回完整列表
- * @param list 本地音乐列表
- * @param keyword 搜索关键词
- * @returns 过滤后的音乐列表
  */
 export function filterByKeyword(list: LocalMusicEntry[], keyword: string): LocalMusicEntry[] {
   if (!keyword || keyword.trim() === '') {
@@ -252,17 +213,11 @@ export function filterByKeyword(list: LocalMusicEntry[], keyword: string): Local
 }
 
 /**
- * 增量扫描对比：找出新增或修改时间变更的文件
- * 对比扫描到的文件列表与缓存条目，返回需要重新解析的文件路径
- * @param files 扫描到的文件列表（包含路径和修改时间）
- * @param cached 已缓存的本地音乐条目
- * @returns 需要重新解析的文件路径列表
  */
 export function getChangedFiles(
   files: { path: string; modifiedTime: number }[],
   cached: LocalMusicEntry[]
 ): string[] {
-  // 构建缓存映射：filePath -> modifiedTime
   const cachedMap = new Map<string, number>();
   for (const entry of cached) {
     cachedMap.set(entry.filePath, entry.modifiedTime);
@@ -271,17 +226,12 @@ export function getChangedFiles(
   return files
     .filter((file) => {
       const cachedTime = cachedMap.get(file.path);
-      // 缓存中不存在（新文件）或修改时间不匹配（已变更）
       return cachedTime === undefined || cachedTime !== file.modifiedTime;
     })
     .map((file) => file.path);
 }
 
 /**
- * 缓存清理：移除文件已不存在的条目
- * @param entries 缓存的本地音乐条目列表
- * @param existsMap 文件存在性映射（filePath -> 是否存在）
- * @returns 清理后的条目列表（仅保留文件仍存在的条目）
  */
 export function removeStaleEntries(
   entries: LocalMusicEntry[],
@@ -317,7 +267,9 @@ export function debounceIngestLocalTracks(
               title: entry.title || (entry as any).name || extractTitleFromFilename(entry.filePath),
               artist: entry.artist || '',
               album: entry.album || '',
-              durationSec: Math.round((entry.duration || 0) > 1000 ? entry.duration / 1000 : entry.duration || 0),
+              durationSec: Math.round(
+                (entry.duration || 0) > 1000 ? entry.duration / 1000 : entry.duration || 0
+              ),
               bitrate: (entry as any).bitrate,
               container: ext,
               hasVideo: /\.(mp4|mkv|webm|avi|mov)$/i.test(entry.filePath),

@@ -54,13 +54,11 @@ const openPlaylistDrawer = inject<(songId: number | string) => void>('openPlayli
 
 const userStore = useUserStore();
 
-// 本地歌曲：移除菜单项显示"从本地列表移除"而非"从歌单中删除"（#713）
 const isLocalSong = computed(
   () =>
     typeof props.item.playMusicUrl === 'string' && props.item.playMusicUrl.startsWith('local://')
 );
 
-// 渲染歌曲预览
 const renderSongPreview = () => {
   return h(
     'div',
@@ -131,7 +129,6 @@ const renderSongPreview = () => {
   );
 };
 
-// 下拉菜单选项
 const dropdownOptions = computed<MenuOption[]>(() => {
   const options: MenuOption[] = [
     {
@@ -168,7 +165,6 @@ const dropdownOptions = computed<MenuOption[]>(() => {
       icon: () => h('i', { class: 'iconfont ri-file-text-line' })
     },
     {
-      // 不做灰色禁用：点击时提示不可用原因，避免用户不知道"为什么用不了"（#706）
       label: t('songItem.menu.addToPlaylist'),
       key: 'addToPlaylist',
       icon: () => h('i', { class: 'iconfont ri-folder-add-line' })
@@ -180,7 +176,6 @@ const dropdownOptions = computed<MenuOption[]>(() => {
         h('i', {
           class: `iconfont ${props.isFavorite ? 'ri-heart-fill text-red-500' : 'ri-heart-line'}`
         })
-      // 收藏功能不禁用，UID登录时可以本地收藏/取消收藏
     },
     {
       label: props.isDislike ? t('songItem.menu.undislike') : t('songItem.menu.dislike'),
@@ -211,7 +206,6 @@ const dropdownOptions = computed<MenuOption[]>(() => {
   return options;
 });
 
-// 处理选择
 const handleSelect = (key: string | number) => {
   emits('update:show', false);
 

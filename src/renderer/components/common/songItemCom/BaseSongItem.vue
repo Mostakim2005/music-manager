@@ -51,7 +51,6 @@ const props = defineProps<{
 
 const emits = defineEmits(['play', 'select', 'remove-song']);
 
-// 使用公共逻辑
 const {
   playLoading,
   isPlaying,
@@ -76,25 +75,21 @@ const {
   downloadLyric
 } = useSongItem(props);
 
-// 处理图片加载
 const imageLoad = async (event: Event) => {
   const target = event.target as HTMLImageElement;
   if (!target) return;
   await handleImageLoad(target);
 };
 
-// 双击和右键菜单"播放"统一入口：先通知父组件设置播放列表上下文，再触发播放
 const handlePlay = (song: SongResult) => {
   emits('play', song);
   playMusicEvent(song);
 };
 
-// 切换选择状态
 const toggleSelect = () => {
   emits('select', props.item.id, !props.selected);
 };
 
-// 把图片处理、艺术家处理等公共方法暴露给子组件
 defineExpose({
   handlePlay,
   imageLoad,

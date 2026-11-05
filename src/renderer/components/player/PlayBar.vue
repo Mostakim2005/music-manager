@@ -19,7 +19,9 @@
     }"
     @click="handleBarClick"
   >
-    <div class="play-bar-container w-full max-w-[1100px] mx-auto relative h-full flex items-center justify-between">
+    <div
+      class="play-bar-container w-full max-w-[1100px] mx-auto relative h-full flex items-center justify-between"
+    >
       <div
         class="music-time custom-slider"
         :class="{ 'has-waveform': playerStore.showWaveformSeekbar }"
@@ -48,7 +50,6 @@
 
       <!-- Left Zone: Track Info (min 200px max 280px) -->
       <div class="play-bar-left-zone flex items-center min-w-[200px] max-w-[280px] shrink-0">
-        <!-- 播放条空白区域点击进入详情页，由根节点的 handleBarClick 统一处理（#751） -->
         <div class="play-bar-img-wrapper shrink-0">
           <n-image
             :src="getImgUrl(playMusic?.picUrl, '100y100')"
@@ -76,7 +77,9 @@
             <n-ellipsis class="text-ellipsis" line-clamp="1">
               <p v-html="playMusic?.name || ''"></p>
             </n-ellipsis>
-            <span v-if="playbackRate !== 1.0" class="playback-rate-badge shrink-0"> {{ playbackRate }}x </span>
+            <span v-if="playbackRate !== 1.0" class="playback-rate-badge shrink-0">
+              {{ playbackRate }}x
+            </span>
             <button
               v-if="abLoopState.enabled"
               type="button"
@@ -152,94 +155,93 @@
       </div>
 
       <!-- Right Zone: Actions (min 200px max 280px) -->
-      <div class="play-bar-right-zone min-w-[200px] max-w-[280px] shrink-0 flex items-center justify-end">
+      <div
+        class="play-bar-right-zone min-w-[200px] max-w-[280px] shrink-0 flex items-center justify-end"
+      >
         <div class="audio-button">
-      <div class="audio-volume custom-slider" @wheel.prevent="handleVolumeWheel">
-        <div class="volume-icon" @click="mute">
-          <i class="iconfont" :class="getVolumeIcon"></i>
-        </div>
-        <div class="volume-slider">
-          <div class="volume-percentage" :class="{ 'volume-percentage-disabled': isMuted }">
-            {{ Math.round(volumeSlider) }}%
+          <div class="audio-volume custom-slider" @wheel.prevent="handleVolumeWheel">
+            <div class="volume-icon" @click="mute">
+              <i class="iconfont" :class="getVolumeIcon"></i>
+            </div>
+            <div class="volume-slider">
+              <div class="volume-percentage" :class="{ 'volume-percentage-disabled': isMuted }">
+                {{ Math.round(volumeSlider) }}%
+              </div>
+              <n-slider
+                v-model:value="volumeSlider"
+                :step="0.01"
+                :tooltip="false"
+                :disabled="isMuted"
+                vertical
+              ></n-slider>
+            </div>
           </div>
-          <n-slider
-            v-model:value="volumeSlider"
-            :step="0.01"
-            :tooltip="false"
-            :disabled="isMuted"
-            vertical
-          ></n-slider>
-        </div>
-      </div>
-      <n-tooltip v-if="!isMobile" trigger="hover" :z-index="9999999">
-        <template #trigger>
-          <i
-            class="iconfont"
-            :class="[playModeIcon, { 'intelligence-active': playMode === 3 }]"
-            @click="togglePlayMode"
-          ></i>
-        </template>
-        {{ playModeText }}
-      </n-tooltip>
-      <n-tooltip v-if="!isMobile" trigger="hover" :z-index="9999999">
-        <template #trigger>
-          <i
-            class="iconfont"
-            :class="{
-              'like-active': isFavorite,
-              'ri-heart-3-fill': isFavorite,
-              'ri-heart-3-line': !isFavorite
-            }"
-            @click="toggleFavorite"
-          ></i>
-        </template>
-        {{ t('player.playBar.like') }}
-      </n-tooltip>
-      <n-tooltip v-if="isElectron" class="music-lyric" trigger="hover" :z-index="9999999">
-        <template #trigger>
-          <i
-            class="iconfont ri-netease-cloud-music-line"
-            :class="{ 'text-green-500': isLyricWindowOpen, 'disabled-icon': !playMusic?.id }"
-            @click="playMusic?.id && openLyricWindow()"
-          ></i>
-        </template>
-        {{ playMusic?.id ? t('player.playBar.lyric') : t('player.playBar.noSongPlaying') }}
-      </n-tooltip>
-      <n-tooltip v-if="playMusic?.id && isElectron" trigger="hover" :z-index="9999999">
-        <template #trigger>
-          <reparse-popover v-if="playMusic?.id" />
-        </template>
-        {{ t('player.playBar.reparse') }}
-      </n-tooltip>
-      <n-tooltip v-if="playMusic?.id && isElectron" trigger="hover" :z-index="9999999">
-        <template #trigger>
-          <i
-            class="iconfont ri-download-line"
-            :class="{ 'disabled-icon': isDownloading }"
-            @click="playMusic?.id && handleDownload()"
-          />
-        </template>
-        {{ isDownloading ? t('songItem.message.downloading') : t('player.playBar.download') }}
-      </n-tooltip>
+          <n-tooltip v-if="!isMobile" trigger="hover" :z-index="9999999">
+            <template #trigger>
+              <i
+                class="iconfont"
+                :class="[playModeIcon, { 'intelligence-active': playMode === 3 }]"
+                @click="togglePlayMode"
+              ></i>
+            </template>
+            {{ playModeText }}
+          </n-tooltip>
+          <n-tooltip v-if="!isMobile" trigger="hover" :z-index="9999999">
+            <template #trigger>
+              <i
+                class="iconfont"
+                :class="{
+                  'like-active': isFavorite,
+                  'ri-heart-3-fill': isFavorite,
+                  'ri-heart-3-line': !isFavorite
+                }"
+                @click="toggleFavorite"
+              ></i>
+            </template>
+            {{ t('player.playBar.like') }}
+          </n-tooltip>
+          <n-tooltip v-if="isElectron" class="music-lyric" trigger="hover" :z-index="9999999">
+            <template #trigger>
+              <i
+                class="iconfont ri-netease-cloud-music-line"
+                :class="{ 'text-green-500': isLyricWindowOpen, 'disabled-icon': !playMusic?.id }"
+                @click="playMusic?.id && openLyricWindow()"
+              ></i>
+            </template>
+            {{ playMusic?.id ? t('player.playBar.lyric') : t('player.playBar.noSongPlaying') }}
+          </n-tooltip>
+          <n-tooltip v-if="playMusic?.id && isElectron" trigger="hover" :z-index="9999999">
+            <template #trigger>
+              <reparse-popover v-if="playMusic?.id" />
+            </template>
+            {{ t('player.playBar.reparse') }}
+          </n-tooltip>
+          <n-tooltip v-if="playMusic?.id && isElectron" trigger="hover" :z-index="9999999">
+            <template #trigger>
+              <i
+                class="iconfont ri-download-line"
+                :class="{ 'disabled-icon': isDownloading }"
+                @click="playMusic?.id && handleDownload()"
+              />
+            </template>
+            {{ isDownloading ? t('songItem.message.downloading') : t('player.playBar.download') }}
+          </n-tooltip>
 
-      <!-- 高级控制菜单按钮（整合了 EQ、定时关闭、播放速度） -->
-      <advanced-controls-popover />
+          <advanced-controls-popover />
 
-      <n-tooltip trigger="hover" :z-index="9999999">
-        <template #trigger>
-          <i
-            class="iconfont icon-list text-2xl hover:text-green-500 transition-colors cursor-pointer"
-            @click="openPlayListDrawer"
-          ></i>
-        </template>
-        {{ t('player.playBar.playList') }}
-      </n-tooltip>
+          <n-tooltip trigger="hover" :z-index="9999999">
+            <template #trigger>
+              <i
+                class="iconfont icon-list text-2xl hover:text-green-500 transition-colors cursor-pointer"
+                @click="openPlayListDrawer"
+              ></i>
+            </template>
+            {{ t('player.playBar.playList') }}
+          </n-tooltip>
         </div>
       </div>
     </div>
-    <!-- 全屏播放器 -->
     <music-full-wrapper ref="MusicFullRef" v-model="musicFullVisible" :background="background" />
-    <!-- 无缝音视频切换 MV 播放器 -->
     <mv-player
       v-if="hasVideoSupport"
       v-model:show="videoDrawerVisible"
@@ -251,7 +253,6 @@
       @close="switchPlaybackMode('song')"
     />
 
-    <!-- A-B 循环与书签快捷弹窗 -->
     <ab-loop-modal v-model:show="showAbLoopModal" />
   </div>
 </template>
@@ -291,10 +292,8 @@ const playerStore = usePlayerStore();
 const settingsStore = useSettingsStore();
 const { t } = useI18n();
 
-// 播放控制
 const { isPlaying: play, playMusicEvent, handleNext, handlePrev } = usePlaybackControl();
 
-// 音量控制
 const {
   isMuted,
   volumeSlider,
@@ -303,32 +302,25 @@ const {
   handleVolumeWheel
 } = useVolumeControl();
 
-// 收藏
 const { isFavorite, toggleFavorite } = useFavorite();
 
-// 下载
 const { downloadMusic, isDownloading } = useDownload();
 const handleDownload = () => {
   if (!playMusic.value || isDownloading.value) return;
   downloadMusic(playMusic.value);
 };
 
-// 播放模式
 const { playMode, playModeIcon, playModeText, togglePlayMode } = usePlayMode();
 
-// 播放速度控制
 const { playbackRate } = storeToRefs(playerStore);
 
-// A-B 循环与书签快捷弹窗状态
 const showAbLoopModal = ref(false);
 const abLoopState = computed(() => audioService.getAbLoop());
 
-// 双击进度条快捷切换波形进度条
 const toggleWaveformSeekbar = () => {
   playerStore.setShowWaveformSeekbar(!playerStore.showWaveformSeekbar);
 };
 
-// 背景颜色
 const background = ref('#000');
 
 watch(
@@ -341,13 +333,11 @@ watch(
   { immediate: true, deep: true }
 );
 
-// 节流版本的 seek 函数
 const throttledSeek = useThrottleFn((value: number) => {
   audioService.seek(value);
   nowTime.value = value;
 }, 50);
 
-// 拖动时的临时值
 const dragValue = ref(0);
 const isDragging = ref(false);
 
@@ -396,20 +386,16 @@ const setMusicFull = () => {
 };
 
 /**
- * 点击底部播放条的任意空白区域都能进入（退出）详情页（#751）
- * 只排除真正的交互控件，其余位置（封面、歌曲信息、按钮之间的空白）都可点击。
- * 全屏播放器由 n-drawer teleport 到 #layout-main，不在播放条节点内，无需额外排除。
  */
 const IGNORE_FULL_TRIGGER_SELECTOR = [
-  '.music-time', // 进度条（绝对定位覆盖播放条顶边）
+  '.music-time',
   '.music-buttons-prev',
   '.music-buttons-play',
   '.music-buttons-next',
-  '.audio-button', // 音量、播放模式、收藏、歌词、下载、更多、播放列表
+  '.audio-button',
   '.mode-switch-pill'
 ].join(', ');
 
-// 波形进度条峰值生成与播放进度比
 const progressRatio = computed(() => {
   if (!allTime.value || allTime.value <= 0) return 0;
   return Math.min(1, Math.max(0, timeSlider.value / allTime.value));
@@ -474,10 +460,7 @@ const drawLiveWaveform = (timestamp: number) => {
   for (let i = 0; i < count; i++) {
     let level = fallback[i] / 100;
     if (spectrum.length > 0) {
-      const bin = Math.min(
-        spectrum.length - 1,
-        Math.floor((i / count) * spectrum.length * 0.7)
-      );
+      const bin = Math.min(spectrum.length - 1, Math.floor((i / count) * spectrum.length * 0.7));
       level = spectrum[bin] / 255;
     }
 
@@ -506,7 +489,6 @@ watch(
   { immediate: true }
 );
 
-// 无缝音视频切换 (Song | Video)
 const videoDrawerVisible = ref(false);
 const videoSyncTime = ref(0);
 
@@ -594,7 +576,6 @@ const openPlayListDrawer = () => {
   @apply bg-light dark:bg-dark shadow-2xl shadow-gray-300;
   z-index: 9999;
   animation-duration: 0.5s !important;
-  /* 空白区域可点击展开详情页（#751） */
   cursor: pointer;
 
   .play-bar-container {
@@ -759,7 +740,6 @@ const openPlayListDrawer = () => {
   }
 }
 
-// 自定义滑块样式
 .custom-slider {
   :deep(.n-slider) {
     --n-rail-height: 4px;
@@ -804,7 +784,6 @@ const openPlayListDrawer = () => {
       }
     }
 
-    // 确保悬停时提示样式正确
     .n-slider-tooltip {
       @apply bg-dark-200 text-white text-xs py-1 px-2 rounded;
       z-index: 999999;

@@ -52,22 +52,14 @@ interface API {
   getSearchSuggestions: (keyword: string) => Promise<any>;
   lxMusicHttpRequest: (request: { url: string; options: any; requestId: string }) => Promise<any>;
   lxMusicHttpCancel: (requestId: string) => Promise<void>;
-  /** 扫描指定文件夹中的本地音乐文件 */
   scanLocalMusic: (folderPath: string) => Promise<{ files: string[]; count: number }>;
-  /** 扫描指定文件夹中的本地音乐文件（包含修改时间） */
   scanLocalMusicWithStats: (
     folderPath: string
   ) => Promise<{ files: { path: string; modifiedTime: number }[]; count: number }>;
-  /** 批量解析本地音乐文件元数据 */
   parseLocalMusicMetadata: (
     filePaths: string[]
   ) => Promise<import('../renderer/types/localMusic').LocalMusicMeta[]>;
-  /** 在线搜索元数据与封面（iTunes + MusicBrainz） */
-  fetchOnlineMetadata: (query: {
-    title: string;
-    artist?: string;
-    album?: string;
-  }) => Promise<{
+  fetchOnlineMetadata: (query: { title: string; artist?: string; album?: string }) => Promise<{
     results: Array<{
       title: string;
       artist: string;
@@ -79,7 +71,6 @@ interface API {
       source: 'iTunes' | 'MusicBrainz';
     }>;
   }>;
-  /** 多源歌词检索（LRCLIB 全球开源歌词 + 自动罗马音） */
   fetchMultiSourceLyrics: (query: {
     title: string;
     artist?: string;
@@ -100,7 +91,6 @@ interface API {
       source: string;
     }>;
   }>;
-  /** 更新本地音频标签、封面、侧车歌词及物理文件重命名 */
   updateLocalMusicTagsAndFile: (payload: {
     filePath: string;
     newFileName?: string;
@@ -117,24 +107,20 @@ interface API {
     updatedEntry?: import('../renderer/types/localMusic').LocalMusicMeta;
     error?: string;
   }>;
-  /** 单独保存时间戳歌词（内嵌到音频标签并落盘 .lrc 侧车文件） */
   saveSyncedLyrics: (params: {
     filePath: string;
     lyrics: string;
     saveSidecar?: boolean;
   }) => Promise<{ ok: boolean; error?: string }>;
-  /** 选择本地封面图片 */
   selectCoverFile: () => Promise<{
     canceled: boolean;
     filePath: string | null;
     dataUrl: string | null;
   }>;
-  /** 导出 M3U8 播放列表 */
   exportM3u8: (params: {
     tracks: Array<{ filePath: string; title?: string; artist?: string; duration?: number }>;
     defaultName?: string;
   }) => Promise<{ ok?: boolean; canceled?: boolean; filePath?: string; error?: string }>;
-  /** 导入 M3U / M3U8 播放列表 */
   importM3u8: () => Promise<{
     ok?: boolean;
     canceled?: boolean;
@@ -142,12 +128,10 @@ interface API {
     playlistFilePath?: string;
     error?: string;
   }>;
-  /** 导出音乐库完整 JSON 备份 */
   exportBackupJson: (params: {
     payload: Record<string, any>;
     defaultName?: string;
   }) => Promise<{ ok?: boolean; canceled?: boolean; filePath?: string; error?: string }>;
-  /** 导入音乐库完整 JSON 备份 */
   importBackupJson: () => Promise<{
     ok?: boolean;
     canceled?: boolean;
@@ -210,7 +194,6 @@ export interface YouTubeBridge {
   ) => () => void;
 }
 
-// 自定义IPC渲染进程通信接口
 interface IpcRenderer {
   send: (channel: string, ...args: any[]) => void;
   reportError: (entry: any) => Promise<any>;

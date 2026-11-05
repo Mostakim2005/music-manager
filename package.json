@@ -1,6 +1,6 @@
 {
   "name": "music-manager",
-  "version": "5.2.0",
+  "version": "5.3.0",
   "description": "Music Manager",
   "author": "Alger <algerkc@qq.com>",
   "main": "./out/main/index.js",

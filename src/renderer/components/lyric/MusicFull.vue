@@ -7,7 +7,6 @@
     :to="`#layout-main`"
     :z-index="9998"
   >
-    <!-- 背景层（用于图片模糊和明暗效果） -->
     <div
       v-if="
         config.useCustomBackground && config.backgroundMode === 'image' && config.backgroundImage
@@ -16,7 +15,6 @@
       :style="backgroundImageStyle"
     ></div>
     <div id="drawer-target" :class="[config.theme]" class="relative z-10">
-      <!-- 左侧关闭按钮 -->
       <div
         class="control-left absolute top-8 left-8 z-[9999] flex items-center gap-2"
         :class="{ 'pure-mode': config.pureModeEnabled }"
@@ -24,7 +22,6 @@
         <div class="control-btn" @click="closeMusicFull">
           <i class="ri-arrow-down-s-line"></i>
         </div>
-        <!-- 窗口控制（#492）：抽屉铺满 layout-main 会遮住标题栏，这里补上等价的最小化/关闭入口 -->
         <template v-if="isElectron && !isMobile">
           <div class="control-btn" @click="minimizeWindow">
             <i class="iconfont icon-minisize"></i>
@@ -35,12 +32,10 @@
         </template>
       </div>
 
-      <!-- 右侧功能按钮组 -->
       <div
         class="control-right absolute top-8 right-8 z-[9999]"
         :class="{ 'pure-mode': config.pureModeEnabled }"
       >
-        <!-- Roma 罗马音快捷开关 -->
         <div
           v-if="hasRomanization"
           class="control-btn control-btn-pill"
@@ -51,7 +46,6 @@
           <span class="text-xs font-semibold">Roma</span>
         </div>
 
-        <!-- Tr 翻译快捷开关 -->
         <div
           v-if="hasTranslation"
           class="control-btn control-btn-pill"
@@ -66,10 +60,18 @@
         <div
           v-if="!isMobile"
           class="control-btn"
-          :title="config.layoutMode === 'stacked' ? 'Switch to Side-by-side layout' : 'Switch to Stacked layout'"
+          :title="
+            config.layoutMode === 'stacked'
+              ? 'Switch to Side-by-side layout'
+              : 'Switch to Stacked layout'
+          "
           @click="toggleLayoutMode"
         >
-          <i :class="config.layoutMode === 'stacked' ? 'ri-layout-column-line' : 'ri-layout-top-line'"></i>
+          <i
+            :class="
+              config.layoutMode === 'stacked' ? 'ri-layout-column-line' : 'ri-layout-top-line'
+            "
+          ></i>
         </div>
 
         <!-- Save to Disk -->
@@ -81,7 +83,6 @@
           <i class="ri-download-2-line"></i>
         </div>
 
-        <!-- 歌词微调面板显隐开关 -->
         <div
           v-if="!isMobile"
           class="control-btn"
@@ -106,7 +107,6 @@
         </div>
       </div>
 
-      <!-- 纯净模式首次开启引导：两步指向式引导，① 右上角功能按钮 → ② 左上角收起按钮，手动切换（上一步/下一步/完成） -->
       <transition name="fade">
         <div v-if="showPureModeTip" class="pure-mode-tip-layer">
           <transition name="fade" mode="out-in">
@@ -199,7 +199,6 @@
         :class="{ 'compact-mode': config.compactLyrics }"
         :style="{ width: `${config.contentWidth}%` }"
       >
-        <!-- 左侧：封面区域或视频 -->
         <div
           v-if="!config.hideCover"
           class="left-side"
@@ -280,7 +279,6 @@
           </div>
         </div>
 
-        <!-- 右侧：歌词区域 -->
         <div
           class="right-side"
           :class="{
@@ -296,7 +294,6 @@
             @mouseover="mouseOverLayout"
             @mouseleave="mouseLeaveLayout"
           >
-            <!-- 歌曲信息 -->
             <div class="music-lrc-container">
               <div
                 v-if="config.hideCover"
@@ -316,7 +313,6 @@
                   </span>
                 </div>
               </div>
-              <!-- 无时间戳歌词提示 -->
               <div v-if="!supportAutoScroll" class="music-lrc-text no-scroll-tip">
                 <span>{{ t('player.lrc.noAutoScroll') }}</span>
               </div>
@@ -332,7 +328,6 @@
                 }"
                 @click="item.startTime !== -1 ? setAudioTime(index) : null"
               >
-                <!-- 逐字歌词显示 -->
                 <div
                   v-if="item.hasWordByWord && item.words && item.words.length > 0"
                   class="word-by-word-lyric"
@@ -343,7 +338,6 @@
                     ><span class="lyric-word" v-if="word.space">&nbsp;</span></template
                   >
                 </div>
-                <!-- 普通歌词显示 -->
                 <span v-else :style="getLrcStyle(index)">{{ item.text }}</span>
                 <div
                   v-if="config.showRomanization !== false && item.romaText"
@@ -356,12 +350,10 @@
                 </div>
               </div>
 
-              <!-- 无歌词 -->
               <div v-if="!lrcArray.length" class="music-lrc-text">
                 <span>{{ t('player.lrc.noLrc') }}</span>
               </div>
             </div>
-            <!-- 歌词右下角矫正按钮组件 -->
             <lyric-correction-control
               v-if="!isMobile"
               :correction-time="correctionTime"
@@ -436,7 +428,6 @@
         @saved-media="refreshSongVariants"
       />
 
-      <!-- 关闭确认弹窗：与标题栏共用同一组件与逻辑（#492） -->
       <close-app-confirm-modal
         v-model:show="showCloseModal"
         v-model:remember-choice="rememberChoice"
@@ -497,18 +488,16 @@ import { usePlayerStore } from '@/store/modules/player';
 import { useSettingsStore } from '@/store/modules/settings';
 import { DEFAULT_LYRIC_CONFIG, LyricConfig } from '@/types/lyric';
 import { getImgUrl, isElectron, isMobile } from '@/utils';
-import { filePathToMediaUrl } from '@/utils/localMediaUrl';
 import { getTextColors } from '@/utils/linearColor';
+import { filePathToMediaUrl } from '@/utils/localMediaUrl';
 import { LYRIC_CONFIG_CHANGE_EVENT, readLyricConfig, writeLyricConfig } from '@/utils/lyricConfig';
 import { formatVideoTime } from '@/utils/videoQualityHelpers';
 
 const { t } = useI18n();
-// 定义 refs
 const lrcSider = ref<any>(null);
 const isMouse = ref(false);
 const { currentBackground, applyBackground } = useLyricBackground();
 
-// 计算自定义背景样式
 const customBackgroundStyle = computed(() => {
   if (!config.value.useCustomBackground) {
     return null;
@@ -523,7 +512,6 @@ const customBackgroundStyle = computed(() => {
     }
     case 'image':
       if (!config.value.backgroundImage) return null;
-      // 构建完整的背景样式，包括滤镜效果
       return config.value.backgroundImage;
     case 'css':
       return config.value.customCss || null;
@@ -532,20 +520,16 @@ const customBackgroundStyle = computed(() => {
   }
 });
 
-// drawer 基础样式（非图片模式）
 const drawerBaseStyle = computed(() => {
-  // 图片模式时不设置背景，使用单独的背景层
   if (config.value.useCustomBackground && config.value.backgroundMode === 'image') {
     return { background: 'transparent' };
   }
-  // 其他模式正常设置背景
   if (config.value.useCustomBackground && customBackgroundStyle.value) {
     return { background: customBackgroundStyle.value };
   }
   return { background: currentBackground.value || props.background };
 });
 
-// 背景图片层样式（只在图片模式下使用）
 const backgroundImageStyle = computed(() => {
   const blur = config.value.imageBlur || 0;
   const brightness = config.value.imageBrightness || 100;
@@ -605,7 +589,6 @@ watch(
   { deep: true, immediate: true }
 );
 
-// 监听本地配置变化，保存到 localStorage 并广播给设置页等外部组件
 watch(
   () => config.value,
   (newConfig) => {
@@ -617,7 +600,6 @@ watch(
   { deep: true }
 );
 
-// 监听设置页等外部来源的配置变更；内容一致时跳过，避免互相触发造成死循环
 const handleLyricConfigChange = () => {
   const nextConfig = readLyricConfig();
   if (JSON.stringify(nextConfig) !== JSON.stringify(config.value)) {
@@ -625,8 +607,6 @@ const handleLyricConfigChange = () => {
   }
 };
 
-// 纯净模式首次开启引导（#758）：两步指向式引导（右上角功能按钮 → 左上角收起按钮），
-// 手动切换（上一步/下一步/完成）、每位用户仅展示一次
 const PURE_MODE_ONBOARDED_KEY = 'pureModeOnboarded';
 const settingsPopoverVisible = ref(false);
 const showPureModeTip = ref(false);
@@ -662,7 +642,6 @@ const finishPureModeTip = () => {
 
 const showPureModeOnboarding = () => {
   if (!isVisible.value || localStorage.getItem(PURE_MODE_ONBOARDED_KEY)) return;
-  // 从设置弹层内开启时先挂起，等弹层关闭后再展示，避免引导被弹层遮挡
   if (settingsPopoverVisible.value) {
     pendingPureModeTip.value = true;
     return;
@@ -670,14 +649,12 @@ const showPureModeOnboarding = () => {
   displayPureModeTip();
 };
 
-// 设置弹层关闭后，若仍有待展示的引导则浮现
 watch(settingsPopoverVisible, (visible) => {
   if (!visible && pendingPureModeTip.value && isVisible.value) {
     displayPureModeTip();
   }
 });
 
-// 开启纯净模式时展示一次引导
 watch(
   () => config.value.pureModeEnabled,
   (newValue, oldValue) => {
@@ -714,7 +691,6 @@ const isVisible = computed({
   set: (value) => emit('update:modelValue', value)
 });
 
-// 歌词滚动方法
 const lrcScroll = (behavior: ScrollBehavior = 'smooth', forceTop: boolean = false) => {
   if (!isVisible.value || !lrcSider.value || !supportAutoScroll.value) return;
 
@@ -761,7 +737,6 @@ const mouseLeaveLayout = () => {
 };
 
 watch(nowIndex, () => {
-  // 歌曲切换时不自动滚动
   if (isSongChanging.value) return;
   debouncedLrcScroll();
 });
@@ -770,7 +745,6 @@ watch(
   () => isVisible.value,
   () => {
     if (isVisible.value) {
-      // 已处于纯净模式但从未见过引导的用户（如从设置页开启），打开播放页时补一次引导
       if (config.value.pureModeEnabled) {
         showPureModeOnboarding();
       }
@@ -778,7 +752,6 @@ watch(
         lrcScroll('instant');
       });
     } else {
-      // 关闭播放页时结束未完成的引导，避免后台残留
       showPureModeTip.value = false;
     }
   }
@@ -796,7 +769,6 @@ const targetBackground = computed(() => {
   return props.background;
 });
 
-// 监听目标背景变化并更新文字颜色
 watch(
   targetBackground,
   (newBg) => {
@@ -815,9 +787,7 @@ const getLrcStyle = (index: number) => {
   const focusOn = config.value.focusCurrentLyric;
 
   if (index === nowIndex.value) {
-    // 当前播放的歌词
     if (originalStyle.backgroundImage) {
-      // 有渐变进度时，使用渐变效果
       return {
         ...originalStyle,
         backgroundImage: originalStyle.backgroundImage
@@ -829,27 +799,21 @@ const getLrcStyle = (index: number) => {
       };
     } else {
       return {
-        // 聚焦模式下当前行使用全亮文字色（Apple Music 观感），其余行维持半透明
         color: focusOn ? colors.active : colors.primary
       };
     }
   }
 
-  // 非当前播放的歌词，使用普通颜色
   return {
     color: colors.primary
   };
 };
 
-// Apple Music 风格聚焦效果（#750）：
-// 当前播放行清晰、放大、明亮并带柔和光晕；其余行随距离渐远而更模糊、更淡。
-// 光晕用父元素 drop-shadow 而非 text-shadow：background-clip: text 下 text-shadow
-// 会绘制在渐变填充之上，糊掉卡拉OK进度；drop-shadow 还能同时覆盖逐字歌词行。
 const FOCUS_LINE_LEVELS = [
-  { opacity: 1, blur: 0 }, // 当前行
+  { opacity: 1, blur: 0 },
   { opacity: 0.5, blur: 1 },
   { opacity: 0.32, blur: 1.9 },
-  { opacity: 0.22, blur: 2.8 } // 距离 >= 3 的行
+  { opacity: 0.22, blur: 2.8 }
 ];
 
 const getFocusStyle = (index: number) => {
@@ -861,38 +825,30 @@ const getFocusStyle = (index: number) => {
 
   return {
     opacity: level.opacity,
-    // 当前行不模糊、带柔和光晕；其余行按距离模糊
     filter: distance === 0 ? `drop-shadow(0 0 12px ${colors.active}4d)` : `blur(${level.blur}px)`,
     transform: `scale(${distance === 0 ? 1.06 : 1})`,
-    // 平滑缓动过渡，仅过渡聚焦相关属性，避免干扰 hover 背景色的原有节奏
     transition:
       'opacity 0.55s cubic-bezier(0.4, 0, 0.2, 1), filter 0.55s cubic-bezier(0.4, 0, 0.2, 1), transform 0.55s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.3s ease'
   };
 };
 
-// 逐字歌词样式函数
 const getWordStyle = (lineIndex: number, _wordIndex: number, word: any) => {
   const colors = textColors.value || getTextColors();
-  // 如果不是当前行，返回普通样式
   if (lineIndex !== nowIndex.value) {
     return {
       color: colors.primary,
       transition: 'color 0.3s ease',
-      // 重置背景相关属性
       backgroundImage: 'none',
       WebkitTextFillColor: 'initial'
     };
   }
 
-  // 当前行的逐字效果，应用歌词矫正时间
-  const currentTime = (nowTime.value + correctionTime.value) * 1000; // 转换为毫秒，确保与word时间单位一致
+  const currentTime = (nowTime.value + correctionTime.value) * 1000;
 
-  // 直接使用绝对时间比较
-  const wordStartTime = word.startTime; // 单词开始的绝对时间（毫秒）
+  const wordStartTime = word.startTime;
   const wordEndTime = word.startTime + word.duration;
 
   if (currentTime >= wordStartTime && currentTime < wordEndTime) {
-    // 当前正在播放的单词 - 使用渐变进度效果
     const progress = Math.min((currentTime - wordStartTime) / word.duration, 1);
     const progressPercent = Math.round(progress * 100);
 
@@ -905,14 +861,12 @@ const getWordStyle = (lineIndex: number, _wordIndex: number, word: any) => {
       transition: 'all 0.1s ease'
     };
   } else if (currentTime >= wordEndTime) {
-    // 已经播放过的单词 - 纯色显示
     return {
       color: colors.active,
       WebkitTextFillColor: 'initial',
       transition: 'none'
     };
   } else {
-    // 还未播放的单词 - 普通状态
     return {
       color: colors.primary,
       WebkitTextFillColor: 'initial',
@@ -932,14 +886,12 @@ const handleArtistClick = (id: number) => {
 
 const setData = computed(() => settingsStore.setData);
 
-// 监听字体变化并更新 CSS 变量
 watch(
   () => [setData.value.fontFamily, setData.value.fontScope],
   ([newFont, fontScope]) => {
     const defaultFonts =
       'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
 
-    // 如果不是歌词模式或全局模式，使用默认字体
     if (fontScope !== 'lyric' && fontScope !== 'global') {
       document.documentElement.style.setProperty('--current-font-family', defaultFonts);
       return;
@@ -948,16 +900,13 @@ watch(
     if (newFont === 'system-ui') {
       document.documentElement.style.setProperty('--current-font-family', defaultFonts);
     } else {
-      // 处理多个字体，确保每个字体名都被正确引用
       const fontList = newFont.split(',').map((font) => {
         const trimmedFont = font.trim();
-        // 如果字体名包含空格或特殊字符，添加引号（如果还没有引号的话）
         return /[\s'"()]/.test(trimmedFont) && !/^['"].*['"]$/.test(trimmedFont)
           ? `"${trimmedFont}"`
           : trimmedFont;
       });
 
-      // 将选择的字体和默认字体组合
       document.documentElement.style.setProperty(
         '--current-font-family',
         `${fontList.join(', ')}, ${defaultFonts}`
@@ -967,7 +916,6 @@ watch(
   { immediate: true }
 );
 
-// 监听滚动事件
 const handleScroll = () => {
   if (!lrcSider.value || !config.value.hideCover) return;
   const { scrollTop } = lrcSider.value.$el;
@@ -1007,7 +955,9 @@ const currentVariants = ref<Variant[]>([]);
 const currentSongRecord = ref<Song | undefined>(undefined);
 
 const videoPopoverVisible = ref(false);
-const videoPopoverInitialTab = ref<'playback' | 'search' | 'link' | 'qualities' | 'linked'>('playback');
+const videoPopoverInitialTab = ref<'playback' | 'search' | 'link' | 'qualities' | 'linked'>(
+  'playback'
+);
 const showSaveToDiskModal = ref(false);
 
 const videoPillBadge = computed(() => {
@@ -1207,9 +1157,7 @@ const enterVideoMode = async (src: string, muxedBase: string | null, carryTime: 
   videoIsMuxed.value = Boolean(muxedBase);
   activeMuxedBase.value = muxedBase;
   videoSeekOffset.value = muxedBase ? Math.max(0, Math.floor(carryTime)) : 0;
-  activeVideoSrc.value = muxedBase
-    ? withStreamStart(muxedBase, videoSeekOffset.value)
-    : src;
+  activeVideoSrc.value = muxedBase ? withStreamStart(muxedBase, videoSeekOffset.value) : src;
 
   try {
     await nextTick();
@@ -1234,9 +1182,7 @@ const enterVideoMode = async (src: string, muxedBase: string | null, carryTime: 
         // Stream not buffered yet; playback still starts from its first frame.
       }
     }
-    nowTime.value = muxedBase
-      ? videoSeekOffset.value + el.currentTime
-      : carryTime;
+    nowTime.value = muxedBase ? videoSeekOffset.value + el.currentTime : carryTime;
     suppressVideoTimeUpdatesUntil = Date.now() + 800;
 
     mediaCoordinator.claimPlayback('fullscreen-video', el);
@@ -1342,7 +1288,8 @@ const switchForwardToVideo = async () => {
   }
 
   // 2. Resolution order 2: stored youtubeId
-  let ytId = currentYoutubeId.value || currentSongRecord.value?.youtubeId || (song as any).youtubeId;
+  let ytId =
+    currentYoutubeId.value || currentSongRecord.value?.youtubeId || (song as any).youtubeId;
   if (!ytId) {
     const localPath = (song as any).localPath || (song as any).path;
     if (localPath) {
@@ -1364,11 +1311,7 @@ const switchForwardToVideo = async () => {
         height: selectedVideoHeight.value
       });
       const muxed = Boolean((streamRes as any).isMuxedProxy);
-      await enterVideoMode(
-        streamRes.videoUrl,
-        muxed ? streamRes.videoUrl : null,
-        carryTime
-      );
+      await enterVideoMode(streamRes.videoUrl, muxed ? streamRes.videoUrl : null, carryTime);
       return;
     } catch (err) {
       console.error('[MusicFull] Stream resolution error:', err);
@@ -1398,20 +1341,14 @@ const handleSelectQuality = async (height: number) => {
   selectedVideoHeight.value = height;
   if (currentYoutubeId.value && playerStore.playbackMode === 'video') {
     const video = activeVideoElement.value;
-    const carryTime = video
-      ? videoSeekOffset.value + video.currentTime
-      : nowTime.value;
+    const carryTime = video ? videoSeekOffset.value + video.currentTime : nowTime.value;
     try {
       const streamRes = await youtubeService.getStreamUrl(currentYoutubeId.value, {
         kind: 'video',
         height
       });
       const muxed = Boolean((streamRes as any).isMuxedProxy);
-      await enterVideoMode(
-        streamRes.videoUrl,
-        muxed ? streamRes.videoUrl : null,
-        carryTime
-      );
+      await enterVideoMode(streamRes.videoUrl, muxed ? streamRes.videoUrl : null, carryTime);
     } catch (err) {
       console.error('[MusicFull] Stream change error:', err);
     }
@@ -1468,7 +1405,6 @@ watch(
 );
 
 const closeMusicFull = () => {
-  // 退出全屏模式
   if (isElectron) {
     window.api.isFullScreen().then((fs) => {
       if (fs) {
@@ -1482,13 +1418,11 @@ const closeMusicFull = () => {
   playerStore.setMusicFull(false);
 };
 
-// 窗口控制（#492）：展开歌词时标题栏被抽屉遮挡，这里复用标题栏同一套关闭逻辑与确认弹窗
 const { showCloseModal, rememberChoice, minimizeWindow, requestClose, confirmCloseAction } =
   useWindowControls();
 
 let removeFullScreenListener: (() => void) | undefined;
 
-// 全屏切换方法
 const toggleFullScreen = async () => {
   try {
     if (isElectron) {
@@ -1496,25 +1430,21 @@ const toggleFullScreen = async () => {
       return;
     }
     if (!document.fullscreenElement) {
-      // 进入全屏
       await document.documentElement.requestFullscreen();
       isFullScreen.value = true;
     } else {
-      // 退出全屏
       await document.exitFullscreen();
       isFullScreen.value = false;
     }
   } catch (error) {
-    console.error('全屏切换失败:', error);
+    console.error('Failed to toggle fullscreen:', error);
   }
 };
 
-// 监听全屏状态变化
 const handleFullScreenChange = () => {
   isFullScreen.value = !!document.fullscreenElement;
 };
 
-// 添加滚动监听和全屏状态监听
 onMounted(() => {
   if (lrcSider.value?.$el) {
     lrcSider.value.$el.addEventListener('scroll', handleScroll);
@@ -1532,7 +1462,6 @@ onMounted(() => {
   }
 });
 
-// 移除滚动监听和全屏状态监听
 onBeforeUnmount(() => {
   removeFullScreenListener?.();
   if (lrcSider.value?.$el) {
@@ -1540,13 +1469,11 @@ onBeforeUnmount(() => {
   }
   document.removeEventListener('fullscreenchange', handleFullScreenChange);
   window.removeEventListener(LYRIC_CONFIG_CHANGE_EVENT, handleLyricConfigChange);
-  // 退出全屏模式
   if (document.fullscreenElement) {
     document.exitFullscreen();
   }
 });
 
-// 监听字体大小变化
 watch(
   () => config.value.fontSize,
   (newSize) => {
@@ -1554,7 +1481,6 @@ watch(
   }
 );
 
-// 监听字体粗细变化
 watch(
   () => config.value.fontWeight,
   (newWeight) => {
@@ -1562,7 +1488,6 @@ watch(
   }
 );
 
-// 添加文字间距监听
 watch(
   () => config.value.letterSpacing,
   (newSpacing) => {
@@ -1570,7 +1495,6 @@ watch(
   }
 );
 
-// 添加行高监听
 watch(
   () => config.value.lineHeight,
   (newLineHeight) => {
@@ -1578,7 +1502,6 @@ watch(
   }
 );
 
-// 加载保存的配置
 onMounted(() => {
   const savedConfig = localStorage.getItem('music-full-config');
   if (savedConfig) {
@@ -1589,17 +1512,13 @@ onMounted(() => {
   }
 });
 
-// 添加对 playMusic.id 的监听，歌曲切换时滚动到顶部
 watch(
   () => playMusic.value.id,
   (newId, oldId) => {
-    // 只在歌曲真正切换时滚动到顶部
     if (newId !== oldId && newId) {
       isSongChanging.value = true;
-      // 延迟滚动，确保 nowIndex 已重置
       setTimeout(() => {
         lrcScroll('instant', true);
-        // 延迟恢复自动滚动，等待歌词数据更新
         setTimeout(() => {
           isSongChanging.value = false;
         }, 300);
@@ -1804,8 +1723,6 @@ defineExpose({
       line-height: var(--lyric-line-height, 2) !important;
       opacity: 0.6;
       transform-origin: left center;
-      // 当前行会被 scale 放大（常规 1.05 / 聚焦 1.06），预留宽度避免长歌词右端被容器裁切；
-      // transform 不影响布局换行，各行换行宽度保持一致，行切换时不会重新折行
       max-width: 94.3%;
 
       &.now-text {
@@ -1848,7 +1765,6 @@ defineExpose({
         color: var(--text-color-primary);
       }
 
-      // 逐字歌词样式
       .word-by-word-lyric {
         @apply flex flex-wrap;
 
@@ -1872,7 +1788,6 @@ defineExpose({
     .hover-text {
       &:hover {
         @apply font-bold rounded-xl;
-        // 聚焦模式下模糊/变淡是内联样式，优先级高于类，需 !important 取消，便于阅读与点击定位
         opacity: 1 !important;
         filter: none !important;
         background-color: var(--hover-bg-color);
@@ -1924,11 +1839,9 @@ defineExpose({
 }
 
 .music-drawer {
-  transition: none; // 移除之前的过渡效果，现在使用 JS 动画
+  transition: none;
 }
 
-// 添加全局字体样式
-// 字体设置已移至上方或不再需要单独的 drawer-target 块
 :root {
   --current-font-family:
     system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
@@ -1969,7 +1882,6 @@ defineExpose({
   @apply flex items-center gap-2;
 }
 
-// 纯净模式首次开启引导层：虚线高亮控件原位置 + 箭头气泡指向对应角落，不拦截任何点击
 .pure-mode-tip-layer {
   @apply absolute inset-0 z-[9999] pointer-events-none;
 }
@@ -1979,7 +1891,6 @@ defineExpose({
   border: 1.5px dashed rgba(255, 255, 255, 0.75);
   animation: pure-tip-pulse 1.8s ease-out infinite;
 
-  // 第二步：左上角收起按钮（单个 36px 按钮位）
   &--left {
     @apply right-auto left-8 w-9;
   }
@@ -1993,7 +1904,6 @@ defineExpose({
   color: rgba(255, 255, 255, 0.92);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
 
-  // 第二步：气泡移到左上角下方
   &--left {
     @apply right-auto left-8;
   }
@@ -2040,7 +1950,6 @@ defineExpose({
   }
 }
 
-// 步骤指示圆点（当前步高亮）
 .pure-mode-tip-dots {
   @apply ml-0.5 flex items-center gap-1 self-center;
 

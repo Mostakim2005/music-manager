@@ -198,7 +198,6 @@
               </div>
             </div>
 
-            <!-- 失败任务：显示失败原因，可重试或移除（#757） -->
             <div v-if="downloadStore.failedList.length > 0" class="failed-container mt-6">
               <h3 class="text-sm font-bold text-red-500 mb-3">{{ t('download.failed.title') }}</h3>
               <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
@@ -326,7 +325,7 @@
                             <i class="ri-file-copy-line" />
                           </button>
                         </template>
-                        {{ t('download.path.copy') || '复制路径' }}
+                        {{ t('download.path.copy') || 'Copy path' }}
                       </n-tooltip>
                       <n-tooltip trigger="hover">
                         <template #trigger>
@@ -353,7 +352,6 @@
                     </div>
                   </div>
                 </div>
-                <!-- 未渲染项占位 -->
                 <div
                   v-if="downloadedPlaceholderHeight > 0"
                   :style="{ height: downloadedPlaceholderHeight + 'px' }"
@@ -365,7 +363,6 @@
       </div>
     </n-scrollbar>
 
-    <!-- 删除确认对话框 -->
     <n-modal
       v-model:show="showDeleteConfirm"
       preset="dialog"
@@ -381,7 +378,6 @@
       @positive-click="confirmDelete"
     />
 
-    <!-- 清空确认对话框 -->
     <n-modal
       v-model:show="showClearConfirm"
       preset="dialog"
@@ -393,7 +389,6 @@
       @positive-click="clearDownloadRecords"
     />
 
-    <!-- 未保存下载设置确认对话框 -->
     <n-modal
       v-model:show="showNotSaveConfirm"
       preset="dialog"
@@ -417,7 +412,6 @@
       </template>
     </n-modal>
 
-    <!-- 下载设置抽屉 -->
     <n-drawer
       :show="showSettingsDrawer"
       :width="400"
@@ -675,7 +669,6 @@ const getProgressClass = (item: DownloadTask) => {
 const handlePause = (taskId: string) => downloadStore.pauseTask(taskId);
 const handleResume = (taskId: string) => downloadStore.resumeTask(taskId);
 const handleCancel = (taskId: string) => downloadStore.cancelTask(taskId);
-// 失败任务重试：主进程 resumeTask 接受 error 态，重新排队下载（#757）
 const handleRetry = (taskId: string) => downloadStore.retryTask(taskId);
 
 const handleCoverError = (e: Event) => {
@@ -699,7 +692,7 @@ const copyPath = (path: string) => {
       message.success(t('download.path.copied'));
     })
     .catch((err) => {
-      console.error('复制失败:', err);
+      console.error('Copy failed:', err);
       message.error(t('download.path.copyFailed'));
     });
 };
@@ -773,7 +766,7 @@ const handlePlayMusic = async (item: any) => {
 
     message.success(t('download.playStarted', { name: item.displayName || item.filename }));
   } catch (error) {
-    console.error('播放音乐失败:', error);
+    console.error('Failed to play music:', error);
     message.error(t('download.playFailed', { name: item.displayName || item.filename }));
   }
 };
@@ -923,9 +916,9 @@ watch(
 const formatNamePreview = computed(() => {
   const format = downloadSettings.value.nameFormat;
   return format
-    .replace(/\{songName\}/g, '莫失莫忘')
-    .replace(/\{artistName\}/g, '香蜜沉沉烬如霜')
-    .replace(/\{albumName\}/g, '电视剧原声带');
+    .replace(/\{songName\}/g, 'Sample Song')
+    .replace(/\{artistName\}/g, 'Sample Artist')
+    .replace(/\{albumName\}/g, 'Sample Album');
 });
 
 const selectDownloadPath = async () => {

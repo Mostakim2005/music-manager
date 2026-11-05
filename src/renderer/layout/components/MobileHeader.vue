@@ -1,6 +1,5 @@
 <template>
   <div class="mobile-header" :class="{ 'safe-area-top': hasSafeArea }">
-    <!-- 左侧区域 -->
     <div class="header-left">
       <div v-if="showBack" class="header-btn" @click="goBack">
         <i class="ri-arrow-left-s-line"></i>
@@ -10,12 +9,10 @@
       </div>
     </div>
 
-    <!-- 中间标题 -->
     <div class="header-title">
       <span v-if="title">{{ t(title) }}</span>
     </div>
 
-    <!-- 右侧区域 -->
     <div class="header-right">
       <div class="header-btn" @click="openSearch">
         <i class="ri-search-line"></i>
@@ -36,25 +33,20 @@ const route = useRoute();
 const router = useRouter();
 const { t } = useI18n();
 
-// 注入是否有安全区域
 const hasSafeArea = inject('hasSafeArea', false);
 
-// 是否显示返回按钮
 const showBack = computed(() => {
   return route.meta.back === true;
 });
 
-// 页面标题
 const title = computed(() => {
   return (route.meta.title as string) || '';
 });
 
-// 返回上一页
 const goBack = () => {
   router.back();
 };
 
-// 打开搜索
 const openSearch = () => {
   router.push('/mobile-search');
 };

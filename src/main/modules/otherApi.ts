@@ -2,10 +2,8 @@ import axios from 'axios';
 import { ipcMain } from 'electron';
 
 /**
- * 初始化其他杂项 API（如搜索建议等）
  */
 export function initializeOtherApi() {
-  // 搜索建议
   ipcMain.handle('get-search-suggestions', async (_, keyword: string) => {
     if (!keyword || !keyword.trim()) {
       return [];

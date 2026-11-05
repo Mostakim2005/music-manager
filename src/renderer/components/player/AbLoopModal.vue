@@ -8,7 +8,9 @@
     <div
       class="ab-loop-modal p-6 rounded-3xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shadow-2xl max-w-lg w-[92vw]"
     >
-      <div class="flex items-center justify-between pb-3 border-b border-neutral-200 dark:border-neutral-800">
+      <div
+        class="flex items-center justify-between pb-3 border-b border-neutral-200 dark:border-neutral-800"
+      >
         <div>
           <h3 class="text-lg font-bold text-neutral-900 dark:text-white flex items-center gap-2">
             <i class="ri-repeat-2-line text-green-500" />
@@ -29,7 +31,9 @@
       </div>
 
       <!-- A-B Segment Controls -->
-      <div class="mt-4 p-4 rounded-2xl bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200 dark:border-neutral-700">
+      <div
+        class="mt-4 p-4 rounded-2xl bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200 dark:border-neutral-700"
+      >
         <div class="flex items-center justify-between mb-3">
           <span class="text-xs font-semibold text-neutral-700 dark:text-neutral-200">
             A-B Segment Loop
@@ -80,10 +84,7 @@
         </div>
 
         <div class="max-h-48 overflow-y-auto space-y-1.5">
-          <div
-            v-if="bookmarks.length === 0"
-            class="py-6 text-center text-xs text-neutral-400"
-          >
+          <div v-if="bookmarks.length === 0" class="py-6 text-center text-xs text-neutral-400">
             No bookmarks saved for this track yet.
           </div>
           <div
@@ -96,7 +97,9 @@
               class="flex items-center gap-2.5 text-left flex-1 min-w-0"
               @click="jumpToBookmark(bm.time)"
             >
-              <span class="px-2 py-0.5 rounded bg-green-500/15 text-green-600 dark:text-green-400 font-mono text-xs">
+              <span
+                class="px-2 py-0.5 rounded bg-green-500/15 text-green-600 dark:text-green-400 font-mono text-xs"
+              >
                 {{ formatSec(bm.time) }}
               </span>
               <span class="text-xs font-medium text-neutral-800 dark:text-neutral-200 truncate">

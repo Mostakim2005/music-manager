@@ -38,7 +38,7 @@ export const getMusicLrc = async (
     if (typeof window !== 'undefined' && window.api?.fetchMultiSourceLyrics) {
       const title = song?.name || '';
       const artist = song?.ar?.[0]?.name || song?.artists?.[0]?.name || '';
-      const durationSec = ((song?.duration || song?.dt || 0) / 1000) || undefined;
+      const durationSec = (song?.duration || song?.dt || 0) / 1000 || undefined;
 
       if (title) {
         const lrcResult = await window.api.fetchMultiSourceLyrics({
@@ -64,18 +64,17 @@ export const getMusicLrc = async (
     try {
       await saveData('music_lyric', { id, data: lyricPayload, createTime: Date.now() });
     } catch (error) {
-      console.warn('保存歌词缓存失败:', error);
+      console.warn('Failed to save lyric cache:', error);
     }
 
     return { data: lyricPayload };
   } catch (error) {
-    console.error('获取歌词失败:', error);
+    console.error('Failed to fetch lyrics:', error);
     return { data: { lrc: { lyric: '' }, tlyric: { lyric: '' }, romalrc: { lyric: '' } } };
   }
 };
 
 /**
- * 获取解析后的音乐URL（内部走统一解析器）
  */
 export const getParsingMusicUrl = async (
   _id: number | string,
@@ -124,7 +123,11 @@ export const createPlaylist = async (params: { name: string; privacy: number }) 
   return { data: { code: 200, id: Date.now(), ...params } };
 };
 
-export const updatePlaylistTracks = async (_params: { op: 'add' | 'del'; pid: number; tracks: string }) => {
+export const updatePlaylistTracks = async (_params: {
+  op: 'add' | 'del';
+  pid: number;
+  tracks: string;
+}) => {
   return { data: { code: 200 } };
 };
 

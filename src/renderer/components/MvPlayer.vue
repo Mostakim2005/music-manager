@@ -260,9 +260,7 @@
                     <n-icon size="20">
                       <i
                         :class="
-                          isPiP
-                            ? 'ri-picture-in-picture-exit-line'
-                            : 'ri-picture-in-picture-2-line'
+                          isPiP ? 'ri-picture-in-picture-exit-line' : 'ri-picture-in-picture-2-line'
                         "
                       ></i>
                     </n-icon>
@@ -346,8 +344,8 @@ import { useI18n } from 'vue-i18n';
 
 import { getMvUrl } from '@/api/mv';
 import { mediaCoordinator } from '@/services/mediaCoordinator';
-import { toPlayableMediaUrl } from '@/utils/localMediaUrl';
 import { IMvItem } from '@/types/mv';
+import { toPlayableMediaUrl } from '@/utils/localMediaUrl';
 
 const { t } = useI18n();
 const breakpoints = useBreakpoints(breakpointsTailwind);
@@ -668,8 +666,10 @@ onUnmounted(() => {
     unregisterMedia = null;
   }
   if (videoRef.value) {
-    if (pipEnterHandler) videoRef.value.removeEventListener('enterpictureinpicture', pipEnterHandler);
-    if (pipLeaveHandler) videoRef.value.removeEventListener('leavepictureinpicture', pipLeaveHandler);
+    if (pipEnterHandler)
+      videoRef.value.removeEventListener('enterpictureinpicture', pipEnterHandler);
+    if (pipLeaveHandler)
+      videoRef.value.removeEventListener('leavepictureinpicture', pipLeaveHandler);
   }
   if (cursorTimer) clearTimeout(cursorTimer);
 });

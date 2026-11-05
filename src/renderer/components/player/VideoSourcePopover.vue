@@ -60,7 +60,9 @@
         <!-- 1. PLAYBACK TAB -->
         <div v-show="currentTab === 'playback'" class="space-y-4">
           <div class="p-4 rounded-xl bg-white/5 border border-white/5 flex items-start gap-4">
-            <div class="w-16 h-16 rounded-lg bg-black/40 overflow-hidden shrink-0 flex items-center justify-center">
+            <div
+              class="w-16 h-16 rounded-lg bg-black/40 overflow-hidden shrink-0 flex items-center justify-center"
+            >
               <img
                 v-if="activeThumbnail"
                 :src="activeThumbnail"
@@ -77,7 +79,9 @@
               <div class="flex items-center gap-2 mt-2">
                 <span
                   class="px-2 py-0.5 rounded text-[11px] font-medium"
-                  :class="isVideoMode ? 'bg-emerald-500/20 text-emerald-400' : 'bg-white/10 text-white/70'"
+                  :class="
+                    isVideoMode ? 'bg-emerald-500/20 text-emerald-400' : 'bg-white/10 text-white/70'
+                  "
                 >
                   Mode: {{ isVideoMode ? 'Video' : 'Audio' }}
                 </span>
@@ -92,7 +96,9 @@
           </div>
 
           <div class="space-y-2">
-            <h3 class="text-xs font-semibold uppercase tracking-wider text-white/50">Playback Mode Switch</h3>
+            <h3 class="text-xs font-semibold uppercase tracking-wider text-white/50">
+              Playback Mode Switch
+            </h3>
             <div class="grid grid-cols-2 gap-3">
               <button
                 type="button"
@@ -124,7 +130,10 @@
           </div>
 
           <!-- Active link indicator or Quick Action -->
-          <div v-if="!currentYoutubeId && !hasLocalVideoVariant" class="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-200/90 text-xs flex items-center justify-between">
+          <div
+            v-if="!currentYoutubeId && !hasLocalVideoVariant"
+            class="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-200/90 text-xs flex items-center justify-between"
+          >
             <div class="flex items-center gap-2">
               <i class="ri-information-line text-base text-amber-400"></i>
               <span>No video source is currently linked to this track.</span>
@@ -171,7 +180,10 @@
 
           <!-- Search results list -->
           <div class="space-y-2">
-            <div v-if="isSearching" class="py-8 flex flex-col items-center justify-center text-white/50 gap-2">
+            <div
+              v-if="isSearching"
+              class="py-8 flex flex-col items-center justify-center text-white/50 gap-2"
+            >
               <i class="ri-loader-4-line animate-spin text-2xl text-emerald-400"></i>
               <span class="text-xs">Searching YouTube...</span>
             </div>
@@ -183,7 +195,9 @@
                 class="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 transition flex items-center gap-3 cursor-pointer group"
                 @click="linkSearchResult(item)"
               >
-                <div class="relative w-24 aspect-video rounded-lg bg-black/50 overflow-hidden shrink-0">
+                <div
+                  class="relative w-24 aspect-video rounded-lg bg-black/50 overflow-hidden shrink-0"
+                >
                   <img
                     v-if="item.thumbnail"
                     :src="item.thumbnail"
@@ -199,7 +213,9 @@
                   </span>
                 </div>
                 <div class="flex-1 min-w-0">
-                  <div class="text-sm font-medium text-white/90 group-hover:text-emerald-400 transition truncate line-clamp-2">
+                  <div
+                    class="text-sm font-medium text-white/90 group-hover:text-emerald-400 transition truncate line-clamp-2"
+                  >
                     {{ item.title }}
                   </div>
                   <div class="text-xs text-white/50 truncate mt-1 flex items-center gap-2">
@@ -217,7 +233,10 @@
               </div>
             </div>
 
-            <div v-else-if="hasSearched && searchResults.length === 0" class="py-6 text-center text-white/40 text-xs">
+            <div
+              v-else-if="hasSearched && searchResults.length === 0"
+              class="py-6 text-center text-white/40 text-xs"
+            >
               No results found for "{{ searchQuery }}".
             </div>
           </div>
@@ -252,9 +271,16 @@
             </p>
           </div>
 
-          <div v-if="currentYoutubeId" class="p-4 rounded-xl bg-white/5 border border-white/5 text-xs space-y-1">
-            <div class="text-white/50 uppercase tracking-wider text-[11px] font-semibold">Currently Linked</div>
-            <div class="font-mono text-emerald-300 text-sm">https://youtu.be/{{ currentYoutubeId }}</div>
+          <div
+            v-if="currentYoutubeId"
+            class="p-4 rounded-xl bg-white/5 border border-white/5 text-xs space-y-1"
+          >
+            <div class="text-white/50 uppercase tracking-wider text-[11px] font-semibold">
+              Currently Linked
+            </div>
+            <div class="font-mono text-emerald-300 text-sm">
+              https://youtu.be/{{ currentYoutubeId }}
+            </div>
           </div>
         </div>
 
@@ -262,8 +288,12 @@
         <div v-show="currentTab === 'qualities'" class="space-y-4">
           <div class="flex items-center justify-between">
             <div>
-              <h3 class="text-xs font-semibold uppercase tracking-wider text-white/60">Available Video Heights</h3>
-              <p class="text-[11px] text-white/40">Click row to stream, or download for offline playback</p>
+              <h3 class="text-xs font-semibold uppercase tracking-wider text-white/60">
+                Available Video Heights
+              </h3>
+              <p class="text-[11px] text-white/40">
+                Click row to stream, or download for offline playback
+              </p>
             </div>
             <button
               v-if="currentYoutubeId"
@@ -277,7 +307,10 @@
             </button>
           </div>
 
-          <div v-if="isLoadingFormats" class="py-8 flex flex-col items-center justify-center text-white/50 gap-2">
+          <div
+            v-if="isLoadingFormats"
+            class="py-8 flex flex-col items-center justify-center text-white/50 gap-2"
+          >
             <i class="ri-loader-4-line animate-spin text-2xl text-emerald-400"></i>
             <span class="text-xs">Inspecting stream qualities...</span>
           </div>
@@ -354,17 +387,19 @@
 
             <!-- Audio Sub-list -->
             <div class="pt-4 border-t border-white/5 space-y-2">
-              <h4 class="text-xs font-semibold uppercase tracking-wider text-white/50">Audio Formats</h4>
+              <h4 class="text-xs font-semibold uppercase tracking-wider text-white/50">
+                Audio Formats
+              </h4>
               <div
                 class="p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 flex items-center justify-between transition"
               >
                 <div class="flex items-center gap-3">
-                  <span class="px-2 py-1 rounded text-xs font-semibold font-mono bg-white/10 text-white/80">
+                  <span
+                    class="px-2 py-1 rounded text-xs font-semibold font-mono bg-white/10 text-white/80"
+                  >
                     Audio
                   </span>
-                  <div class="text-xs text-white/80 font-mono">
-                    m4a / opus • high bitrate
-                  </div>
+                  <div class="text-xs text-white/80 font-mono">m4a / opus • high bitrate</div>
                 </div>
                 <div class="flex items-center gap-2">
                   <span
@@ -418,17 +453,31 @@
               <div class="flex items-center gap-2.5 min-w-0 flex-1">
                 <i
                   class="text-base shrink-0"
-                  :class="v.kind === 'video' ? 'ri-video-line text-blue-400' : 'ri-music-2-line text-emerald-400'"
+                  :class="
+                    v.kind === 'video'
+                      ? 'ri-video-line text-blue-400'
+                      : 'ri-music-2-line text-emerald-400'
+                  "
                 ></i>
                 <div class="min-w-0 flex-1">
                   <div class="font-medium text-white truncate flex items-center gap-2">
                     <span class="uppercase font-mono">{{ v.container || v.kind }}</span>
                     <span v-if="v.height" class="font-mono text-white/60">{{ v.height }}p</span>
-                    <span v-if="v.bitrateKbps" class="font-mono text-white/60">{{ v.bitrateKbps }} kbps</span>
-                    <span v-if="v.sizeBytes" class="font-mono text-white/60">{{ formatSize(v.sizeBytes) }}</span>
-                    <span class="px-1.5 py-0.2 rounded bg-white/10 text-[10px] text-white/60">{{ v.source }}</span>
+                    <span v-if="v.bitrateKbps" class="font-mono text-white/60"
+                      >{{ v.bitrateKbps }} kbps</span
+                    >
+                    <span v-if="v.sizeBytes" class="font-mono text-white/60">{{
+                      formatSize(v.sizeBytes)
+                    }}</span>
+                    <span class="px-1.5 py-0.2 rounded bg-white/10 text-[10px] text-white/60">{{
+                      v.source
+                    }}</span>
                   </div>
-                  <div v-if="v.path" class="text-[11px] text-white/40 truncate font-mono mt-0.5" :title="v.path">
+                  <div
+                    v-if="v.path"
+                    class="text-[11px] text-white/40 truncate font-mono mt-0.5"
+                    :title="v.path"
+                  >
                     {{ v.path }}
                   </div>
                 </div>
@@ -490,17 +539,13 @@
 import { computed, ref, watch } from 'vue';
 
 import {
-  type Song,
-  type Variant,
   linkVariant,
   setYoutubeId,
-  unlinkVariant as dbUnlinkVariant
+  type Song,
+  unlinkVariant as dbUnlinkVariant,
+  type Variant
 } from '@/services/songLibrary';
-import {
-  type YtSearchResult,
-  type YtVideoFormat,
-  youtubeService
-} from '@/services/youtubeService';
+import { youtubeService, type YtSearchResult, type YtVideoFormat } from '@/services/youtubeService';
 import type { SongResult } from '@/types/music';
 import { getImgUrl } from '@/utils';
 import {
@@ -727,7 +772,9 @@ const isHeightDownloaded = (height: number) => {
 };
 
 // Download tracking
-const downloadProgressMap = ref<Record<string, { percent: number; speed: string; state: string }>>({});
+const downloadProgressMap = ref<Record<string, { percent: number; speed: string; state: string }>>(
+  {}
+);
 
 const downloadVideoQuality = async (row: { height: number; rawFormat?: YtVideoFormat }) => {
   const id = props.currentYoutubeId;
@@ -759,7 +806,8 @@ const downloadVideoQuality = async (row: { height: number; rawFormat?: YtVideoFo
           unsubscribe();
           delete downloadProgressMap.value[key];
 
-          const songId = props.songRecord?.id || (props.song as any)?.songId || String(props.song?.id);
+          const songId =
+            props.songRecord?.id || (props.song as any)?.songId || String(props.song?.id);
           if (songId) {
             await linkVariant(songId, {
               kind: 'video',
@@ -815,7 +863,8 @@ const downloadAudioOnly = async () => {
           unsubscribe();
           delete downloadProgressMap.value[key];
 
-          const songId = props.songRecord?.id || (props.song as any)?.songId || String(props.song?.id);
+          const songId =
+            props.songRecord?.id || (props.song as any)?.songId || String(props.song?.id);
           if (songId) {
             await linkVariant(songId, {
               kind: 'audio',
@@ -872,9 +921,8 @@ const deletingVariantId = ref<string | null>(null);
  */
 const deleteVariantFromDisk = async (variant: Variant) => {
   if (!variant.path) return;
-  const label = variant.kind === 'video'
-    ? `video${variant.height ? ` (${variant.height}p)` : ''}`
-    : 'audio';
+  const label =
+    variant.kind === 'video' ? `video${variant.height ? ` (${variant.height}p)` : ''}` : 'audio';
   const confirmed = window.confirm(
     `Delete this ${label} file from disk?\n\n${variant.path}\n\nThis cannot be undone.`
   );

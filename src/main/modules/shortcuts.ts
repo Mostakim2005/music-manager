@@ -125,7 +125,7 @@ function unregisterManagedGlobalShortcuts() {
     try {
       globalShortcut.unregister(accelerator);
     } catch (error) {
-      console.error(`[Shortcuts] 注销快捷键失败: ${accelerator}`, error);
+      console.error(`[Shortcuts] Failed to unregister shortcut: ${accelerator}`, error);
     }
   });
   managedGlobalShortcuts.clear();
@@ -199,7 +199,7 @@ function registerManagedGlobalShortcuts(shortcuts: ShortcutsConfig): ShortcutReg
 
       managedGlobalShortcuts.set(action, accelerator);
     } catch (error) {
-      console.error(`[Shortcuts] 注册快捷键失败: ${accelerator}`, error);
+      console.error(`[Shortcuts] Failed to register shortcut: ${accelerator}`, error);
       failed.push({
         action,
         key: accelerator,

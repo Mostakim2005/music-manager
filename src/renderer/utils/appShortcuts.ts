@@ -71,8 +71,6 @@ function shouldSkipAction(action: ShortcutAction): boolean {
 }
 
 /**
- * 处理快捷键动作
- * @param action 快捷键动作
  */
 export async function handleShortcutAction(action: ShortcutAction) {
   if (shouldSkipAction(action)) {
@@ -152,12 +150,11 @@ export async function handleShortcutAction(action: ShortcutAction) {
         break;
     }
   } catch (error) {
-    console.error(`[AppShortcuts] 执行动作失败: ${action}`, error);
+    console.error(`[AppShortcuts] Action failed: ${action}`, error);
   }
 }
 
 /**
- * 全局键盘事件处理函数
  */
 function handleKeyDown(event: KeyboardEvent) {
   if (appShortcutsSuspended) {
@@ -191,7 +188,6 @@ function handleKeyDown(event: KeyboardEvent) {
 }
 
 /**
- * 更新应用内快捷键
  */
 export function updateAppShortcuts(shortcuts: unknown) {
   appShortcuts = normalizeShortcutsConfig(shortcuts);
@@ -202,7 +198,6 @@ export function setAppShortcutsSuspended(suspended: boolean) {
 }
 
 /**
- * 初始化应用内快捷键
  */
 export function initAppShortcuts() {
   if (!isElectron || appShortcutsInitialized) {
@@ -225,7 +220,6 @@ export function initAppShortcuts() {
 }
 
 /**
- * 清理应用内快捷键
  */
 export function cleanupAppShortcuts() {
   if (!isElectron || !appShortcutsInitialized) {
@@ -245,7 +239,6 @@ export function cleanupAppShortcuts() {
 }
 
 /**
- * 使用应用内快捷键的组合函数
  */
 export function useAppShortcuts() {
   onMounted(() => {

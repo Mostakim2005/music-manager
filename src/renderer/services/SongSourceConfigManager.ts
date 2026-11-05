@@ -1,36 +1,25 @@
 /**
- * 歌曲音源配置管理器
  *
- * 职责：
- * 1. 统一管理每首歌曲的自定义音源配置
- * 2. 提供清晰的读取/写入/清除 API
- * 3. 区分"手动"和"自动"设置的音源
- * 4. 管理已尝试的音源列表（按歌曲隔离）
  */
 
 import type { Platform } from '@/types/music';
 
-// 歌曲音源配置类型
 export type SongSourceConfig = {
   sources: Platform[];
   type: 'manual' | 'auto';
   updatedAt: number;
 };
 
-// 内存中缓存已尝试的音源（按歌曲隔离）
 const triedSourcesMap = new Map<string, Set<string>>();
 const triedSourceDiffsMap = new Map<string, Map<string, number>>();
 
-// localStorage key 前缀
 const STORAGE_KEY_PREFIX = 'song_source_';
 const STORAGE_TYPE_KEY_PREFIX = 'song_source_type_';
 
 /**
- * 歌曲音源配置管理器
  */
 export class SongSourceConfigManager {
   /**
-   * 获取歌曲的自定义音源配置
    */
   static getConfig(songId: number | string): SongSourceConfig | null {
     const id = String(songId);
@@ -53,13 +42,12 @@ export class SongSourceConfigManager {
         updatedAt: Date.now()
       };
     } catch (error) {
-      console.error(`[SongSourceConfigManager] 解析歌曲 ${id} 配置失败:`, error);
+      console.error(`[SongSourceConfigManager] Failed to parse config for song ${id}`, error);
       return null;
     }
   }
 
   /**
-   * 设置歌曲的自定义音源配置
    */
   static setConfig(
     songId: number | string,
@@ -76,43 +64,38 @@ export class SongSourceConfigManager {
     try {
       localStorage.setItem(`${STORAGE_KEY_PREFIX}${id}`, JSON.stringify(sources));
       localStorage.setItem(`${STORAGE_TYPE_KEY_PREFIX}${id}`, type);
-      console.log(`[SongSourceConfigManager] 设置歌曲 ${id} 音源: ${sources.join(', ')} (${type})`);
+      console.log(
+        `[SongSourceConfigManager] Set sources for song ${id}: ${sources.join('')} (${type})`
+      );
     } catch (error) {
-      console.error(`[SongSourceConfigManager] 保存歌曲 ${id} 配置失败:`, error);
+      console.error(`[SongSourceConfigManager] Failed to save config for song ${id}`, error);
     }
   }
 
   /**
-   * 清除歌曲的自定义配置
    */
   static clearConfig(songId: number | string): void {
     const id = String(songId);
     localStorage.removeItem(`${STORAGE_KEY_PREFIX}${id}`);
     localStorage.removeItem(`${STORAGE_TYPE_KEY_PREFIX}${id}`);
-    // 同时清除内存中的已尝试音源
     this.clearTriedSources(songId);
-    console.log(`[SongSourceConfigManager] 清除歌曲 ${id} 配置`);
+    console.log(`[SongSourceConfigManager] Cleared song ${id} config`);
   }
 
   /**
-   * 检查歌曲是否有自定义配置
    */
   static hasConfig(songId: number | string): boolean {
     return this.getConfig(songId) !== null;
   }
 
   /**
-   * 检查配置类型是否为手动设置
    */
   static isManualConfig(songId: number | string): boolean {
     const config = this.getConfig(songId);
     return config?.type === 'manual';
   }
 
-  // ==================== 已尝试音源管理 ====================
-
   /**
-   * 获取歌曲已尝试的音源列表
    */
   static getTriedSources(songId: number | string): Set<string> {
     const id = String(songId);
@@ -123,27 +106,24 @@ export class SongSourceConfigManager {
   }
 
   /**
-   * 添加已尝试的音源
    */
   static addTriedSource(songId: number | string, source: string): void {
     const id = String(songId);
     const tried = this.getTriedSources(id);
     tried.add(source);
-    console.log(`[SongSourceConfigManager] 歌曲 ${id} 添加已尝试音源: ${source}`);
+    console.log(`[SongSourceConfigManager] Song ${id} Added attempted source: ${source}`);
   }
 
   /**
-   * 清除歌曲的已尝试音源
    */
   static clearTriedSources(songId: number | string): void {
     const id = String(songId);
     triedSourcesMap.delete(id);
     triedSourceDiffsMap.delete(id);
-    console.log(`[SongSourceConfigManager] 清除歌曲 ${id} 已尝试音源`);
+    console.log(`[SongSourceConfigManager] Cleared song ${id} attempted sources`);
   }
 
   /**
-   * 获取歌曲已尝试音源的时长差异
    */
   static getTriedSourceDiffs(songId: number | string): Map<string, number> {
     const id = String(songId);
@@ -154,7 +134,6 @@ export class SongSourceConfigManager {
   }
 
   /**
-   * 设置音源的时长差异
    */
   static setTriedSourceDiff(songId: number | string, source: string, diff: number): void {
     const id = String(songId);
@@ -163,7 +142,6 @@ export class SongSourceConfigManager {
   }
 
   /**
-   * 查找最佳匹配的音源（时长差异最小）
    */
   static findBestMatchingSource(songId: number | string): { source: string; diff: number } | null {
     const diffs = this.getTriedSourceDiffs(songId);
@@ -185,14 +163,12 @@ export class SongSourceConfigManager {
   }
 
   /**
-   * 清理所有内存缓存（用于测试或重置）
    */
   static clearAllMemoryCache(): void {
     triedSourcesMap.clear();
     triedSourceDiffsMap.clear();
-    console.log('[SongSourceConfigManager] 清除所有内存缓存');
+    console.log('[SongSourceConfigManager] Cleared all in-memory caches');
   }
 }
 
-// 导出单例实例方便使用
 export const songSourceConfig = SongSourceConfigManager;

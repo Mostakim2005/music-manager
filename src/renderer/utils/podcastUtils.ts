@@ -2,14 +2,11 @@ import type { SongResult } from '@/types/music';
 import type { DjProgram } from '@/types/podcast';
 
 /**
- * 将播客节目转换为播放列表所需的 SongResult 格式
- * @param program 播客节目数据
- * @returns SongResult 格式数据
  */
 export const mapDjProgramToSongResult = (program: DjProgram): SongResult => {
   return {
     id: program.mainSong.id,
-    name: program.mainSong.name || program.name || '播客节目',
+    name: program.mainSong.name || program.name || 'Podcast episode',
     duration: program.mainSong.duration,
     picUrl: program.coverUrl,
     ar: [

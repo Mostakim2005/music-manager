@@ -1,9 +1,5 @@
 /**
- * 统一插件沙箱 Runner（三方言）
  *
- * 每个插件一个 Worker 实例（独立 realm，天然隔离），消息协议见
- * workers/pluginSandbox.worker.ts。方言差异已全部收敛在 worker 的
- * 适配层，本层只负责：实例缓存、调用编排、MediaSource 归一校验。
  */
 import type { SongResult } from '@/types/music';
 import type {
@@ -44,9 +40,7 @@ type WorkerHttpResponseMessage = {
 };
 
 type RunnerToWorkerMessage =
-  | WorkerInitializeMessage
-  | WorkerInvokeMessage
-  | WorkerHttpResponseMessage;
+  WorkerInitializeMessage | WorkerInvokeMessage | WorkerHttpResponseMessage;
 
 export type SandboxPluginRuntime = {
   platform?: string;
@@ -100,8 +94,6 @@ type PendingInvocation = {
   timeoutId: number;
 };
 
-// ─── 歌曲条目适配（方言无关的统一入参形状） ───────────────────────────────
-
 export const toPluginItem = (song: SongResult, platform: string) => {
   const artists = (song.ar || song.artists || [])
     .map((artist) => artist?.name)
@@ -135,13 +127,11 @@ export const toMusicFreeItem = (song: SongResult, platform: string): Record<stri
     album: song.al?.name || song.album?.name || '',
     artwork: song.picUrl || song.al?.picUrl || song.album?.picUrl || '',
     duration: durationSeconds,
-    // 网易/腾讯系插件会读 musicItem.qualities[quality]，缺了就是 TypeError 四档全抛
     qualities: { low: {}, standard: {}, high: {}, super: {} },
     ...extra
   };
 };
 
-/** MusicFree 协议的 MediaSource：userAgent 字段并入 headers（值不同时 headers 优先） */
 export const adaptRawMediaSource = (value: unknown): PluginMediaSource | null => {
   if (typeof value === 'string') return validatePluginMediaSource({ url: value });
   if (!value || typeof value !== 'object') return null;
@@ -358,14 +348,11 @@ export class PluginSandboxRunner {
   }
 
   /**
-   * 统一解析入口：SongResult + 音质 → 校验过的 MediaSource。
-   * 方言差异（条目形状/ctx 注入/音质档位）已由 worker 适配层处理。
    */
   async getMediaSource(song: SongResult, quality: string): Promise<PluginMediaSource | null> {
     const runtime = await this.initialize();
     if (!runtime.methods.includes('getMediaSource')) return null;
 
-    // 条目里的 platform 表示歌曲的来源平台（解析入参），与插件自身 platform 无关
     const songPlatform = song.source || 'youtube';
 
     if (this.plugin.dialect === 'musicfree') {
@@ -385,7 +372,6 @@ export class PluginSandboxRunner {
     }
 
     if (this.plugin.dialect === 'lxmusic') {
-      // 条目形状与 native 一致；worker 内的 LX 适配器负责转成 musicInfo 协议
       const item = toPluginItem(song, songPlatform);
       try {
         return adaptRawMediaSource(await this.invoke('getMediaSource', [item, quality]));
@@ -424,8 +410,6 @@ export class PluginSandboxRunner {
     this.runtimeMeta = null;
   }
 }
-
-// ─── 实例缓存（源码/变量变化自动重建） ────────────────────────────────────
 
 const runnerCache = new Map<string, { fingerprint: string; runner: PluginSandboxRunner }>();
 

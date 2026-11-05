@@ -29,10 +29,6 @@ function toDownloadSongInfo(song: SongResult): DownloadSongInfo {
 }
 
 /**
- * 取出主进程能直接拉取的 http(s) 直链。
- * getSongUrl 可能返回字符串、带 url 的对象，或解析失败的包装对象（url 缺失/空串）；
- * 这类结果若照常入队，主进程 axios 会立即抛错，任务静默失败（#757）。
- * pluginmedia:// 为本地音源插件的代理直链（主进程携带请求头拉取），同样放行。
  */
 function extractDownloadUrl(result: any): string {
   const raw = typeof result === 'string' ? result : (result?.url ?? '');
@@ -60,8 +56,6 @@ export const useDownload = () => {
 
       const musicUrl = (await getSongUrl(song.id as number, song, true)) as any;
       const url = extractDownloadUrl(musicUrl);
-      // 拿不到可下载的直链时报错，不能提示"已加入下载队列"：
-      // 否则任务入队后立刻在主进程失败，用户看到的是"有提示、无文件、无进度"（#757）
       if (!url) {
         throw new Error(t('songItem.message.getUrlFailed'));
       }
@@ -117,7 +111,7 @@ export const useDownload = () => {
               if (!url) return null;
               return { songInfo: toDownloadSongInfo(song), url, type };
             } catch (error) {
-              console.error(`获取歌曲 ${song.name} 下载链接失败:`, error);
+              console.error(`Failed to get download link for ${song.name}`, error);
               return null;
             }
           })
@@ -131,7 +125,7 @@ export const useDownload = () => {
         await downloadStore.batchDownload(resolvedItems);
       }
     } catch (error) {
-      console.error('下载失败:', error);
+      console.error('Download failed:', error);
       message.destroyAll();
       message.error(t('favorite.downloadFailed'));
     } finally {
@@ -159,14 +153,13 @@ export const useDownload = () => {
         lrcContent = mergeLrcWithTranslation(lyricData.lrc.lyric, lyricData.tlyric.lyric);
       }
 
-      // 与歌曲下载一致：使用设置中的文件名格式模板拼接歌词文件名（#655）
       const nameFormat =
         (ipcRenderer?.sendSync('get-store-value', 'set.downloadNameFormat') as string) ||
         '{songName} - {artistName}';
       const artistNames =
         (song.ar || song.song?.artists)?.map((a: { name: string }) => a.name).join('、') ||
-        '未知艺术家';
-      const albumName = song.al?.name || '未知专辑';
+        'Unknown Artist';
+      const albumName = song.al?.name || 'Unknown Album';
       const filename = nameFormat
         .replace(/\{songName\}/g, song.name || '')
         .replace(/\{artistName\}/g, artistNames)

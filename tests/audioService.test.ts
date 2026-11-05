@@ -161,9 +161,9 @@ describe('audio loading ownership (#769)', () => {
     audio.fail(4);
 
     expect(await playback).toBeInstanceOf(Error);
-    // code 4 的源本身无效，用同一 URL 重试没有意义，加载只应发生一次
+    // code 4 means the source itself is invalid, so retrying the same URL is pointless: load once
     expect(audio.load).toHaveBeenCalledTimes(1);
-    // 加载期间的失败由 playTrack 清缓存后重解析，此处不发 url_expired 抢占播放
+    // Failures while loading are handled by playTrack clearing the cache and re-resolving; no url_expired here
     expect(expired).not.toHaveBeenCalled();
   });
 

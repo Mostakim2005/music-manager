@@ -9,7 +9,7 @@ import VueDevTools from 'vite-plugin-vue-devtools';
 
 export default defineConfig({
   base: './',
-  // 项目src
+  // Project src
   root: resolve('src/renderer'),
   resolve: {
     alias: {
@@ -36,7 +36,7 @@ export default defineConfig({
   ],
   publicDir: resolve('resources'),
   build: {
-    // MusicHook 等模块使用顶层 await，默认 target(es2020) 无法转译导致 web 构建失败
+    // Modules like MusicHook use top-level await; the default target (es2020) cannot transpile it and breaks the web build
     target: 'es2022'
   },
   server: {

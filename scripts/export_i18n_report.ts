@@ -121,10 +121,10 @@ async function main() {
   const outputPath = path.join(rootDir, 'i18n_report.json');
   fs.writeFileSync(outputPath, JSON.stringify(report, null, 2));
 
-  console.log(`\n报告生成成功！`);
-  console.log(`- 硬编码中文: ${report.hardcodedChinese.length} 处`);
-  console.log(`- 缺失的 Key: ${report.missingKeys.length} 处`);
-  console.log(`- 报告路径: ${outputPath}\n`);
+  console.log(`\nReport generated.`);
+  console.log(`- Hardcoded Chinese strings: ${report.hardcodedChinese.length}`);
+  console.log(`- Missing keys: ${report.missingKeys.length}`);
+  console.log(`- Report path: ${outputPath}\n`);
 }
 
 main();

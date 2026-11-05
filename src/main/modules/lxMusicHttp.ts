@@ -1,6 +1,4 @@
 /**
- * 落雪音乐 HTTP 请求处理（主进程）
- * 绕过渲染进程的 CORS 限制
  */
 
 import { ipcMain } from 'electron';
@@ -27,7 +25,6 @@ interface LxHttpResponse {
   body: any;
 }
 
-// 取消控制器映射
 const abortControllers = new Map<string, AbortController>();
 
 const appendQueryParams = (url: string, params?: Record<string, unknown>): string => {
@@ -52,10 +49,8 @@ const appendQueryParams = (url: string, params?: Record<string, unknown>): strin
 };
 
 /**
- * 初始化 HTTP 请求处理
  */
 export const initLxMusicHttp = () => {
-  // 处理 HTTP 请求
   ipcMain.handle(
     'lx-music-http-request',
     async (_, request: LxHttpRequest): Promise<LxHttpResponse> => {
@@ -63,13 +58,12 @@ export const initLxMusicHttp = () => {
       const url = appendQueryParams(request.url, options.params);
       const controller = new AbortController();
 
-      // 保存取消控制器
       abortControllers.set(requestId, controller);
 
       let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
       try {
-        console.log(`[LxMusicHttp] 请求: ${options.method || 'GET'} ${url}`);
+        console.log(`[LxMusicHttp] Request: ${options.method || 'GET'} ${url}`);
 
         const method = String(options.method || 'GET').toUpperCase();
         const fetchOptions: RequestInit = {
@@ -81,7 +75,6 @@ export const initLxMusicHttp = () => {
           signal: controller.signal
         };
 
-        // 处理请求体
         if (options.body !== undefined) {
           fetchOptions.body = options.body;
         } else if (options.data !== undefined && method !== 'GET' && method !== 'HEAD') {
@@ -102,20 +95,17 @@ export const initLxMusicHttp = () => {
             'Content-Type': 'application/x-www-form-urlencoded'
           };
         } else if (options.formData) {
-          // node-fetch 的 FormData 需要特殊处理
           const FormData = (await import('form-data')).default;
           const formData = new FormData();
           for (const [key, value] of Object.entries(options.formData)) {
             formData.append(key, value);
           }
           fetchOptions.body = formData as any;
-          // FormData 会自动设置 Content-Type
         }
 
-        // 设置超时
         const timeout = options.timeout || 30000;
         timeoutId = setTimeout(() => {
-          console.warn(`[LxMusicHttp] 请求超时: ${url}`);
+          console.warn(`[LxMusicHttp] Request timed out: ${url}`);
           controller.abort();
         }, timeout);
 
@@ -123,12 +113,10 @@ export const initLxMusicHttp = () => {
         clearTimeout(timeoutId);
         timeoutId = null;
 
-        console.log(`[LxMusicHttp] 响应: ${response.status} ${url}`);
+        console.log(`[LxMusicHttp] Response: ${response.status} ${url}`);
 
-        // 读取响应体
         const rawBody = await response.text();
 
-        // 尝试解析 JSON
         let parsedBody: any = rawBody;
         const contentType = response.headers.get('content-type') || '';
         if (
@@ -139,11 +127,10 @@ export const initLxMusicHttp = () => {
           try {
             parsedBody = JSON.parse(rawBody);
           } catch {
-            // 解析失败则使用原始字符串
+            // Ignore a response body that cannot be parsed
           }
         }
 
-        // 转换 headers 为普通对象
         const headers: Record<string, string | string[]> = {};
         response.headers.forEach((value, key) => {
           headers[key] = value;
@@ -157,10 +144,9 @@ export const initLxMusicHttp = () => {
 
         return result;
       } catch (error: any) {
-        console.error(`[LxMusicHttp] 请求失败: ${url}`, error.message);
+        console.error(`[LxMusicHttp] Request failed: ${url}`, error.message);
         throw error;
       } finally {
-        // 清理超时定时器（fetch 出错时前面来不及 clear）与取消控制器
         if (timeoutId) {
           clearTimeout(timeoutId);
         }
@@ -169,25 +155,23 @@ export const initLxMusicHttp = () => {
     }
   );
 
-  // 处理请求取消
   ipcMain.handle('lx-music-http-cancel', (_, requestId: string) => {
     const controller = abortControllers.get(requestId);
     if (controller) {
-      console.log(`[LxMusicHttp] 取消请求: ${requestId}`);
+      console.log(`[LxMusicHttp] Request cancelled: ${requestId}`);
       controller.abort();
       abortControllers.delete(requestId);
     }
   });
 
-  console.log('[LxMusicHttp] HTTP 请求处理已初始化');
+  console.log('[LxMusicHttp] HTTP request handling initialized');
 };
 
 /**
- * 清理所有正在进行的请求
  */
 export const cleanupLxMusicHttp = () => {
   for (const [requestId, controller] of abortControllers.entries()) {
-    console.log(`[LxMusicHttp] 清理请求: ${requestId}`);
+    console.log(`[LxMusicHttp] Request cleaned up: ${requestId}`);
     controller.abort();
   }
   abortControllers.clear();

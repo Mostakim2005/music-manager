@@ -127,7 +127,6 @@
             />
           </div>
 
-          <!-- 未渲染项占位 -->
           <div v-if="placeholderHeight > 0" :style="{ height: placeholderHeight + 'px' }" />
 
           <div v-if="isComponent" class="pt-4 text-center">
@@ -180,7 +179,6 @@ const loading = ref(false);
 const noMore = ref(false);
 const scrollbarRef = ref();
 
-// 手工虚拟化
 const {
   renderedItems,
   placeholderHeight,
@@ -204,24 +202,20 @@ const handleScroll = (e: Event) => {
   progressiveScroll(e);
 };
 
-// 多选相关
 const isSelecting = ref(false);
 const selectedSongs = ref<number[]>([]);
 const { batchDownloadMusic } = useDownload();
 
-// 开始多选
 const startSelect = () => {
   isSelecting.value = true;
   selectedSongs.value = [];
 };
 
-// 取消多选
 const cancelSelect = () => {
   isSelecting.value = false;
   selectedSongs.value = [];
 };
 
-// 处理选择
 const handleSelect = (songId: number, selected: boolean) => {
   if (selected) {
     selectedSongs.value.push(songId);
@@ -230,7 +224,6 @@ const handleSelect = (songId: number, selected: boolean) => {
   }
 };
 
-// 批量下载
 const handleBatchDownload = async () => {
   const selectedSongsList = selectedSongs.value
     .map((songId) => favoriteSongs.value.find((s) => s.id === songId))
@@ -240,7 +233,6 @@ const handleBatchDownload = async () => {
   cancelSelect();
 };
 
-// 排序相关
 const isDescending = ref(true);
 
 const toggleSort = (descending: boolean) => {
@@ -253,7 +245,6 @@ const toggleSort = (descending: boolean) => {
   getFavoriteSongs();
 };
 
-// 无限滚动相关
 const pageSize = 100;
 const currentPage = ref(1);
 
@@ -264,7 +255,6 @@ const props = defineProps({
   }
 });
 
-// 获取当前页的收藏歌曲ID
 const getCurrentPageIds = () => {
   let ids = [...favoriteList.value];
 
@@ -277,7 +267,6 @@ const getCurrentPageIds = () => {
   return ids.slice(startIndex, endIndex);
 };
 
-// 获取收藏歌曲详情
 const getFavoriteSongs = async () => {
   if (favoriteList.value.length === 0) {
     favoriteSongs.value = [];
@@ -361,7 +350,11 @@ const getFavoriteSongs = async () => {
           ar: [{ id: 0, name: 'YouTube' }] as any,
           artists: [{ id: 0, name: 'YouTube' }] as any,
           al: { id: 0, name: '', picUrl: `https://i.ytimg.com/vi/${strId}/hqdefault.jpg` } as any,
-          album: { id: 0, name: '', picUrl: `https://i.ytimg.com/vi/${strId}/hqdefault.jpg` } as any,
+          album: {
+            id: 0,
+            name: '',
+            picUrl: `https://i.ytimg.com/vi/${strId}/hqdefault.jpg`
+          } as any,
           duration: 0,
           dt: 0,
           count: 0
@@ -377,7 +370,7 @@ const getFavoriteSongs = async () => {
 
     noMore.value = favoriteSongs.value.length >= favoriteList.value.length;
   } catch (error) {
-    console.error('获取收藏歌曲失败:', error);
+    console.error('Failed to fetch favorite songs:', error);
   } finally {
     loading.value = false;
   }
@@ -423,7 +416,6 @@ const goToImport = () => {
   router.push('/playlist/import');
 };
 
-// 全选相关
 const isAllSelected = computed(() => {
   return (
     favoriteSongs.value.length > 0 && selectedSongs.value.length === favoriteSongs.value.length

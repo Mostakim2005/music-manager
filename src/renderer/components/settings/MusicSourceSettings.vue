@@ -5,7 +5,6 @@
     @close="handleClose"
   >
     <div class="flex flex-col h-full">
-      <!-- 顺序说明：启用中的音源按序号依次尝试解析 -->
       <div class="flex items-center gap-1.5 px-1 pb-2 shrink-0">
         <i class="ri-sort-asc text-xs text-gray-400"></i>
         <span class="text-xs text-gray-500 dark:text-gray-400">
@@ -23,7 +22,6 @@
           <div class="divide-y divide-gray-100 dark:divide-white/5">
             <template v-for="source in group.rows" :key="source.key">
               <div class="group flex items-center gap-3 py-2.5 px-1">
-                <!-- 序号（启用中才有，传达解析优先级）；停用显示图标 -->
                 <span
                   v-if="orderNumberOf(source.key)"
                   class="flex items-center justify-center w-5 h-5 rounded-md bg-primary text-white text-[11px] font-semibold tabular-nums shrink-0"
@@ -35,7 +33,6 @@
                   class="ri-disc-line text-base text-gray-300 dark:text-gray-600 shrink-0 w-5 text-center"
                 ></i>
 
-                <!-- 名称与描述 -->
                 <div class="flex-1 min-w-0">
                   <div class="flex items-center gap-2">
                     <span
@@ -64,7 +61,6 @@
                   </p>
                 </div>
 
-                <!-- hover 操作（customApi 配置 / 插件排序·变量·删除） -->
                 <div
                   class="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity"
                 >
@@ -111,7 +107,6 @@
                   </template>
                 </div>
 
-                <!-- 开关（恒显、右对齐固定宽度） -->
                 <div class="shrink-0 w-9 flex justify-end">
                   <n-switch
                     :value="isEnabled(source.key)"
@@ -121,7 +116,6 @@
                 </div>
               </div>
 
-              <!-- 变量编辑（紧贴所属插件行展开） -->
               <div v-if="varsEditorId === source.pluginId && source.vars?.length" class="px-1 pb-3">
                 <div
                   class="rounded-xl bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/5 p-3 space-y-2.5"
@@ -157,7 +151,6 @@
             </template>
           </div>
 
-          <!-- 插件空状态 -->
           <div
             v-if="group.key === 'plugin' && group.rows.length === 0"
             class="mt-1 py-8 text-center rounded-xl border border-dashed border-gray-200 dark:border-white/10"
@@ -170,7 +163,6 @@
         </template>
       </div>
 
-      <!-- 添加音源 -->
       <div class="mt-1 pt-3 border-t border-gray-100 dark:border-white/5 shrink-0">
         <div class="flex items-center gap-2">
           <div class="relative flex-1">
@@ -199,7 +191,6 @@
       </div>
     </div>
 
-    <!-- Footer：操作即时生效，仅关闭 -->
     <template #footer>
       <div class="flex justify-end">
         <s-btn variant="primary" @click="handleClose">
@@ -238,7 +229,6 @@ const props = defineProps({
 
 const emit = defineEmits(['update:show', 'update:sources']);
 
-// ==================== 状态 ====================
 const { t } = useI18n();
 const settingsStore = useSettingsStore();
 const message = useMessage();
@@ -249,8 +239,6 @@ const { providers } = useMusicSourceRegistry();
 const pluginUrl = ref('');
 const isImportingPlugin = ref(false);
 const varsEditorId = ref<string | null>(null);
-
-// ==================== 列表模型 ====================
 
 type SourceRow = {
   key: string;
@@ -265,7 +253,6 @@ type SourceRow = {
   last?: boolean;
 };
 
-/** 全量顺序：musicSourceOrder 优先，未入表的按注册表默认序补齐 */
 const enabledOrder = computed<string[]>(() => {
   const order: string[] = settingsStore.setData.musicSourceOrder || [];
   const allKeys = providers.value.map((p) => p.key);
@@ -305,7 +292,6 @@ const sourceGroups = computed(() => [
   }
 ]);
 
-/** 启用中的音源按列表顺序的解析序号（1 起）；停用返回 null */
 const orderNumberOf = (key: string): number | null => {
   if (!isEnabled(key)) return null;
   const enabledBefore = enabledOrder.value
@@ -314,7 +300,6 @@ const orderNumberOf = (key: string): number | null => {
   return enabledBefore.length;
 };
 
-// ==================== 操作（即时生效） ====================
 const isEnabled = (key: string): boolean => selectedSources.value.includes(key as Platform);
 
 const persistSelection = () => {
@@ -323,7 +308,6 @@ const persistSelection = () => {
 };
 
 const toggleSource = (source: SourceRow, enabled: boolean) => {
-  // 插件源：勾选与插件启用状态同步
   if (source.kind === 'plugin' && source.pluginId) {
     MusicSourcePluginStore.setEnabled(source.pluginId, enabled);
   }
@@ -344,7 +328,6 @@ const toggleSource = (source: SourceRow, enabled: boolean) => {
   persistSelection();
 };
 
-/** 上移/下移：写 musicSourceOrder（全部 provider 的完整顺序） */
 const moveSource = (key: string, direction: -1 | 1) => {
   const order = [...enabledOrder.value];
   const index = order.indexOf(key);
@@ -380,7 +363,6 @@ const dialectLabel = (dialect?: MusicSourcePlugin['dialect']): string => {
   return dialect ? MusicSourcePluginStore.getDialectLabel(dialect) : '';
 };
 
-/** 导入源码（文件/URL 共用）：安装期沙箱探测失败会拒绝入库 */
 const installSource = async (content: string, options: { name?: string; sourceUrl?: string }) => {
   try {
     const { plugin, replaced } = await MusicSourcePluginStore.installFromSource(content, options);
@@ -395,7 +377,7 @@ const installSource = async (content: string, options: { name?: string; sourceUr
         : t('settings.playback.pluginSources.imported', { name: plugin.name })
     );
   } catch (error: any) {
-    console.error('音源插件导入失败:', error);
+    console.error('Source plugin import failed:', error);
     message.error(`${t('common.error')}：${error.message}`);
   }
 };
@@ -407,7 +389,7 @@ const importFromFile = async () => {
       await installSource(result.content, { name: result.name });
     }
   } catch (error: any) {
-    console.error('导入本地音源插件失败:', error);
+    console.error('Failed to import local source plugin:', error);
     message.error(`${t('common.error')}：${error.message}`);
   }
 };
@@ -428,14 +410,13 @@ const importFromUrl = async () => {
     await installSource(result.content, { name: result.name, sourceUrl: result.url });
     pluginUrl.value = '';
   } catch (error: any) {
-    console.error('从 URL 导入音源插件失败:', error);
+    console.error('Failed to import source plugin from URL:', error);
     message.error(`${t('common.error')}：${error.message}`);
   } finally {
     isImportingPlugin.value = false;
   }
 };
 
-/** 自定义 API 的 JSON 配置导入（customApi 内置 provider 的配置入口） */
 const importCustomApi = async () => {
   try {
     const result = await window.api.importCustomApiPlugin();
@@ -452,12 +433,10 @@ const importCustomApi = async () => {
   }
 };
 
-/** 操作即时生效：关闭即完成（无取消语义） */
 const handleClose = () => {
   visible.value = false;
 };
 
-// ==================== 监听器 ====================
 watch(
   () => props.show,
   (newVal) => {
@@ -477,7 +456,6 @@ watch(
   }
 );
 
-// 插件库外部变化时清理勾选里已不存在的插件 key
 watch(
   () =>
     providers.value

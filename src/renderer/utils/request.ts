@@ -6,7 +6,6 @@ import { getSetData, isElectron, isMobile } from '.';
 
 let setData: any = null;
 
-// 扩展请求配置接口
 interface CustomAxiosRequestConfig extends InternalAxiosRequestConfig {
   retryCount?: number;
   noRetry?: boolean;
@@ -22,25 +21,19 @@ const request = axios.create({
   withCredentials: true
 });
 
-// 最大重试次数
 const MAX_RETRIES = 1;
-// 重试延迟（毫秒）
 const RETRY_DELAY = 500;
 
-// 请求拦截器
 request.interceptors.request.use(
   (config: CustomAxiosRequestConfig) => {
     setData = getSetData();
     config.baseURL = window.electron
       ? `http://127.0.0.1:${setData?.musicApiPort}`
       : import.meta.env.VITE_API;
-    // 只在retryCount未定义时初始化为0
     if (config.retryCount === undefined) {
       config.retryCount = 0;
     }
 
-    // 在请求发送之前做一些处理
-    // 在get请求params中添加timestamp
     config.params = {
       ...config.params,
       timestamp: Date.now(),
@@ -68,14 +61,12 @@ request.interceptors.request.use(
     return config;
   },
   (error) => {
-    // 当请求异常时做一些处理
     return Promise.reject(error);
   }
 );
 
-const NO_RETRY_URLS = ['暂时没有'];
+const NO_RETRY_URLS = ['Nothing here yet'];
 
-// 响应拦截器
 request.interceptors.response.use(
   (response) => {
     return response;
@@ -84,21 +75,17 @@ request.interceptors.response.use(
     console.error('error', error);
     const config = error.config as CustomAxiosRequestConfig;
 
-    // 如果没有配置，直接返回错误
     if (!config) {
       return Promise.reject(error);
     }
 
-    // 处理 301 状态码：登录态失效，重试同一请求无意义，清除登录信息后直接拒绝
     if (error.response?.status === 301 && config.params?.noLogin !== true) {
-      // 使用 store mutation 清除用户信息
       const userStore = useUserStore();
       userStore.handleLogout();
-      console.log('301 状态码：登录态已失效，已清除登录信息，不再重试');
+      console.log('301: session expired, cleared credentials, not retrying');
       return Promise.reject(error);
     }
 
-    // 检查是否还可以重试
     if (
       config.retryCount !== undefined &&
       config.retryCount < MAX_RETRIES &&
@@ -106,16 +93,14 @@ request.interceptors.response.use(
       !config.noRetry
     ) {
       config.retryCount++;
-      console.error(`请求重试第 ${config.retryCount} 次`);
+      console.error(`Retry attempt ${config.retryCount}`);
 
-      // 延迟重试
       await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY));
 
-      // 重新发起请求
       return request(config);
     }
 
-    console.error(`重试${MAX_RETRIES}次后仍然失败`);
+    console.error(`Still failing after ${MAX_RETRIES} retries`);
     return Promise.reject(error);
   }
 );

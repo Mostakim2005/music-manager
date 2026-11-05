@@ -93,7 +93,6 @@ type CloseAction = 'minimize' | 'close';
 
 const { t } = useI18n();
 
-// 关闭确认弹窗（标题栏与展开歌词视图共用，#492），只负责交互，不关心窗口控制细节
 const show = defineModel<boolean>('show', { default: false });
 const rememberChoice = defineModel<boolean>('rememberChoice', { default: false });
 

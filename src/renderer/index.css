@@ -5,13 +5,11 @@
 @tailwind components;
 @tailwind utilities;
 
-/* 页面内容区域统一边距工具类 */
 .page-padding {
   padding-left: var(--page-pl);
   padding-right: var(--page-pr);
 }
 
-/* 左右对称边距（用于 hero 区域等需要两侧都有边距的场景） */
 .page-padding-x {
   padding-left: var(--page-pr);
   padding-right: var(--page-pr);
@@ -90,21 +88,18 @@
   --safe-area-inset-bottom: 10px;
   --safe-area-inset-left: 0px;
 
-  /* 页面内容区域统一边距 */
-  --page-px: 1rem; /* 默认 16px，对应 px-4 */
-  --page-pl: 1rem; /* 左边距，PC 端有菜单时为 0 */
-  --page-pr: 1rem; /* 右边距 */
+  --page-px: 1rem;
+  --page-pl: 1rem;
+  --page-pr: 1rem;
 }
 
-/* PC 端：有左侧菜单，左边距为 0 */
 .pc {
   --page-pl: 0px;
 }
 
-/* 响应式边距 */
 @media (min-width: 640px) {
   :root {
-    --page-px: 1.5rem; /* 24px，对应 sm:px-6 */
+    --page-px: 1.5rem;
     --page-pr: 1.5rem;
   }
   .mobile {
@@ -114,7 +109,7 @@
 
 @media (min-width: 1024px) {
   :root {
-    --page-px: 2rem; /* 32px，对应 lg:px-8 */
+    --page-px: 2rem;
     --page-pr: 2rem;
   }
 }
@@ -137,7 +132,6 @@
   }
 }
 
-/* 骨架屏 shimmer 动画 */
 .skeleton-shimmer {
   position: relative;
   overflow: hidden;

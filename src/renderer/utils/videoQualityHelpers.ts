@@ -107,7 +107,8 @@ export function getUniqueVideoHeights(formats: YtVideoFormat[]): FormattedQualit
     if (!existing) {
       byHeight.set(fmt.height, fmt);
     } else {
-      const existingBitrate = existing.vbrKbps || (existing as any).vbr || (existing as any).tbr || 0;
+      const existingBitrate =
+        existing.vbrKbps || (existing as any).vbr || (existing as any).tbr || 0;
       const currentBitrate = fmt.vbrKbps || (fmt as any).vbr || (fmt as any).tbr || 0;
       const existingScore = (existing.sizeBytes || 0) + existingBitrate * 1000;
       const currentScore = (fmt.sizeBytes || 0) + currentBitrate * 1000;
@@ -141,9 +142,7 @@ export function isHeightDownloaded(
 /**
  * Checks whether any audio variant is already downloaded.
  */
-export function isAudioDownloaded(
-  variants: Array<{ kind: string; path?: string }>
-): boolean {
+export function isAudioDownloaded(variants: Array<{ kind: string; path?: string }>): boolean {
   if (!Array.isArray(variants)) return false;
   return variants.some((v) => v.kind === 'audio' && Boolean(v.path));
 }

@@ -62,12 +62,10 @@ const closeModal = () => {
 };
 
 onMounted(async () => {
-  // 如果是 electron 环境，不显示安装提示
   if (isElectron) {
     return;
   }
 
-  // 检查是否已经点击过"暂不安装"
   const isDismissed = localStorage.getItem('installPromptDismissed') === 'true';
   if (isDismissed) {
     return;

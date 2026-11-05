@@ -67,10 +67,7 @@
       title="Discord Rich Presence"
       description="Show the current song, artist and playback progress in your Discord profile status"
     >
-      <n-switch
-        v-model:value="setData.enableDiscordRpc"
-        @update:value="handleDiscordRpcChange"
-      >
+      <n-switch v-model:value="setData.enableDiscordRpc" @update:value="handleDiscordRpcChange">
         <template #checked>{{ t('common.on') }}</template>
         <template #unchecked>{{ t('common.off') }}</template>
       </n-switch>
@@ -89,7 +86,8 @@
       <template #description>
         <div class="space-y-1 mt-1">
           <p class="text-xs text-neutral-500 dark:text-neutral-400">
-            In Auto mode, linked videos are saved beside the local audio file; online-only tracks go to &lt;Music&gt;/Music Manager.
+            In Auto mode, linked videos are saved beside the local audio file; online-only tracks go
+            to &lt;Music&gt;/Music Manager.
           </p>
           <p class="text-xs font-mono text-primary break-all">
             Resolved: {{ resolvedMediaDir || 'Resolving...' }}
@@ -128,14 +126,26 @@
               class="w-2 h-2 rounded-full"
               :class="binaryStatus?.ytDlp?.installed ? 'bg-emerald-500' : 'bg-rose-500'"
             />
-            <span>yt-dlp: {{ binaryStatus?.ytDlp?.version || (binaryStatus?.ytDlp?.installed ? 'Installed' : 'Missing') }}</span>
+            <span
+              >yt-dlp:
+              {{
+                binaryStatus?.ytDlp?.version ||
+                (binaryStatus?.ytDlp?.installed ? 'Installed' : 'Missing')
+              }}</span
+            >
           </span>
           <span class="flex items-center gap-1.5">
             <span
               class="w-2 h-2 rounded-full"
               :class="binaryStatus?.ffmpeg?.installed ? 'bg-emerald-500' : 'bg-rose-500'"
             />
-            <span>ffmpeg: {{ binaryStatus?.ffmpeg?.version || (binaryStatus?.ffmpeg?.installed ? 'Installed' : 'Missing') }}</span>
+            <span
+              >ffmpeg:
+              {{
+                binaryStatus?.ffmpeg?.version ||
+                (binaryStatus?.ffmpeg?.installed ? 'Installed' : 'Missing')
+              }}</span
+            >
           </span>
         </div>
       </template>
@@ -189,7 +199,7 @@ const openDownloadPath = () => {
 };
 
 const handleShortcutsChange = (shortcuts: any) => {
-  console.log('快捷键已更新:', shortcuts);
+  console.log('Shortcuts updated:', shortcuts);
 };
 
 const handleDiscordRpcChange = (enabled: boolean) => {

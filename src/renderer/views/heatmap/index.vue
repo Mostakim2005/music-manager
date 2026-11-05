@@ -24,7 +24,6 @@
         </div>
 
         <div v-else-if="heatmapData.length > 0" class="heatmap-container">
-          <!-- 颜色主题选择器 -->
           <div class="color-theme-selector">
             <span class="selector-label">{{ t('history.heatmap.colorTheme') }}:</span>
             <div class="color-options">
@@ -80,7 +79,6 @@
             </template>
           </n-heatmap>
 
-          <!-- 统计数据展示 -->
           <div class="stats-cards">
             <div class="stat-card">
               <div class="stat-icon">
@@ -159,12 +157,10 @@ const playHistoryStore = usePlayHistoryStore();
 const playerStore = usePlayerStore();
 const loading = ref(true);
 
-// 颜色主题
 type ColorTheme = 'green' | 'blue' | 'orange' | 'purple' | 'red';
 const colorThemes: ColorTheme[] = ['green', 'blue', 'orange', 'purple', 'red'];
 const selectedColor = ref<ColorTheme>('green');
 
-// 热力图数据
 interface HeatmapDataItem {
   timestamp: number;
   value: number;
@@ -187,7 +183,6 @@ interface DailyData {
 const heatmapData = ref<HeatmapDataItem[]>([]);
 const dailyDataMap = ref<DailyData>({});
 
-// 格式化日期
 const formatDate = (timestamp: number): string => {
   const date = new Date(timestamp);
   return date.toLocaleDateString('zh-CN', {
@@ -198,7 +193,6 @@ const formatDate = (timestamp: number): string => {
   });
 };
 
-// 获取指定日期的前三名歌曲
 const getTopSongsForDate = (timestamp: number): DailySongPlay[] => {
   const dateKey = new Date(timestamp).toLocaleDateString('zh-CN');
   const dayData = dailyDataMap.value[dateKey];
@@ -212,7 +206,6 @@ const getTopSongsForDate = (timestamp: number): DailySongPlay[] => {
     .slice(0, 3);
 };
 
-// 处理历史数据并生成热力图数据
 const processHistoryData = () => {
   loading.value = true;
 
@@ -220,15 +213,11 @@ const processHistoryData = () => {
     const dailyMap: DailyData = {};
     const oneYearAgo = Date.now() - 365 * 24 * 60 * 60 * 1000;
 
-    // 遍历音乐历史记录
     playHistoryStore.musicHistory.forEach((music: MusicHistoryItem) => {
-      // 假设每次播放都记录在当前时间，我们根据 count 分散到最近的日期
       const playCount = music.count || 1;
       const now = Date.now();
 
-      // 将播放记录分散到最近几天（简化处理）
       for (let i = 0; i < playCount; i++) {
-        // 随机分配到最近30天内
         const randomDays = Math.floor(Math.random() * 30);
         const playDate = new Date(now - randomDays * 24 * 60 * 60 * 1000);
         const dateKey = playDate.toLocaleDateString('zh-CN');
@@ -242,7 +231,6 @@ const processHistoryData = () => {
 
         dailyMap[dateKey].totalPlays++;
 
-        // 更新歌曲播放次数
         const songId = music.id;
         const existingSong = dailyMap[dateKey].songs.get(songId);
 
@@ -261,7 +249,6 @@ const processHistoryData = () => {
 
     dailyDataMap.value = dailyMap;
 
-    // 生成最近一年的热力图数据
     const heatmapDataArray: HeatmapDataItem[] = [];
     const startDate = new Date(oneYearAgo);
     const endDate = new Date();
@@ -278,23 +265,20 @@ const processHistoryData = () => {
 
     heatmapData.value = heatmapDataArray;
   } catch (error) {
-    console.error('处理热力图数据失败:', error);
+    console.error('Failed to process heatmap data:', error);
   } finally {
     loading.value = false;
   }
 };
 
-// 计算总播放次数
 const totalPlays = computed(() => {
   return heatmapData.value.reduce((sum, item) => sum + item.value, 0);
 });
 
-// 计算活跃天数
 const activeDays = computed(() => {
   return heatmapData.value.filter((item) => item.value > 0).length;
 });
 
-// 计算播放最多的歌曲
 const mostPlayedSong = computed<{
   id: string | number;
   name: string;
@@ -335,7 +319,6 @@ const mostPlayedSong = computed<{
   return maxSong;
 });
 
-// 计算最活跃的一天
 const mostActiveDay = computed<{ date: string; plays: number } | null>(() => {
   if (heatmapData.value.length === 0) return null;
 
@@ -359,7 +342,6 @@ const mostActiveDay = computed<{ date: string; plays: number } | null>(() => {
   return maxDay;
 });
 
-// 计算最晚播放的歌曲（凌晨6点之前）
 const latestNightSong = computed<{
   id: string | number;
   name: string;
@@ -368,8 +350,6 @@ const latestNightSong = computed<{
 } | null>(() => {
   if (playHistoryStore.musicHistory.length === 0) return null;
 
-  // 模拟一些播放时间数据（实际应该从历史记录中获取）
-  // 这里简化处理，随机选择一首歌作为凌晨播放
   const nightSongs = playHistoryStore.musicHistory.filter(() => Math.random() > 0.8);
 
   if (nightSongs.length === 0 && playHistoryStore.musicHistory.length > 0) {
@@ -377,7 +357,7 @@ const latestNightSong = computed<{
       playHistoryStore.musicHistory[
         Math.floor(Math.random() * playHistoryStore.musicHistory.length)
       ];
-    const randomHour = Math.floor(Math.random() * 6); // 0-5点
+    const randomHour = Math.floor(Math.random() * 6);
     const randomMinute = Math.floor(Math.random() * 60);
 
     return {
@@ -404,11 +384,9 @@ const latestNightSong = computed<{
   return null;
 });
 
-// 播放歌曲
 const handlePlaySong = async (songId: string | number) => {
   const song = playHistoryStore.musicHistory.find((music) => music.id === songId);
   if (song) {
-    // MusicHistoryItem 是 SongResult 的精简子集，setPlay 内部用 optional chain 访问字段
     await playerStore.setPlay(song as SongResult);
     playerStore.setPlayMusic(true);
   }
@@ -514,7 +492,6 @@ onMounted(() => {
               @apply text-sm font-medium;
             }
 
-            // 绿色主题
             &.color-green {
               .color-block {
                 @apply bg-green-500;
@@ -524,7 +501,6 @@ onMounted(() => {
               }
             }
 
-            // 蓝色主题
             &.color-blue {
               .color-block {
                 @apply bg-blue-500;
@@ -534,7 +510,6 @@ onMounted(() => {
               }
             }
 
-            // 橙色主题
             &.color-orange {
               .color-block {
                 @apply bg-orange-500;
@@ -544,7 +519,6 @@ onMounted(() => {
               }
             }
 
-            // 紫色主题
             &.color-purple {
               .color-block {
                 @apply bg-purple-500;
@@ -554,7 +528,6 @@ onMounted(() => {
               }
             }
 
-            // 红色主题
             &.color-red {
               .color-block {
                 @apply bg-red-500;

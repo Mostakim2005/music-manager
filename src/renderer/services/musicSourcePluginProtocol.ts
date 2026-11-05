@@ -5,7 +5,6 @@ import type { MusicSourcePluginDialect } from '@/types/musicSourcePlugin';
 export { validatePluginMediaSource } from '../../shared/musicSourcePlugin';
 
 const QUALITY_TO_MUSICFREE: Record<string, string> = {
-  // MusicFree 音质档位：low=128k / standard=192k / high=320k / super=无损
   standard: 'low',
   higher: 'standard',
   exhigh: 'high',
@@ -67,7 +66,6 @@ export const qualityToBitrate = (quality: string): number => {
   return values[quality] || 320000;
 };
 
-/** SongResult → LX Music 协议的 musicInfo（歌曲固定按网易云源解析） */
 export const toLxMusicInfo = (song: SongResult): LxMusicInfo => {
   const artistName =
     song.ar && song.ar.length > 0

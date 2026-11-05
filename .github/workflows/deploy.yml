@@ -3,8 +3,8 @@ name: Deploy Web
 on:
   push:
     branches:
-      - main # 或者您的主分支名称
-  workflow_dispatch: # 允许手动触发
+      - main # or the name of your default branch
+  workflow_dispatch: # allow manual runs
 
 jobs:
   build-and-deploy:
@@ -17,12 +17,12 @@ jobs:
         with:
           node-version: '24'
 
-      - name: 创建环境变量文件
+      - name: Create the env file
         run: |
           echo "VITE_API=${{ secrets.VITE_API }}" > .env.production.local
           echo "VITE_API_MUSIC=${{ secrets.VITE_API_MUSIC }}" >> .env.production.local
-          # 添加其他需要的环境变量
-          cat .env.production.local # 查看创建的文件内容，调试用
+          # Add any other environment variables you need
+          cat .env.production.local # inspect the generated file when debugging
 
       - name: Install Dependencies
         run: npm install
@@ -48,4 +48,4 @@ jobs:
           key: ${{ secrets.DEPLOY_KEY }}
           script: |
             cd ${{ secrets.DEPLOY_PATH }}
-            echo "部署完成于 $(date)"
+            echo "Deploy finished at $(date)"

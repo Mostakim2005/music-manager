@@ -3,7 +3,6 @@ import { ref } from 'vue';
 
 import type { SongResult } from '@/types/music';
 
-// 获取当前日期字符串 YYYY-MM-DD
 const getTodayDateString = (): string => {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
@@ -13,7 +12,6 @@ export const useRecommendStore = defineStore('recommend', () => {
   const dailyRecommendSongs = ref<SongResult[]>([]);
   const lastFetchDate = ref<string>('');
 
-  // 检查数据是否过期（跨天）
   const isDataStale = (): boolean => {
     if (!lastFetchDate.value || dailyRecommendSongs.value.length === 0) {
       return true;
@@ -25,7 +23,6 @@ export const useRecommendStore = defineStore('recommend', () => {
     dailyRecommendSongs.value = [];
   };
 
-  // 如果数据过期则刷新
   const refreshIfStale = async (): Promise<boolean> => {
     if (isDataStale()) {
       await fetchDailyRecommendSongs();
@@ -38,9 +35,9 @@ export const useRecommendStore = defineStore('recommend', () => {
     const index = dailyRecommendSongs.value.findIndex((song) => song.id === oldSongId);
     if (index !== -1) {
       dailyRecommendSongs.value.splice(index, 1, newSong as any);
-      console.log(`[Recommend Store] 已将歌曲 ${oldSongId} 替换为 ${newSong.name}`);
+      console.log(`[Recommend Store] Replaced song ${oldSongId} with ${newSong.name}`);
     } else {
-      console.warn(`[Recommend Store] 未在日推列表中找到要替换的歌曲ID: ${oldSongId}`);
+      console.warn(`[Recommend Store] Song to replace not found in daily list: ${oldSongId}`);
     }
   };
 
