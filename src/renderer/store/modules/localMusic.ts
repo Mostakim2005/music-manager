@@ -7,8 +7,15 @@ import { defineStore } from 'pinia';
 import { ref } from 'vue';
 
 import useIndexedDB from '@/hooks/IndexDBHook';
+import {
+  backfillLibraryFingerprints,
+  findDuplicateRecordings,
+  mergeSongs,
+  setFingerprintForPath
+} from '@/services/songLibrary';
 import type { LocalMusicEntry, LocalMusicMeta } from '@/types/localMusic';
 import { removeStaleEntries } from '@/utils/localMusicUtils';
+import { selectEntriesNeedingRepair, toMetadataSearchTitle } from '@/utils/localMusicRepair';
 
 const { message } = createDiscreteApi(['message']);
 
@@ -78,6 +85,14 @@ export const useLocalMusicStore = defineStore(
     const scanning = ref(false);
     /** 已扫描文件数（用于显示进度） */
     const scanProgress = ref(0);
+    /** Acoustic index build state */
+    const buildingFingerprints = ref(false);
+    const fingerprintProgress = ref(0);
+    const fingerprintTotal = ref(0);
+    /** Automatic metadata repair state */
+    const autoTagging = ref(false);
+    const autoTagProgress = ref(0);
+    const autoTagTotal = ref(0);
 
     /** IndexedDB 实例（延迟初始化） */
     let db: Awaited<ReturnType<typeof initLocalMusicDB>> | null = null;
@@ -369,12 +384,186 @@ export const useLocalMusicStore = defineStore(
       }
     }
 
+    /**
+     * Compute acoustic fingerprints for entries that do not have one yet and
+     * store them on both the local entry and the unified song library record.
+     * Files are processed three at a time; each FFmpeg decode is short (the
+     * extractor caps analysis at two minutes) but a large library still takes a
+     * while, so the caller gets progress through the exposed refs.
+     */
+    async function buildFingerprintIndex(): Promise<{
+      indexed: number;
+      failed: number;
+      skipped: number;
+    }> {
+      if (buildingFingerprints.value) {
+        return { indexed: 0, failed: 0, skipped: 0 };
+      }
+      const extract = window.api?.getAudioFingerprint;
+      if (typeof extract !== 'function') {
+        throw new Error('Acoustic fingerprint extraction is unavailable in this build.');
+      }
+
+      const targets = musicList.value.filter((entry) => !entry.fingerprint);
+      const skipped = musicList.value.length - targets.length;
+      if (targets.length === 0) {
+        return { indexed: 0, failed: 0, skipped };
+      }
+
+      buildingFingerprints.value = true;
+      fingerprintProgress.value = 0;
+      fingerprintTotal.value = targets.length;
+      let indexed = 0;
+      let failed = 0;
+
+      const queue = [...targets];
+      const worker = async () => {
+        while (queue.length > 0) {
+          const entry = queue.shift();
+          if (!entry) break;
+          try {
+            const result = await extract(entry.filePath);
+            if (result?.fingerprint) {
+              await updateEntry({
+                ...entry,
+                fingerprint: result.fingerprint,
+                fingerprintDurationSec: result.durationSec
+              });
+              await setFingerprintForPath(entry.filePath, result.fingerprint, result.durationSec);
+              indexed += 1;
+            } else {
+              failed += 1;
+            }
+          } catch (error) {
+            console.debug('[localMusic] fingerprint failed:', entry.filePath, error);
+            failed += 1;
+          } finally {
+            fingerprintProgress.value += 1;
+          }
+        }
+      };
+
+      try {
+        await Promise.all(Array.from({ length: Math.min(3, queue.length) }, worker));
+
+        // Library-only songs (downloads outside scanned folders) are not part of
+        // musicList, so index them separately through the unified database.
+        const libraryResult = await backfillLibraryFingerprints(extract, { concurrency: 2 });
+        indexed += libraryResult.indexed;
+        failed += libraryResult.failed;
+        fingerprintTotal.value += libraryResult.indexed + libraryResult.failed;
+        fingerprintProgress.value += libraryResult.indexed + libraryResult.failed;
+      } finally {
+        buildingFingerprints.value = false;
+      }
+
+      return { indexed, failed, skipped };
+    }
+
+    /**
+     * Merge songs that the acoustic index proves are the same recording.
+     * Metadata-based matching is intentionally not used here.
+     */
+    async function mergeDuplicateRecordings(): Promise<{ merged: number }> {
+      const pairs = await findDuplicateRecordings();
+      for (const pair of pairs) {
+        await mergeSongs(pair.keepId, pair.dropId);
+      }
+      return { merged: pairs.length };
+    }
+
+    /**
+     * Look up missing metadata online and write it into the files themselves.
+     * Only entries with a placeholder artist or a file-name title are touched,
+     * unless `force` is requested.
+     */
+    async function autoFixMetadata(options?: {
+      force?: boolean;
+    }): Promise<{ fixed: number; skipped: number; failed: number }> {
+      if (autoTagging.value) {
+        return { fixed: 0, skipped: 0, failed: 0 };
+      }
+      const fetchMetadata = window.api?.fetchOnlineMetadata;
+      const writeTags = window.api?.updateLocalMusicTagsAndFile;
+      if (typeof fetchMetadata !== 'function' || typeof writeTags !== 'function') {
+        throw new Error('Automatic metadata repair is unavailable in this build.');
+      }
+
+      const targets = options?.force
+        ? [...musicList.value]
+        : selectEntriesNeedingRepair(musicList.value);
+      if (targets.length === 0) {
+        return { fixed: 0, skipped: 0, failed: 0 };
+      }
+
+      autoTagging.value = true;
+      autoTagProgress.value = 0;
+      autoTagTotal.value = targets.length;
+      let fixed = 0;
+      let skipped = 0;
+      let failed = 0;
+
+      try {
+        for (const entry of targets) {
+          try {
+            const rawArtist = (entry.artist || '').trim();
+            const artist = /^unknown/i.test(rawArtist) ? '' : rawArtist;
+            const search = await fetchMetadata({
+              title: toMetadataSearchTitle(entry.title, entry.filePath),
+              artist: artist || undefined,
+              album: entry.album || undefined
+            });
+            const best = search?.results?.[0];
+            if (!best) {
+              skipped += 1;
+              continue;
+            }
+
+            const write = await writeTags({
+              filePath: entry.filePath,
+              title: best.title || entry.title,
+              artist: best.artist || entry.artist,
+              album: best.album || entry.album,
+              year: best.year || undefined,
+              genre: best.genre || undefined,
+              coverDataUrlOrPath: best.coverUrl || undefined,
+              saveSidecarLrc: false
+            });
+
+            if (write?.ok && write.updatedEntry) {
+              await updateEntry(write.updatedEntry, entry.id);
+              fixed += 1;
+            } else {
+              failed += 1;
+            }
+          } catch (error) {
+            console.debug('[localMusic] metadata repair failed:', entry.filePath, error);
+            failed += 1;
+          } finally {
+            autoTagProgress.value += 1;
+          }
+          // Be gentle with the public metadata APIs.
+          await new Promise((resolve) => setTimeout(resolve, 150));
+        }
+      } finally {
+        autoTagging.value = false;
+      }
+
+      return { fixed, skipped, failed };
+    }
+
     return {
       // 状态
       folderPaths,
       musicList,
       scanning,
       scanProgress,
+      buildingFingerprints,
+      fingerprintProgress,
+      fingerprintTotal,
+      autoTagging,
+      autoTagProgress,
+      autoTagTotal,
 
       // 动作
       addFolder,
@@ -383,7 +572,10 @@ export const useLocalMusicStore = defineStore(
       loadFromCache,
       removeEntry,
       updateEntry,
-      clearCache
+      clearCache,
+      buildFingerprintIndex,
+      mergeDuplicateRecordings,
+      autoFixMetadata
     };
   },
   {

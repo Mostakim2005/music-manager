@@ -531,7 +531,9 @@ const currentMvAdapter = computed(() => {
 const handleVideoTimeSync = (timeSec: number) => {
   if (Number.isFinite(timeSec) && timeSec >= 0) {
     videoSyncTime.value = timeSec;
-    nowTime.value = Math.floor(timeSec);
+    // Keep sub-second precision: flooring here made lyrics and the progress bar
+    // lag/jitter by up to a second compared with the video element.
+    nowTime.value = timeSec;
   }
 };
 
@@ -549,7 +551,7 @@ const switchPlaybackMode = (mode: 'song' | 'video') => {
     videoDrawerVisible.value = false;
     if (videoSyncTime.value > 0) {
       audioService.seek(videoSyncTime.value);
-      nowTime.value = Math.floor(videoSyncTime.value);
+      nowTime.value = videoSyncTime.value;
     }
     const sound = audioService.getCurrentSound();
     if (sound) {

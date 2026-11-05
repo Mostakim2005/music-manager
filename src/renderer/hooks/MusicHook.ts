@@ -44,6 +44,15 @@ const getPlayerStore = () => {
   }
   return playerStore;
 };
+
+/**
+ * Audio playback sets `play`; video playback sets `isPlay` and keeps the audio
+ * element paused. Surfaces such as the lyric window must react to either one.
+ */
+const isPlaybackActive = (): boolean => {
+  const store = getPlayerStore();
+  return Boolean(store.play || store.isPlay);
+};
 export const lrcArray = ref<ILyricText[]>([]); // 歌词数组
 export const lrcTimeArray = ref<number[]>([]); // 歌词时间数组
 export const nowTime = ref(0); // 当前播放时间
@@ -291,25 +300,39 @@ const setupAudioListeners = () => {
     interval = window.setInterval(() => {
       try {
         // 每次从 audioService 获取最新的 sound 引用，而不是依赖闭包中的 sound.value
+        const store = getPlayerStore();
+        const isVideoMode = store.playbackMode === 'video';
         const currentSound = audioService.getCurrentSound();
-        if (!currentSound || audioService.getCurrentTrack()?.id !== getPlayerStore().playMusic.id) {
-          // sound 暂时为空（可能在切歌/重建中），不清除 interval，等待恢复
+
+        // In video mode the audio element is paused on purpose and the video
+        // element is the only authoritative clock. Reading the paused audio
+        // element here used to overwrite nowTime on every tick, which froze the
+        // lyrics, the progress bar and the lyric window.
+        if (!isVideoMode) {
+          if (!currentSound || audioService.getCurrentTrack()?.id !== store.playMusic.id) {
+            // sound 暂时为空（可能在切歌/重建中），不清除 interval，等待恢复
+            return;
+          }
+
+          const audioTime = currentSound.currentTime;
+          if (typeof audioTime !== 'number' || Number.isNaN(audioTime)) {
+            // 无效时间，跳过本次更新
+            return;
+          }
+
+          // 同步 sound.value 引用（确保外部也能拿到最新的）
+          if (sound.value !== currentSound) {
+            sound.value = currentSound;
+          }
+
+          nowTime.value = audioTime;
+          if (Number.isFinite(currentSound.duration)) allTime.value = currentSound.duration;
+        } else if (!Number.isFinite(nowTime.value)) {
           return;
         }
 
-        const currentTime = currentSound.currentTime;
-        if (typeof currentTime !== 'number' || Number.isNaN(currentTime)) {
-          // 无效时间，跳过本次更新
-          return;
-        }
-
-        // 同步 sound.value 引用（确保外部也能拿到最新的）
-        if (sound.value !== currentSound) {
-          sound.value = currentSound;
-        }
-
-        nowTime.value = currentTime;
-        if (Number.isFinite(currentSound.duration)) allTime.value = currentSound.duration;
+        // Every lyric/tray/MPRIS consumer below uses this single clock.
+        const currentTime = isVideoMode ? nowTime.value : currentSound!.currentTime;
 
         // === 歌词索引更新 ===
         const newIndex = getLrcIndex(nowTime.value);
@@ -346,7 +369,7 @@ const setupAudioListeners = () => {
                 nowIndex: nowIndex.value,
                 nowTime: nowTime.value,
                 correctionTime: correctionTime.value,
-                isPlay: getPlayerStore().play
+                isPlay: isPlaybackActive()
               })
             );
           } catch {
@@ -356,6 +379,7 @@ const setupAudioListeners = () => {
 
         // === 进度保存（每 ~5 秒）===
         if (
+          !isVideoMode &&
           Math.floor(currentTime) % 5 === 0 &&
           Math.floor(currentTime) !== Math.floor(lastSavedProgress)
         ) {
@@ -371,7 +395,7 @@ const setupAudioListeners = () => {
         }
 
         // === MPRIS 进度更新（每 ~1 秒）===
-        if (isElectron && lyricThrottleCounter % 20 === 0) {
+        if (isElectron && !isVideoMode && lyricThrottleCounter % 20 === 0) {
           try {
             window.electron.ipcRenderer.send('mpris-position-update', currentTime);
           } catch {
@@ -394,10 +418,14 @@ const setupAudioListeners = () => {
     recoveryTimer = window.setInterval(() => {
       try {
         const store = getPlayerStore();
-        if (store.play && !interval) {
+        if (isPlaybackActive() && !interval) {
           const currentSound = audioService.getCurrentSound();
-          if (currentSound && !currentSound.paused) {
-            console.warn('[MusicHook] 检测到播放中但 interval 丢失，自动恢复');
+          // Video mode deliberately pauses the audio element, so the audio
+          // element's paused flag cannot decide whether the ticker is needed.
+          const shouldTick =
+            store.playbackMode === 'video' || Boolean(currentSound && !currentSound.paused);
+          if (shouldTick) {
+            console.warn('[MusicHook] progress interval was lost while playing; restarting');
             startProgressInterval();
           }
         }
@@ -410,6 +438,19 @@ const setupAudioListeners = () => {
   // 启动恢复监控
   startRecoveryMonitor();
 
+  // Entering video mode pauses the audio element; keep the shared lyric clock
+  // alive for as long as the video mode is active.
+  watch(
+    () => getPlayerStore().playbackMode,
+    (mode) => {
+      if (mode === 'video') {
+        startProgressInterval();
+      } else if (!isPlaybackActive()) {
+        clearInterval();
+      }
+    }
+  );
+
   // 监听seek开始事件，立即更新UI
   audioService.on('seek_start', (time) => {
     // 直接更新显示位置，不检查拖动状态
@@ -419,6 +460,7 @@ const setupAudioListeners = () => {
   // 监听seek完成事件
   audioService.on('seek', () => {
     try {
+      if (getPlayerStore().playbackMode === 'video') return;
       const currentSound = audioService.getCurrentSound();
       if (currentSound) {
         // 立即更新显示时间，不进行任何检查
@@ -483,7 +525,11 @@ const setupAudioListeners = () => {
   audioService.on('pause', () => {
     console.log('音频暂停事件触发');
     getPlayerStore().setIsPlay(false);
-    clearInterval();
+    // The pause is expected when switching to video mode; the video clock still
+    // needs this interval to advance lyrics.
+    if (getPlayerStore().playbackMode !== 'video') {
+      clearInterval();
+    }
     if (isElectron && isLyricWindowOpen.value) {
       sendLyricToWin();
     }
@@ -745,8 +791,7 @@ export const sendLyricToWin = () => {
         nowTime: nowTime.value,
         correctionTime: correctionTime.value,
         startCurrentTime: lrcTimeArray.value[nowIndex] || 0,
-        nextTime: lrcTimeArray.value[nowIndex + 1] || 0,
-        isPlay: getPlayerStore().play,
+        nextTime: lrcTimeArray.value[nowIndex + 1] || 0,          isPlay: isPlaybackActive(),
         lrcArray: lrcArray.value,
         lrcTimeArray: lrcTimeArray.value,
         allTime: allTime.value,
@@ -764,8 +809,7 @@ export const sendLyricToWin = () => {
         nowIndex: 0,
         nowTime: nowTime.value,
         startCurrentTime: 0,
-        nextTime: 0,
-        isPlay: getPlayerStore().play,
+        nextTime: 0,          isPlay: isPlaybackActive(),
         lrcArray: [{ text: '当前歌曲暂无歌词', trText: '' }],
         lrcTimeArray: [0],
         allTime: allTime.value,
@@ -812,20 +856,20 @@ const startLyricSync = () => {
     clearInterval(lyricSyncInterval);
   }
 
-  // 每秒同步一次歌词数据
+  // Push a lyric update every second so the external window follows the clock.
   lyricSyncInterval = setInterval(() => {
-    if (isElectron && isLyricWindowOpen.value && getPlayerStore().play && playMusic.value?.id) {
-      // 发送当前播放进度的更新
+    if (isElectron && isLyricWindowOpen.value && isPlaybackActive() && playMusic.value?.id) {
+      // Send the current playback progress.
       try {
         const updateData = {
           type: 'update',
           nowIndex: getLrcIndex(nowTime.value),
           nowTime: nowTime.value,
-          isPlay: getPlayerStore().play
+          isPlay: isPlaybackActive()
         };
         window.api.sendLyric(JSON.stringify(updateData));
       } catch (error) {
-        console.error('发送歌词进度更新失败:', error);
+        console.error('Failed to send the lyric progress update:', error);
       }
     }
   }, 1000);
@@ -858,8 +902,7 @@ export const openLyric = async () => {
         nowIndex: 0,
         nowTime: nowTime.value,
         startCurrentTime: 0,
-        nextTime: 0,
-        isPlay: getPlayerStore().play,
+        nextTime: 0,          isPlay: isPlaybackActive(),
         lrcArray: [{ text: '加载歌词中...', trText: '' }],
         lrcTimeArray: [0],
         allTime: allTime.value,
@@ -904,8 +947,8 @@ export const closeLyric = () => {
 const setupPlayStateWatcher = () => {
   // 在组件挂载时设置对播放状态的监听
   watch(
-    () => getPlayerStore().play,
-    (isPlaying) => {
+    [() => getPlayerStore().play, () => getPlayerStore().isPlay],
+    ([isPlaying]) => {
       // 如果歌词窗口打开，根据播放状态控制同步
       if (isElectron && isLyricWindowOpen.value) {
         if (isPlaying) {

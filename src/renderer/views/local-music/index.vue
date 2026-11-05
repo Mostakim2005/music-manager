@@ -81,6 +81,37 @@
                 />
               </button>
 
+              <!-- Automatic metadata repair -->
+              <button
+                class="action-btn-icon w-10 h-10 rounded-full flex items-center justify-center bg-neutral-100 dark:bg-neutral-900 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-neutral-800 transition-all disabled:opacity-50"
+                title="Find and write missing metadata for the whole library"
+                :disabled="localMusicStore.autoTagging || localMusicStore.scanning"
+                @click="handleAutoFixMetadata"
+              >
+                <i
+                  class="ri-magic-line text-lg"
+                  :class="{ 'animate-pulse text-primary': localMusicStore.autoTagging }"
+                />
+              </button>
+
+              <!-- Acoustic index and duplicate merging -->
+              <n-dropdown
+                trigger="click"
+                :options="acousticDropdownOptions"
+                @select="handleAcousticAction"
+              >
+                <button
+                  class="action-btn-icon w-10 h-10 rounded-full flex items-center justify-center bg-neutral-100 dark:bg-neutral-900 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-neutral-800 transition-all disabled:opacity-50"
+                  title="Acoustic index and duplicate recordings"
+                  :disabled="localMusicStore.buildingFingerprints || localMusicStore.scanning"
+                >
+                  <i
+                    class="ri-fingerprint-line text-lg"
+                    :class="{ 'animate-pulse text-primary': localMusicStore.buildingFingerprints }"
+                  />
+                </button>
+              </n-dropdown>
+
               <!-- 添加文件夹按钮 -->
               <button
                 class="action-btn-icon w-10 h-10 rounded-full flex items-center justify-center bg-neutral-100 dark:bg-neutral-900 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-neutral-800 transition-all"
@@ -126,18 +157,21 @@
           </div>
         </section>
 
-        <!-- 扫描进度提示 -->
-        <section v-if="localMusicStore.scanning" class="page-padding-x mt-6">
+        <!-- Library maintenance progress -->
+        <section
+          v-if="localMusicStore.scanning || localMusicStore.autoTagging || localMusicStore.buildingFingerprints"
+          class="page-padding-x mt-6"
+        >
           <div
             class="flex items-center gap-4 p-4 rounded-2xl bg-primary/5 dark:bg-primary/10 border border-primary/20"
           >
             <n-spin size="small" />
             <div>
               <p class="text-sm font-medium text-neutral-900 dark:text-white">
-                {{ t('localMusic.scanning') }}
+                {{ maintenanceLabel }}
               </p>
               <p class="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-                {{ t('localMusic.songCount', { count: localMusicStore.scanProgress }) }}
+                {{ maintenanceDetail }}
               </p>
             </div>
           </div>
@@ -266,6 +300,24 @@ const editingEntry = ref<LocalMusicEntry | null>(null);
 /** 听歌统计弹窗 */
 const showListeningStats = ref(false);
 
+const acousticDropdownOptions: DropdownOption[] = [
+  {
+    label: 'Build acoustic index',
+    key: 'index',
+    icon: () => h('i', { class: 'ri-fingerprint-line' })
+  },
+  {
+    label: 'Index, then merge duplicate recordings',
+    key: 'both',
+    icon: () => h('i', { class: 'ri-merge-cells-horizontal' })
+  },
+  {
+    label: 'Merge duplicates only',
+    key: 'merge',
+    icon: () => h('i', { class: 'ri-links-line' })
+  }
+];
+
 const backupDropdownOptions: DropdownOption[] = [
   {
     label: 'Export Playlist as .M3U8',
@@ -361,6 +413,53 @@ async function handleBackupAction(key: string) {
   }
 }
 
+/** Runs the online metadata lookup + tag write pass over the library. */
+async function handleAutoFixMetadata(): Promise<void> {
+  try {
+    const result = await localMusicStore.autoFixMetadata();
+    if (result.fixed > 0) {
+      message.success(`Updated metadata for ${result.fixed} track(s).`);
+    } else if (result.skipped === 0 && result.failed === 0) {
+      message.info('Every track already has usable metadata.');
+    }
+    if (result.skipped > 0) {
+      message.info(`${result.skipped} track(s) had no online match.`);
+    }
+    if (result.failed > 0) {
+      message.warning(`Could not write tags for ${result.failed} track(s).`);
+    }
+  } catch (error) {
+    message.error(error instanceof Error ? error.message : String(error));
+  }
+}
+
+/** Builds the acoustic index and/or merges proven duplicates. */
+async function handleAcousticAction(key: string): Promise<void> {
+  try {
+    if (key === 'index' || key === 'both') {
+      const indexResult = await localMusicStore.buildFingerprintIndex();
+      message.success(
+        `Indexed ${indexResult.indexed} track(s)` +
+          (indexResult.failed ? `, ${indexResult.failed} failed` : '') +
+          (indexResult.skipped ? `, ${indexResult.skipped} already indexed` : '') +
+          '.'
+      );
+    }
+
+    if (key === 'merge' || key === 'both') {
+      const mergeResult = await localMusicStore.mergeDuplicateRecordings();
+      message.success(
+        mergeResult.merged > 0
+          ? `Merged ${mergeResult.merged} duplicate recording(s).`
+          : 'No duplicate recordings found.'
+      );
+      triggerIngest();
+    }
+  } catch (error) {
+    message.error(error instanceof Error ? error.message : String(error));
+  }
+}
+
 function openTrackEditor(entry: LocalMusicEntry) {
   editingEntry.value = entry;
   showTrackEditor.value = true;
@@ -379,6 +478,23 @@ const filteredList = computed(() => {
 /** 将过滤后的列表转换为 SongResult[] 供 SongItem 使用 */
 const filteredSongResults = computed(() => {
   return filteredList.value.map(toSongResult);
+});
+
+/** Label shown in the maintenance banner while a long task is running. */
+const maintenanceLabel = computed(() => {
+  if (localMusicStore.buildingFingerprints) return 'Building the acoustic index...';
+  if (localMusicStore.autoTagging) return 'Looking up and writing metadata...';
+  return t('localMusic.scanning');
+});
+
+const maintenanceDetail = computed(() => {
+  if (localMusicStore.buildingFingerprints) {
+    return `${localMusicStore.fingerprintProgress} / ${localMusicStore.fingerprintTotal} tracks analysed`;
+  }
+  if (localMusicStore.autoTagging) {
+    return `${localMusicStore.autoTagProgress} / ${localMusicStore.autoTagTotal} tracks processed`;
+  }
+  return t('localMusic.songCount', { count: localMusicStore.scanProgress });
 });
 
 // ==================== Methods ====================

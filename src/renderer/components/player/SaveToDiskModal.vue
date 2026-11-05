@@ -161,6 +161,7 @@ import { computed, onMounted, ref, watch } from 'vue';
 
 import { linkVariant } from '@/services/songLibrary';
 import { youtubeService } from '@/services/youtubeService';
+import { useSettingsStore } from '@/store/modules/settings';
 import type { SongResult } from '@/types/music';
 import { getImgUrl } from '@/utils';
 
@@ -177,6 +178,7 @@ const emit = defineEmits<{
   (e: 'savedMedia'): void;
 }>();
 
+const settingStore = useSettingsStore();
 const destinationFolder = ref('');
 const selectedVideoHeight = ref<number>(720);
 
@@ -248,6 +250,10 @@ const browseFolder = async () => {
 
     if (result && !result.canceled && result.filePaths?.[0]) {
       destinationFolder.value = result.filePaths[0];
+      // Remember the choice so every later download (including the quality
+      // buttons in the video-source popover) defaults to the same folder.
+      settingStore.setSetData({ mediaDownloadDir: result.filePaths[0] });
+      window.$message?.success?.('Download folder saved as the default');
     }
   } catch (err) {
     console.error('[SaveToDiskModal] browse folder error:', err);

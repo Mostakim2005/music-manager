@@ -425,6 +425,7 @@
                     <span class="uppercase font-mono">{{ v.container || v.kind }}</span>
                     <span v-if="v.height" class="font-mono text-white/60">{{ v.height }}p</span>
                     <span v-if="v.bitrateKbps" class="font-mono text-white/60">{{ v.bitrateKbps }} kbps</span>
+                    <span v-if="v.sizeBytes" class="font-mono text-white/60">{{ formatSize(v.sizeBytes) }}</span>
                     <span class="px-1.5 py-0.2 rounded bg-white/10 text-[10px] text-white/60">{{ v.source }}</span>
                   </div>
                   <div v-if="v.path" class="text-[11px] text-white/40 truncate font-mono mt-0.5" :title="v.path">
@@ -453,11 +454,28 @@
                 </button>
                 <button
                   type="button"
-                  class="p-1 rounded text-red-400/80 hover:text-red-300 hover:bg-red-500/10 transition"
-                  title="Unlink variant"
+                  class="p-1 rounded text-white/60 hover:text-white hover:bg-white/10 transition"
+                  title="Remove from library but keep the file on disk"
                   @click="unlinkVariant(v.id)"
                 >
-                  <i class="ri-delete-bin-line text-sm"></i>
+                  <i class="ri-link-unlink-m text-sm"></i>
+                </button>
+                <button
+                  v-if="v.path"
+                  type="button"
+                  class="p-1 rounded text-red-400/80 hover:text-red-300 hover:bg-red-500/10 transition disabled:opacity-50"
+                  title="Delete this file from disk"
+                  :disabled="deletingVariantId === v.id"
+                  @click="deleteVariantFromDisk(v)"
+                >
+                  <i
+                    class="text-sm"
+                    :class="
+                      deletingVariantId === v.id
+                        ? 'ri-loader-4-line animate-spin'
+                        : 'ri-delete-bin-2-line'
+                    "
+                  ></i>
                 </button>
               </div>
             </div>
@@ -839,10 +857,59 @@ const unlinkVariant = async (variantId: string) => {
   try {
     await dbUnlinkVariant(variantId);
     emit('variantsUpdated');
-    window.$message?.info?.('Variant unlinked');
+    window.$message?.info?.('Removed from the library. The file was kept on disk.');
   } catch (err: any) {
     window.$message?.error?.(err.message || 'Failed to unlink');
   }
+};
+
+const deletingVariantId = ref<string | null>(null);
+
+/**
+ * Deletes exactly one variant's file from disk. Audio and video variants are
+ * independent, so deleting a downloaded 480p video leaves the audio and every
+ * other quality untouched.
+ */
+const deleteVariantFromDisk = async (variant: Variant) => {
+  if (!variant.path) return;
+  const label = variant.kind === 'video'
+    ? `video${variant.height ? ` (${variant.height}p)` : ''}`
+    : 'audio';
+  const confirmed = window.confirm(
+    `Delete this ${label} file from disk?\n\n${variant.path}\n\nThis cannot be undone.`
+  );
+  if (!confirmed) return;
+
+  deletingVariantId.value = variant.id;
+  try {
+    const result = await window.api?.deleteVariantFile?.(variant.path);
+    if (result && !result.ok) {
+      throw new Error(result.error || 'Could not delete the file');
+    }
+    await dbUnlinkVariant(variant.id);
+    emit('variantsUpdated');
+    window.$message?.success?.(
+      result?.deleted === false
+        ? 'The file was already missing; removed it from the library.'
+        : 'File deleted and removed from the library.'
+    );
+  } catch (err: any) {
+    window.$message?.error?.(err.message || 'Failed to delete the file');
+  } finally {
+    deletingVariantId.value = null;
+  }
+};
+
+const formatSize = (bytes: number): string => {
+  if (!Number.isFinite(bytes) || bytes <= 0) return '';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  let value = bytes;
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit += 1;
+  }
+  return `${value.toFixed(value >= 100 || unit === 0 ? 0 : 1)} ${units[unit]}`;
 };
 
 const formatViews = (count?: number) => {

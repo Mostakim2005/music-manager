@@ -6,6 +6,10 @@
 import Dexie, { type Table } from 'dexie';
 
 import { compareFingerprints } from '../../shared/acousticFingerprint';
+import {
+  findFingerprintDuplicatePairs,
+  type DuplicatePair
+} from '../../shared/duplicateDetection';
 
 export interface Song {
   id: string; // uuid
@@ -505,6 +509,103 @@ export async function setSongFingerprint(
     updates.fingerprintDurationSec = durationSec;
   }
   await db.songs.update(songId, updates);
+}
+
+/**
+ * Store a fingerprint on whichever Song owns the given file path.
+ * Returns the song ID when the path is linked, otherwise undefined.
+ */
+export async function setFingerprintForPath(
+  filePath: string,
+  fingerprint: string,
+  durationSec?: number
+): Promise<string | undefined> {
+  const match = await findSongByPath(filePath);
+  if (!match) return undefined;
+  await setSongFingerprint(match.song.id, fingerprint, durationSec);
+  return match.song.id;
+}
+
+export type FingerprintExtractor = (
+  filePath: string
+) => Promise<{ fingerprint: string; durationSec: number } | null>;
+
+/**
+ * Backfill fingerprints for library songs that were added before the acoustic
+ * index existed (for example downloads that are not part of a scanned folder).
+ * Prefers an audio variant, then falls back to any variant with a local path.
+ */
+export async function backfillLibraryFingerprints(
+  extract: FingerprintExtractor,
+  options: { concurrency?: number } = {}
+): Promise<{ indexed: number; failed: number; skipped: number }> {
+  const db = getLibraryDB();
+  const [songs, variants] = await Promise.all([db.songs.toArray(), db.variants.toArray()]);
+  const variantsBySong = new Map<string, Variant[]>();
+  for (const variant of variants) {
+    if (!variant.path) continue;
+    const list = variantsBySong.get(variant.songId) || [];
+    list.push(variant);
+    variantsBySong.set(variant.songId, list);
+  }
+
+  const queue: Array<{ songId: string; path: string }> = [];
+  let skipped = 0;
+  for (const song of songs) {
+    if (song.fingerprint) continue;
+    const candidates = variantsBySong.get(song.id) || [];
+    const preferred = candidates.find((v) => v.kind === 'audio') || candidates[0];
+    if (!preferred?.path) {
+      skipped += 1;
+      continue;
+    }
+    queue.push({ songId: song.id, path: preferred.path });
+  }
+
+  let indexed = 0;
+  let failed = 0;
+  const worker = async () => {
+    while (queue.length > 0) {
+      const item = queue.shift();
+      if (!item) break;
+      try {
+        const result = await extract(item.path);
+        if (result?.fingerprint) {
+          await setSongFingerprint(item.songId, result.fingerprint, result.durationSec);
+          indexed += 1;
+        } else {
+          failed += 1;
+        }
+      } catch {
+        failed += 1;
+      }
+    }
+  };
+
+  await Promise.all(
+    Array.from({ length: Math.min(options.concurrency ?? 2, queue.length || 1) }, worker)
+  );
+  return { indexed, failed, skipped };
+}
+
+/**
+ * Find songs whose acoustic fingerprints identify the same recording.
+ * The pair always names the record with more variants as the survivor.
+ */
+export async function findDuplicateRecordings(): Promise<DuplicatePair[]> {
+  const db = getLibraryDB();
+  const [songs, variants] = await Promise.all([db.songs.toArray(), db.variants.toArray()]);
+  const variantCounts = new Map<string, number>();
+  for (const variant of variants) {
+    variantCounts.set(variant.songId, (variantCounts.get(variant.songId) ?? 0) + 1);
+  }
+
+  return findFingerprintDuplicatePairs(
+    songs.map((song) => ({
+      ...song,
+      variantCount: variantCounts.get(song.id) ?? 0
+    }))
+  );
 }
 
 /**
