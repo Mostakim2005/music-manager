@@ -71,7 +71,7 @@ export class EQService {
       }
 
       const sound = (howl as unknown as HowlSound)._sounds[0];
-      if (!sound?._node) throw new Error('无法获取音频节点');
+      if (!sound?._node) throw new Error('Unable to access the audio node');
 
       // 清理现有资源
       await this.dispose();

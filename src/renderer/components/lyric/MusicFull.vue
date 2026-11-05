@@ -367,6 +367,7 @@
               :correction-time="correctionTime"
               :force-visible="forceShowOffsetStepper"
               @adjust="adjustCorrectionTime"
+              @set="handleSetCorrectionTime"
             />
           </n-layout>
         </div>
@@ -374,7 +375,7 @@
 
       <!-- C1 Video Pill (bottom-left of fullscreen player) -->
       <div
-        class="video-pill-wrapper absolute bottom-8 left-8 z-[9999] flex items-center"
+        class="video-pill-wrapper absolute bottom-24 left-6 z-[9998] flex items-center"
         :class="{ 'pure-mode': config.pureModeEnabled }"
       >
         <div
@@ -389,6 +390,7 @@
                 : 'text-white/80 hover:text-white'
             "
             title="Toggle Audio ⇄ Video mode"
+            :disabled="isSwitchingMode"
             @click="toggleAudioVideoMode"
           >
             <span class="text-sm leading-none">🎬</span>
@@ -466,7 +468,9 @@ import {
   nowIndex,
   nowTime,
   playMusic,
+  registerVideoSeekHandler,
   setAudioTime,
+  setCorrectionTime,
   textColors,
   useLyricProgress
 } from '@/hooks/MusicHook';
@@ -493,6 +497,7 @@ import { usePlayerStore } from '@/store/modules/player';
 import { useSettingsStore } from '@/store/modules/settings';
 import { DEFAULT_LYRIC_CONFIG, LyricConfig } from '@/types/lyric';
 import { getImgUrl, isElectron, isMobile } from '@/utils';
+import { filePathToMediaUrl } from '@/utils/localMediaUrl';
 import { getTextColors } from '@/utils/linearColor';
 import { LYRIC_CONFIG_CHANGE_EVENT, readLyricConfig, writeLyricConfig } from '@/utils/lyricConfig';
 import { formatVideoTime } from '@/utils/videoQualityHelpers';
@@ -992,6 +997,10 @@ const activeVideoElement = computed<HTMLVideoElement | null>(() => {
 });
 
 const activeVideoSrc = ref<string>('');
+const activeMuxedBase = ref<string | null>(null);
+const videoSeekOffset = ref(0);
+const videoIsMuxed = ref(false);
+const isSwitchingMode = ref(false);
 const selectedVideoHeight = ref<number>(720);
 const currentYoutubeId = ref<string>('');
 const currentVariants = ref<Variant[]>([]);
@@ -1055,7 +1064,13 @@ watch(
   { immediate: true }
 );
 
+// Lyric clicks must seek the element that is actually playing.
+registerVideoSeekHandler((time) => {
+  void seekVideoTo(time);
+});
+
 onBeforeUnmount(() => {
+  registerVideoSeekHandler(null);
   if (unregisterVideo) {
     unregisterVideo();
     unregisterVideo = null;
@@ -1071,15 +1086,23 @@ const onVideoPlay = () => {
   playerStore.setIsPlay(true);
 };
 
+let suppressVideoPauseSync = false;
+// While a seek is being applied the element still reports the old time; ignore
+// those ticks so the progress bar does not snap back to the previous position.
+let suppressVideoTimeUpdatesUntil = 0;
+
 const onVideoPause = () => {
+  if (suppressVideoPauseSync || isSwitchingMode.value) return;
   playerStore.setIsPlay(false);
 };
 
 const onVideoTimeUpdate = (e: Event) => {
   const video = e.target as HTMLVideoElement;
   if (!video) return;
-  nowTime.value = video.currentTime;
-  saveVideoPositionThrottled(video.currentTime);
+  if (Date.now() < suppressVideoTimeUpdatesUntil) return;
+  const absoluteTime = videoSeekOffset.value + video.currentTime;
+  nowTime.value = absoluteTime;
+  saveVideoPositionThrottled(absoluteTime);
 };
 
 const saveVideoPositionThrottled = useThrottleFn((time: number) => {
@@ -1113,19 +1136,164 @@ const handleTogglePlay = () => {
 };
 
 const handleSeekTime = (time: number) => {
+  if (!Number.isFinite(time)) return;
+  const target = Math.max(0, time);
+
+  if (playerStore.playbackMode === 'video') {
+    void seekVideoTo(target);
+    return;
+  }
+
+  audioService.seek(target);
+  nowTime.value = target;
+  const key = getSongKey(playMusic.value);
+  if (key) {
+    savePosition(key, target);
+  }
+};
+
+const handleSetCorrectionTime = (value: number) => {
+  setCorrectionTime(value);
   if (playerStore.playbackMode === 'video') {
     const video = activeVideoElement.value;
     if (video) {
-      video.currentTime = time;
+      nowTime.value = videoSeekOffset.value + video.currentTime;
     }
-    nowTime.value = time;
-    const key = getSongKey(playMusic.value);
-    if (key) {
-      savePosition(key, time);
+  }
+};
+
+// --- Video loading / seeking ---------------------------------------------
+const withStreamStart = (base: string, start: number) => {
+  try {
+    const url = new URL(base);
+    if (start > 0) url.searchParams.set('start', String(Math.floor(start)));
+    else url.searchParams.delete('start');
+    return url.toString();
+  } catch {
+    return base;
+  }
+};
+
+const waitForVideoReady = (el: HTMLVideoElement, timeoutMs = 20000) =>
+  new Promise<void>((resolve) => {
+    if (el.readyState >= 1) {
+      resolve();
+      return;
     }
-  } else {
-    audioService.seek(time);
-    nowTime.value = time;
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      el.removeEventListener('loadedmetadata', finish);
+      el.removeEventListener('error', finish);
+      window.clearTimeout(timer);
+      resolve();
+    };
+    const timer = window.setTimeout(finish, timeoutMs);
+    el.addEventListener('loadedmetadata', finish);
+    el.addEventListener('error', finish);
+  });
+
+/**
+ * Enters video mode and starts playback only after metadata is available.
+ * Setting `currentTime` on a freshly-assigned src is silently dropped, which is
+ * why audio/video switches used to restart at 0 and drift out of sync.
+ */
+const enterVideoMode = async (src: string, muxedBase: string | null, carryTime: number) => {
+  isSwitchingMode.value = true;
+  playerStore.setPlaybackMode('video', carryTime);
+  audioService.pause(true);
+
+  videoIsMuxed.value = Boolean(muxedBase);
+  activeMuxedBase.value = muxedBase;
+  videoSeekOffset.value = muxedBase ? Math.max(0, Math.floor(carryTime)) : 0;
+  activeVideoSrc.value = muxedBase
+    ? withStreamStart(muxedBase, videoSeekOffset.value)
+    : src;
+
+  try {
+    await nextTick();
+    const el = activeVideoElement.value;
+    if (!el) return;
+
+    if (unregisterVideo) {
+      unregisterVideo();
+      unregisterVideo = null;
+    }
+    unregisterVideo = mediaCoordinator.registerMediaElement(el, 'fullscreen-video', () => {
+      el.pause();
+    });
+
+    await waitForVideoReady(el);
+
+    const relative = Math.max(0, carryTime - videoSeekOffset.value);
+    if (relative > 0.05) {
+      try {
+        el.currentTime = relative;
+      } catch {
+        // Stream not buffered yet; playback still starts from its first frame.
+      }
+    }
+    nowTime.value = muxedBase
+      ? videoSeekOffset.value + el.currentTime
+      : carryTime;
+    suppressVideoTimeUpdatesUntil = Date.now() + 800;
+
+    mediaCoordinator.claimPlayback('fullscreen-video', el);
+    try {
+      await el.play();
+    } catch (err) {
+      console.warn('[MusicFull] Autoplay error:', err);
+    }
+  } finally {
+    isSwitchingMode.value = false;
+  }
+};
+
+const seekVideoTo = async (target: number) => {
+  const absolute = Math.max(0, target);
+  nowTime.value = absolute;
+  suppressVideoTimeUpdatesUntil = Date.now() + 800;
+  const key = getSongKey(playMusic.value);
+  if (key) savePosition(key, absolute);
+
+  const el = activeVideoElement.value;
+  if (!el) return;
+
+  const isSeekable = (() => {
+    try {
+      return el.seekable.length > 0;
+    } catch {
+      return false;
+    }
+  })();
+
+  // A DASH stream muxed on the fly (Accept-Ranges: none) cannot seek. Fall back
+  // to a progressive stream so the video actually jumps instead of freezing.
+  if (!isSeekable && currentYoutubeId.value) {
+    window.$message?.warning?.('Switching to a seekable stream…');
+    try {
+      const res = await youtubeService.getStreamUrl(currentYoutubeId.value, {
+        kind: 'video',
+        height: selectedVideoHeight.value,
+        preferProgressive: true
+      });
+      const muxed = Boolean((res as any).isMuxedProxy);
+      await enterVideoMode(res.videoUrl, muxed ? res.videoUrl : null, absolute);
+      return;
+    } catch (err) {
+      console.warn('[MusicFull] Seek fallback failed:', err);
+      return;
+    }
+  }
+
+  try {
+    el.currentTime = absolute;
+  } catch {
+    // ignore
+  }
+  if (el.paused && playerStore.isPlay) {
+    el.play().catch(() => {});
   }
 };
 
@@ -1140,15 +1308,22 @@ const toggleAudioVideoMode = async () => {
 
 const switchBackToAudio = () => {
   const videoEl = activeVideoElement.value;
-  const time = videoEl ? videoEl.currentTime : nowTime.value;
+  const time = videoEl ? videoSeekOffset.value + videoEl.currentTime : nowTime.value;
 
+  suppressVideoPauseSync = true;
   if (videoEl) {
     videoEl.pause();
   }
+  suppressVideoPauseSync = false;
+
+  videoIsMuxed.value = false;
+  activeMuxedBase.value = null;
+  videoSeekOffset.value = 0;
 
   playerStore.setPlaybackMode('song', time);
+  nowTime.value = time;
   audioService.seek(time);
-  audioService.play();
+  void audioService.play();
   mediaCoordinator.claimPlayback('audioService');
 };
 
@@ -1162,8 +1337,7 @@ const switchForwardToVideo = async () => {
   await refreshSongVariants();
   const localVideo = currentVariants.value.find((v) => v.kind === 'video' && Boolean(v.path));
   if (localVideo && localVideo.path) {
-    activeVideoSrc.value = `local://${encodeURI(localVideo.path.replace(/\\/g, '/'))}`;
-    startVideoPlayback(carryTime);
+    await enterVideoMode(filePathToMediaUrl(localVideo.path), null, carryTime);
     return;
   }
 
@@ -1189,8 +1363,12 @@ const switchForwardToVideo = async () => {
         kind: 'video',
         height: selectedVideoHeight.value
       });
-      activeVideoSrc.value = streamRes.videoUrl;
-      startVideoPlayback(carryTime);
+      const muxed = Boolean((streamRes as any).isMuxedProxy);
+      await enterVideoMode(
+        streamRes.videoUrl,
+        muxed ? streamRes.videoUrl : null,
+        carryTime
+      );
       return;
     } catch (err) {
       console.error('[MusicFull] Stream resolution error:', err);
@@ -1201,29 +1379,6 @@ const switchForwardToVideo = async () => {
   // 3. Resolution order 3: open popover on Search
   videoPopoverInitialTab.value = 'search';
   videoPopoverVisible.value = true;
-};
-
-const startVideoPlayback = (carryTime: number) => {
-  playerStore.setPlaybackMode('video', carryTime);
-  audioService.pause(true);
-
-  nextTick(() => {
-    const videoEl = activeVideoElement.value;
-    if (videoEl) {
-      if (unregisterVideo) {
-        unregisterVideo();
-      }
-      unregisterVideo = mediaCoordinator.registerMediaElement(videoEl, 'fullscreen-video', () => {
-        videoEl.pause();
-      });
-
-      videoEl.currentTime = carryTime;
-      mediaCoordinator.claimPlayback('fullscreen-video', videoEl);
-      videoEl.play().catch((err) => {
-        console.warn('[MusicFull] Autoplay error:', err);
-      });
-    }
-  });
 };
 
 const openVideoSourcePopover = () => {
@@ -1242,20 +1397,21 @@ const handleSetMode = (mode: 'song' | 'video') => {
 const handleSelectQuality = async (height: number) => {
   selectedVideoHeight.value = height;
   if (currentYoutubeId.value && playerStore.playbackMode === 'video') {
-    const carryTime = activeVideoElement.value ? activeVideoElement.value.currentTime : nowTime.value;
+    const video = activeVideoElement.value;
+    const carryTime = video
+      ? videoSeekOffset.value + video.currentTime
+      : nowTime.value;
     try {
       const streamRes = await youtubeService.getStreamUrl(currentYoutubeId.value, {
         kind: 'video',
         height
       });
-      activeVideoSrc.value = streamRes.videoUrl;
-      nextTick(() => {
-        const videoEl = activeVideoElement.value;
-        if (videoEl) {
-          videoEl.currentTime = carryTime;
-          videoEl.play();
-        }
-      });
+      const muxed = Boolean((streamRes as any).isMuxedProxy);
+      await enterVideoMode(
+        streamRes.videoUrl,
+        muxed ? streamRes.videoUrl : null,
+        carryTime
+      );
     } catch (err) {
       console.error('[MusicFull] Stream change error:', err);
     }
@@ -1272,8 +1428,7 @@ const handleLinkedYoutube = async (id: string) => {
 
 const handlePlayVariant = (v: Variant) => {
   if (v.kind === 'video' && v.path) {
-    activeVideoSrc.value = `local://${encodeURI(v.path.replace(/\\/g, '/'))}`;
-    startVideoPlayback(audioService.getCurrentTime());
+    void enterVideoMode(filePathToMediaUrl(v.path), null, nowTime.value);
   } else if (v.kind === 'audio' && v.path) {
     switchBackToAudio();
   }

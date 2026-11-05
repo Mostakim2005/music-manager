@@ -266,7 +266,7 @@ export const useLocalMusicStore = defineStore(
         musicList.value = await localDB.getAllData(LOCAL_MUSIC_STORE);
       } catch (error) {
         console.error('扫描本地音乐失败:', error);
-        message.error('扫描本地音乐失败');
+        message.error('Failed to scan local music');
       } finally {
         scanning.value = false;
       }

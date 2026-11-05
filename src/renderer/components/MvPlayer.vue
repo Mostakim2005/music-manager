@@ -269,7 +269,7 @@
                   </template>
                 </n-button>
               </template>
-              画中画 (PiP)
+              Picture-in-Picture
             </n-tooltip>
 
             <!-- Fullscreen -->
@@ -346,6 +346,7 @@ import { useI18n } from 'vue-i18n';
 
 import { getMvUrl } from '@/api/mv';
 import { mediaCoordinator } from '@/services/mediaCoordinator';
+import { toPlayableMediaUrl } from '@/utils/localMediaUrl';
 import { IMvItem } from '@/types/mv';
 
 const { t } = useI18n();
@@ -443,8 +444,14 @@ const toggleMute = () => {
 
 const handleProgressChange = (value: number) => {
   if (!videoRef.value || !duration.value) return;
-  const newTime = (value / 100) * duration.value;
-  videoRef.value.currentTime = newTime;
+  const newTime = Math.max(0, Math.min(duration.value, (value / 100) * duration.value));
+  try {
+    videoRef.value.currentTime = newTime;
+  } catch {
+    return;
+  }
+  currentTime.value = newTime;
+  emit('sync-time', newTime);
 };
 
 const handleTimeUpdate = () => {
@@ -529,10 +536,10 @@ const loadMvUrl = async (mv: IMvItem) => {
   autoPlayBlocked.value = false;
   try {
     if (props.directVideoUrl) {
-      mvUrl.value = props.directVideoUrl;
+      mvUrl.value = toPlayableMediaUrl(props.directVideoUrl) || props.directVideoUrl;
     } else {
       const res = await getMvUrl(mv.id);
-      mvUrl.value = res.data.data.url;
+      mvUrl.value = toPlayableMediaUrl(res.data.data.url) || res.data.data.url;
     }
     await nextTick();
     if (videoRef.value) {

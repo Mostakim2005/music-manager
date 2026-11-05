@@ -26,22 +26,12 @@
         title="Double-click to toggle Waveform Seekbar"
         @dblclick.stop="toggleWaveformSeekbar"
       >
-        <div
+        <canvas
           v-if="playerStore.showWaveformSeekbar"
-          class="waveform-bars"
+          ref="waveformCanvas"
+          class="waveform-canvas"
           aria-hidden="true"
-        >
-          <span
-            v-for="(barHeight, idx) in waveformBars"
-            :key="idx"
-            class="waveform-bar"
-            :class="{
-              'is-played': idx / waveformBars.length <= progressRatio,
-              'is-playing': play
-            }"
-            :style="{ height: `${barHeight}%` }"
-          ></span>
-        </div>
+        ></canvas>
         <n-slider
           v-model:value="timeSlider"
           :step="1"
@@ -443,6 +433,78 @@ const waveformBars = computed(() => {
   }
   return bars;
 });
+
+// Live spectrum visualizer: real FFT data from the analyser, with the seeded
+// bars used only as a silhouette when no analyser data is available (e.g. a
+// cross-origin stream without CORS headers).
+const waveformCanvas = ref<HTMLCanvasElement | null>(null);
+let waveformRaf = 0;
+let waveformLastDraw = 0;
+
+const drawLiveWaveform = (timestamp: number) => {
+  waveformRaf = requestAnimationFrame(drawLiveWaveform);
+  if (timestamp - waveformLastDraw < 33) return;
+  waveformLastDraw = timestamp;
+
+  const canvas = waveformCanvas.value;
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+
+  const rect = canvas.getBoundingClientRect();
+  if (!rect.width || !rect.height) return;
+
+  const dpr = window.devicePixelRatio || 1;
+  const width = Math.round(rect.width * dpr);
+  const height = Math.round(rect.height * dpr);
+  if (canvas.width !== width || canvas.height !== height) {
+    canvas.width = width;
+    canvas.height = height;
+  }
+
+  ctx.clearRect(0, 0, width, height);
+
+  const spectrum = audioService.getFrequencyData();
+  const fallback = waveformBars.value;
+  const count = fallback.length;
+  const gap = Math.max(dpr, Math.floor(width / count / 4));
+  const barWidth = Math.max(dpr, (width - gap * (count - 1)) / count);
+  const playedX = progressRatio.value * width;
+
+  for (let i = 0; i < count; i++) {
+    let level = fallback[i] / 100;
+    if (spectrum.length > 0) {
+      const bin = Math.min(
+        spectrum.length - 1,
+        Math.floor((i / count) * spectrum.length * 0.7)
+      );
+      level = spectrum[bin] / 255;
+    }
+
+    const barHeight = Math.max(2 * dpr, Math.min(1, level) * height);
+    const x = i * (barWidth + gap);
+    ctx.fillStyle = x + barWidth <= playedX ? '#1ed760' : 'rgba(156, 163, 175, 0.35)';
+    ctx.fillRect(x, height - barHeight, barWidth, barHeight);
+  }
+};
+
+const stopLiveWaveform = () => {
+  if (waveformRaf) {
+    cancelAnimationFrame(waveformRaf);
+    waveformRaf = 0;
+  }
+};
+
+watch(
+  () => playerStore.showWaveformSeekbar,
+  (enabled) => {
+    stopLiveWaveform();
+    if (enabled) {
+      waveformRaf = requestAnimationFrame(drawLiveWaveform);
+    }
+  },
+  { immediate: true }
+);
 
 // 无缝音视频切换 (Song | Video)
 const videoDrawerVisible = ref(false);
@@ -909,35 +971,14 @@ const openPlayListDrawer = () => {
   display: flex;
   align-items: flex-end;
 
-  .waveform-bars {
+  .waveform-canvas {
     position: absolute;
     inset: 0;
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    gap: 2px;
-    padding: 0 4px;
+    width: 100%;
+    height: 100%;
     pointer-events: none;
     z-index: 1;
-    opacity: 0.85;
-  }
-
-  .waveform-bar {
-    flex: 1;
-    min-width: 2px;
-    border-radius: 2px 2px 0 0;
-    background-color: rgba(156, 163, 175, 0.35);
-    transition: background-color 0.15s ease, transform 0.2s ease;
-
-    &.is-played {
-      background-color: var(--color-primary, #1ed760);
-    }
-  }
-
-  @media (prefers-reduced-motion: no-preference) {
-    .waveform-bar.is-played.is-playing:nth-child(odd) {
-      transform: scaleY(1.06);
-    }
+    opacity: 0.9;
   }
 
   .n-slider {

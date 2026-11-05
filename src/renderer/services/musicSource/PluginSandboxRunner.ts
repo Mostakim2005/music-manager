@@ -131,7 +131,7 @@ export const toMusicFreeItem = (song: SongResult, platform: string): Record<stri
     id: String(song.id),
     platform,
     title: song.name || '',
-    artist: artists.join('、'),
+    artist: artists.join(', '),
     album: song.al?.name || song.album?.name || '',
     artwork: song.picUrl || song.al?.picUrl || song.album?.picUrl || '',
     duration: durationSeconds,
@@ -325,7 +325,7 @@ export class PluginSandboxRunner {
       this.initResolver = resolve;
       this.initRejecter = reject;
       this.initTimeoutId = window.setTimeout(() => {
-        this.rejectInitialization(new Error('音源插件初始化超时'));
+        this.rejectInitialization(new Error('Source plugin initialization timed out'));
       }, 20000);
     });
 
@@ -344,7 +344,7 @@ export class PluginSandboxRunner {
     return new Promise<unknown>((resolve, reject) => {
       const timeoutId = window.setTimeout(() => {
         this.pendingInvocations.delete(callId);
-        reject(new Error('音源插件请求超时'));
+        reject(new Error('Source plugin request timed out'));
       }, timeoutMs);
       this.pendingInvocations.set(callId, { resolve, reject, timeoutId });
       this.postToWorker({
@@ -417,7 +417,7 @@ export class PluginSandboxRunner {
       }
     }
     this.pendingHttpCancels.clear();
-    this.rejectAllInvocations(new Error('音源插件已销毁'));
+    this.rejectAllInvocations(new Error('Source plugin has been destroyed'));
     this.clearInitializationState();
     this.worker?.terminate();
     this.worker = null;

@@ -119,7 +119,7 @@ const renderSongPreview = () => {
                     const artistNames = (props.item.ar || props.item.song?.artists)
                       ?.map((a) => a.name)
                       .join(' / ');
-                    return artistNames || '未知艺术家';
+                    return artistNames || 'Unknown Artist';
                   }
                 }
               )

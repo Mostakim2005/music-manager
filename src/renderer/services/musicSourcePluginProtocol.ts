@@ -71,9 +71,9 @@ export const qualityToBitrate = (quality: string): number => {
 export const toLxMusicInfo = (song: SongResult): LxMusicInfo => {
   const artistName =
     song.ar && song.ar.length > 0
-      ? song.ar.map((a) => a.name).join('、')
+      ? song.ar.map((a) => a.name).join(', ')
       : song.artists && song.artists.length > 0
-        ? song.artists.map((a) => a.name).join('、')
+        ? song.artists.map((a) => a.name).join(', ')
         : '';
   const duration = song.dt || song.duration || 0;
   const minutes = Math.floor(duration / 60000);

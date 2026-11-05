@@ -31,6 +31,14 @@ Object.keys(directives).forEach((key: string) => {
 
 app.use(pinia);
 app.use(router);
+
+// A failed lazy route or a crashed view must not leave a blank window.
+router.onError((error) => {
+  console.error('[router] navigation failed:', error);
+  if (window.location.hash !== '#/') {
+    window.location.hash = '#/';
+  }
+});
 app.use(i18n as any);
 initRendererErrorMonitor(app);
 app.mount('#app');

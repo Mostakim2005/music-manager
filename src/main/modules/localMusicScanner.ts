@@ -5,6 +5,8 @@ import * as crypto from 'crypto';
 import { app, ipcMain } from 'electron';
 import * as fs from 'fs';
 import * as mm from 'music-metadata';
+
+import { computeAudioFingerprint } from './audioFingerprint';
 import * as os from 'os';
 import * as path from 'path';
 
@@ -158,6 +160,10 @@ type LocalMusicMeta = {
   fileSize: number;
   /** 文件修改时间戳 */
   modifiedTime: number;
+  /** Acoustic fingerprint (loudness envelope) for cross-format matching. */
+  fingerprint?: string;
+  /** Duration covered by the fingerprint, in seconds. */
+  fingerprintDurationSec?: number;
 };
 
 type ScannedMusicFile = {
@@ -381,15 +387,15 @@ async function parseMetadata(filePath: string): Promise<LocalMusicMeta> {
     fileSize = stat.size;
     modifiedTime = stat.mtimeMs;
   } catch (error) {
-    console.error(`获取文件信息失败: ${filePath}`, error);
+    console.error(`Failed to read file info: ${filePath}`, error);
   }
 
   // 构建 fallback 默认值
   const fallback: LocalMusicMeta = {
     filePath,
     title: extractTitleFromFilename(filePath),
-    artist: '未知艺术家',
-    album: '未知专辑',
+    artist: 'Unknown Artist',
+    album: 'Unknown Album',
     duration: 0,
     coverPath: null,
     lyrics: null,
@@ -402,6 +408,18 @@ async function parseMetadata(filePath: string): Promise<LocalMusicMeta> {
     const { common, format } = metadata;
     const picture = extractNativePicture(metadata);
 
+    // Fingerprint up to 15-minute tracks. This is what lets the library
+    // recognise the same recording across bitrates, containers and file names.
+    let fingerprint: string | undefined;
+    let fingerprintDurationSec: number | undefined;
+    if ((format.duration || 0) > 0 && (format.duration || 0) <= 900) {
+      const result = await computeAudioFingerprint(filePath);
+      if (result) {
+        fingerprint = result.fingerprint;
+        fingerprintDurationSec = result.durationSec;
+      }
+    }
+
     return {
       filePath,
       title: common.title || fallback.title,
@@ -411,11 +429,13 @@ async function parseMetadata(filePath: string): Promise<LocalMusicMeta> {
       coverPath: await extractCoverToFile(picture, filePath),
       lyrics: extractLyrics(common.lyrics),
       fileSize,
-      modifiedTime
+      modifiedTime,
+      fingerprint,
+      fingerprintDurationSec
     };
   } catch (error) {
     // 解析失败使用 fallback + 尝试目录封面，不中断流程
-    console.warn(`元数据解析异常，使用 fallback 及目录封面: ${filePath}`, error);
+    console.warn(`Metadata parse failed, using fallback and folder cover: ${filePath}`, error);
     const folderCover = await findFolderCoverFile(filePath);
     return {
       ...fallback,
@@ -479,6 +499,15 @@ export function initializeLocalMusicScanner(): void {
   });
 
   // 批量解析音乐文件元数据
+  ipcMain.handle('local-music:fingerprint', async (_, filePath: string) => {
+    try {
+      return await computeAudioFingerprint(filePath);
+    } catch (error) {
+      console.warn('[fingerprint] ipc failed:', error);
+      return null;
+    }
+  });
+
   ipcMain.handle('parse-local-music-metadata', async (_, filePaths: string[]) => {
     try {
       const metadataList = await batchParseMetadata(filePaths);

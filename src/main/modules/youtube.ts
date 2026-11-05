@@ -525,12 +525,13 @@ export async function getFormats(idOrUrl: string): Promise<YtFormatsResult> {
  */
 export async function getStreamUrl(
   idOrUrl: string,
-  options?: { kind?: 'audio' | 'video'; height?: number }
+  options?: { kind?: 'audio' | 'video'; height?: number; preferProgressive?: boolean }
 ): Promise<YtStreamUrlResult> {
   const kind = options?.kind || 'video';
   const reqHeight = options?.height;
+  const preferProgressive = Boolean(options?.preferProgressive);
   const videoId = extractVideoId(idOrUrl) || idOrUrl;
-  const cacheKey = `${videoId}_${kind}_${reqHeight || 'any'}`;
+  const cacheKey = `${videoId}_${kind}_${reqHeight || 'any'}${preferProgressive ? '_prog' : ''}`;
 
   // Check cache
   const cached = streamUrlCache.get(cacheKey);
@@ -572,7 +573,12 @@ export async function getStreamUrl(
 
     // 1. If height requested, check if a progressive format (format 18, 22 or hasAudio: true) matches
     let progressiveMatch: any = null;
-    if (reqHeight) {
+    if (preferProgressive) {
+      // Seeking fallback: pick the highest muxed A/V format, which is natively seekable.
+      const progressiveList = videoFormats.filter((f) => f.acodec && f.acodec !== 'none');
+      progressiveList.sort((a, b) => (b.height || 0) - (a.height || 0));
+      progressiveMatch = progressiveList[0] || null;
+    } else if (reqHeight) {
       progressiveMatch = videoFormats.find(
         (f) => Math.abs((f.height || 0) - reqHeight) <= 4 && f.acodec && f.acodec !== 'none'
       );

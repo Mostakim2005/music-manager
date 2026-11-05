@@ -499,7 +499,7 @@ const itemToLxMusicInfo = (item: Record<string, any>) => {
   return {
     songmid: String(item.id ?? ''),
     name: item.name || '',
-    singer: artists.join('、'),
+    singer: artists.join(', '),
     album: item.album?.name || '',
     albumId: '',
     source: 'wy',
@@ -522,7 +522,10 @@ const loadLxDialect = async (
   let settleInited: (() => void) | null = null;
   const initedPromise = new Promise<void>((resolve, reject) => {
     settleInited = resolve;
-    setTimeout(() => reject(new Error('LX 脚本初始化超时（未收到 inited 握手）')), 15000);
+    setTimeout(
+      () => reject(new Error('LX script initialization timed out (no inited handshake)')),
+      15000
+    );
   });
 
   const lxApi: Record<string, any> = {
@@ -627,10 +630,10 @@ const loadLxDialect = async (
     // LX 脚本不声明 platform；由 meta 静态解析兜底
     getMediaSource: async (item: Record<string, any>, quality: string) => {
       if (typeof requestHandler !== 'function') {
-        throw new Error('LX 脚本未注册请求处理器');
+        throw new Error('LX script did not register a request handler');
       }
       const source = pickSource();
-      if (!source) throw new Error('LX 脚本未声明可用音源');
+      if (!source)        throw new Error('LX script did not declare any available source');
       if (!source.actions.includes('musicUrl')) {
         throw new Error(`LX 音源 ${source.key} 不支持获取音乐 URL`);
       }
@@ -654,7 +657,7 @@ const loadLxDialect = async (
       }
       if (typeof url !== 'string' || !url) {
         throw new Error(
-          ((result as Record<string, unknown>)?.message as string) || 'LX 脚本未返回音乐 URL'
+          ((result as Record<string, unknown>)?.message as string) || 'LX script did not return a music URL'
         );
       }
       // LX 脚本可能返回 API 端点而非直链；此处保持乐观返回，由上层 resolveAudioUrl 验证

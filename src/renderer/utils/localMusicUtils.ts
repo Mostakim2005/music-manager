@@ -49,8 +49,8 @@ export function buildFallbackMeta(filePath: string): LocalMusicMeta {
   return {
     filePath,
     title: extractTitleFromFilename(filePath),
-    artist: '未知艺术家',
-    album: '未知专辑',
+    artist: 'Unknown Artist',
+    album: 'Unknown Album',
     duration: 0,
     coverPath: null,
     lyrics: null,
@@ -115,12 +115,12 @@ export function parseLrcToILyric(lrcString: string | null): ILyric | null {
  * @returns 拆分后的独立名称列表
  */
 export function parseMultiArtists(raw: string | null | undefined): string[] {
-  if (!raw || typeof raw !== 'string') return ['未知艺术家'];
+  if (!raw || typeof raw !== 'string') return ['Unknown Artist'];
   const parts = raw
     .split(/\s*(?:feat\.?|ft\.?|&|;|,|\/|\x00)\s*/i)
     .map((item) => item.trim())
     .filter(Boolean);
-  return parts.length > 0 ? Array.from(new Set(parts)) : [raw.trim() || '未知艺术家'];
+  return parts.length > 0 ? Array.from(new Set(parts)) : [raw.trim() || 'Unknown Artist'];
 }
 
 export function parseMultiGenres(raw: string | null | undefined): string[] {
@@ -320,7 +320,9 @@ export function debounceIngestLocalTracks(
               durationSec: Math.round((entry.duration || 0) > 1000 ? entry.duration / 1000 : entry.duration || 0),
               bitrate: (entry as any).bitrate,
               container: ext,
-              hasVideo: /\.(mp4|mkv|webm|avi|mov)$/i.test(entry.filePath)
+              hasVideo: /\.(mp4|mkv|webm|avi|mov)$/i.test(entry.filePath),
+              fingerprint: entry.fingerprint,
+              fingerprintDurationSec: entry.fingerprintDurationSec
             });
 
             if (res.matched === 'fuzzy' && res.candidates?.length) {

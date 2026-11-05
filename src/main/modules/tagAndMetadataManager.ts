@@ -474,6 +474,19 @@ export function parseM3u8Content(content: string, baseDir?: string): string[] {
  * 初始化音频元数据与标签管理模块
  */
 export function initializeTagAndMetadataManager(): void {
+  // Remove a single downloaded/local variant file from disk.
+  ipcMain.handle('library:delete-variant-file', async (_, filePath: string) => {
+    try {
+      if (!filePath || !fs.existsSync(filePath)) {
+        return { ok: true, deleted: false };
+      }
+      await fs.promises.unlink(filePath);
+      return { ok: true, deleted: true };
+    } catch (error: any) {
+      return { ok: false, error: error?.message || String(error) };
+    }
+  });
+
   // 1. 在线元数据与封面检索
   ipcMain.handle(
     'metadata:fetch-online',

@@ -11,6 +11,7 @@ export interface FormattedQualityRow {
   container: string; // e.g. "mp4"
   bitrateFormatted: string; // e.g. "2500 kb/s"
   sizeFormatted: string; // e.g. "45.2 MB"
+  displaySize: string; // size with ~ prefix when it is an estimate
   detail: string; // e.g. "mp4 • 2500 kb/s • 45.2 MB"
   rawFormat?: YtVideoFormat;
 }
@@ -54,13 +55,25 @@ export function formatQualityRow(format: {
   const container = (format.container || format.ext || 'mp4').toLowerCase();
   const bitrate = format.vbrKbps || format.vbr || format.tbr;
   const bitrateFormatted = formatBitrate(bitrate);
-  const sizeFormatted = formatBytes(format.sizeBytes);
+  // yt-dlp exposes `filesize` / `filesize_approx` for many formats; the
+  // grouped rows use `sizeBytes`. Accept all so every quality can show a size.
+  const rawSize =
+    format.sizeBytes ||
+    (format as any).filesize ||
+    (format as any).filesize_approx ||
+    (format as any).contentLength ||
+    0;
+  const sizeFormatted = formatBytes(rawSize);
+  // `filesize` is the real byte count reported by YouTube; `filesize_approx`
+  // and bitrate-derived values are estimates and are marked with a tilde.
+  const exactSize = Number((format as any).filesize) || Number(format.sizeBytes) || 0;
+  const displaySize = rawSize > 0 && !exactSize ? `~${sizeFormatted}` : sizeFormatted;
 
   let detail = container;
   if (bitrate && bitrate > 0) {
     detail += ` • ${bitrateFormatted}`;
   }
-  if (format.sizeBytes && format.sizeBytes > 0) {
+  if (rawSize > 0) {
     detail += ` • ${sizeFormatted}`;
   }
 
@@ -70,6 +83,7 @@ export function formatQualityRow(format: {
     container,
     bitrateFormatted,
     sizeFormatted,
+    displaySize,
     detail
   };
 }

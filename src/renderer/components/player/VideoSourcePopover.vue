@@ -311,6 +311,13 @@
                 <div>
                   <div class="text-xs text-white/80 font-mono">{{ row.detail }}</div>
                 </div>
+                <span
+                  v-if="row.displaySize && row.displaySize !== '-- MB'"
+                  class="px-2 py-0.5 rounded-md text-[11px] font-mono text-white/70 bg-black/30"
+                  title="File size for this quality ( ~ marks an estimate )"
+                >
+                  {{ row.displaySize }}
+                </span>
               </div>
 
               <div class="flex items-center gap-2" @click.stop>

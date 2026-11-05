@@ -10,7 +10,8 @@ import { useSettingsStore } from '@/store';
 import type { SongResult } from '@/types/music';
 import { isElectron } from '@/utils';
 
-import { buildPluginMediaUrl, validatePluginMediaSource } from '../../../shared/musicSourcePlugin';
+import { validatePluginMediaSource } from '../../../shared/musicSourcePlugin';
+import { remoteMediaProxyUrl } from '@/utils/localMediaUrl';
 import { inferPluginAudioFormat, qualityToBitrate } from '../musicSourcePluginProtocol';
 import { MusicResolveCache } from './cache';
 import { useMusicSourceRegistry } from './registry';
@@ -208,7 +209,7 @@ export const resolveSong = async (
       attempts.push({ providerKey: provider.key, ok: true, costMs: Date.now() - stageStart });
       const result: ResolveSongResult = {
         media: {
-          url: buildPluginMediaUrl(media.url, media.headers),
+          url: remoteMediaProxyUrl(media.url, media.headers),
           format: media.format || inferPluginAudioFormat(media.url, media.br),
           br: media.br ?? qualityToBitrate(quality),
           headers: media.headers

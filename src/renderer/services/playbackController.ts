@@ -92,7 +92,7 @@ const loadAndPlayAudio = async (
   startTime: number
 ): Promise<void> => {
   if (!song.playMusicUrl) {
-    throw new Error('歌曲没有播放URL');
+    throw new Error('No playable URL for this song');
   }
 
   // 直接通过 audioService 播放（单一 audio 元素，换 src 即可）
@@ -261,7 +261,7 @@ export const playTrack = async (
     try {
       const song = await getSongDetail(candidate, requestId);
       if (gen !== getCurrentGeneration()) return false;
-      if (!song.playMusicUrl) throw new Error('歌曲没有播放URL');
+      if (!song.playMusicUrl) throw new Error('No playable URL for this song');
       audioUrl = song.playMusicUrl;
       playerCore.playMusic = { ...song, playLoading: true };
       playerCore.playMusicUrl = audioUrl;

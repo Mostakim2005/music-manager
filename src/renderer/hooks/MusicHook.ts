@@ -559,6 +559,22 @@ const setupCorrectionTimeWatcher = () => {
 };
 
 /**
+ * Set an exact lyric offset (seconds) for the current song.
+ */
+export const setCorrectionTime = (value: number) => {
+  const id = playMusic.value?.id;
+  if (!id || !Number.isFinite(value)) return;
+  const clamped = Math.max(-30, Math.min(30, Math.round(value * 1000) / 1000));
+  correctionTime.value = clamped;
+  correctionTimeMap.value[id] = clamped;
+  saveCorrectionMap();
+  nowIndex.value = getLrcIndex(nowTime.value);
+  if (isElectron && isLyricWindowOpen.value) {
+    sendLyricToWin();
+  }
+};
+
+/**
  * 调整歌词矫正时间（每首歌独立）
  * @param delta 增加/减少的秒数（正为加，负为减）
  */
@@ -657,13 +673,28 @@ export const useLyricProgress = () => {
   };
 };
 
+// Video-mode seek bridge: the fullscreen player registers how to seek its video element.
+let videoSeekHandler: ((time: number) => void) | null = null;
+export const registerVideoSeekHandler = (handler: ((time: number) => void) | null) => {
+  videoSeekHandler = handler;
+};
+
 // 设置当前播放时间
 export const setAudioTime = (index: number): void => {
-  const currentSound = audioService.getCurrentSound();
-  if (!currentSound) return;
   const time = lrcTimeArray.value[index];
   if (!Number.isFinite(time)) return;
-  audioService.seek(time - correctionTime.value);
+  const target = Math.max(0, time - correctionTime.value);
+  nowTime.value = target;
+  nowIndex.value = index;
+
+  if (playerStore?.playbackMode === 'video' && videoSeekHandler) {
+    videoSeekHandler(target);
+    return;
+  }
+
+  const currentSound = audioService.getCurrentSound();
+  if (!currentSound) return;
+  audioService.seek(target);
   void play();
 };
 

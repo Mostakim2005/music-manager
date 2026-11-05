@@ -6,6 +6,22 @@ import type { AppUpdateState } from '../shared/appUpdate';
 
 // Custom APIs for renderer
 const api = {
+  /** Base URL of the loopback media server used for local files ('' if unavailable). */
+  localMediaBaseUrl: ipcRenderer.sendSync('local-media:base-url') as string,
+  /** Computes an acoustic fingerprint for a local media file. */
+  getAudioFingerprint: (filePath: string) =>
+    ipcRenderer.invoke('local-music:fingerprint', filePath) as Promise<{
+      fingerprint: string;
+      durationSec: number;
+      windows: number;
+    } | null>,
+  /** Deletes a downloaded/local variant file from disk. */
+  deleteVariantFile: (filePath: string) =>
+    ipcRenderer.invoke('library:delete-variant-file', filePath) as Promise<{
+      ok: boolean;
+      deleted?: boolean;
+      error?: string;
+    }>,
   minimize: () => ipcRenderer.send('minimize-window'),
   maximize: () => ipcRenderer.send('maximize-window'),
   isMaximized: () => ipcRenderer.invoke('is-window-maximized') as Promise<boolean>,

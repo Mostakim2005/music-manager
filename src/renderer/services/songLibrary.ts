@@ -5,6 +5,8 @@
  */
 import Dexie, { type Table } from 'dexie';
 
+import { compareFingerprints } from '../../shared/acousticFingerprint';
+
 export interface Song {
   id: string; // uuid
   title: string;
@@ -14,6 +16,9 @@ export interface Song {
   normKey: string;
   youtubeId?: string;
   coverPath?: string;
+  /** Acoustic fingerprint (loudness envelope) used to recognise the recording. */
+  fingerprint?: string;
+  fingerprintDurationSec?: number;
   lastPositionSec?: number;
   lastPlayedAt?: number;
   createdAt: number;
@@ -49,11 +54,13 @@ export interface IngestTrackInput {
   container?: string;
   hasVideo?: boolean;
   youtubeId?: string;
+  fingerprint?: string;
+  fingerprintDurationSec?: number;
 }
 
 export interface IngestResult {
   songId: string;
-  matched: 'exact' | 'fuzzy' | 'new';
+  matched: 'exact' | 'fuzzy' | 'fingerprint' | 'new';
   candidates?: Song[];
 }
 
@@ -65,8 +72,8 @@ export class MusicManagerLibraryDB extends Dexie {
   constructor(customIndexedDB?: any) {
     super('musicManagerLibrary', customIndexedDB ? { indexedDB: customIndexedDB } : undefined);
 
-    this.version(1).stores({
-      songs: '&id, normKey, youtubeId, createdAt',
+    this.version(2).stores({
+      songs: '&id, normKey, youtubeId, fingerprint, createdAt',
       variants: '&id, songId, path, kind, addedAt',
       playbackPositions: '&key, updatedAt'
     });
@@ -265,6 +272,41 @@ export async function ingestLocalTrack(
 
   // 3. Same normKey and |duration diff| <= 3s
   const normKey = computeNormKey(track.artist, track.title);
+
+  // 3a. Acoustic fingerprint: recognises the same recording across qualities,
+  // containers and renamed files even when metadata was rewritten.
+  if (track.fingerprint) {
+    const fingerprinted = await db.songs.filter((s) => Boolean(s.fingerprint)).toArray();
+    let best: { song: Song; score: number } | null = null;
+    for (const candidate of fingerprinted) {
+      const score = compareFingerprints(candidate.fingerprint, track.fingerprint);
+      if (!best || score > best.score) {
+        best = { song: candidate, score };
+      }
+    }
+
+    if (best && best.score >= 0.8) {
+      await linkVariant(best.song.id, {
+        kind: track.hasVideo ? 'video' : 'audio',
+        source: 'local',
+        path: track.path,
+        container: track.container || getExtension(track.path),
+        bitrateKbps: track.bitrate,
+        addedAt: Date.now()
+      });
+      const updates: Partial<Song> = {};
+      if (!best.song.fingerprint) updates.fingerprint = track.fingerprint;
+      if (track.fingerprintDurationSec && !best.song.fingerprintDurationSec) {
+        updates.fingerprintDurationSec = track.fingerprintDurationSec;
+      }
+      if (track.youtubeId && !best.song.youtubeId) updates.youtubeId = track.youtubeId;
+      if (Object.keys(updates).length > 0) {
+        await db.songs.update(best.song.id, updates);
+      }
+      return { songId: best.song.id, matched: 'fingerprint' };
+    }
+  }
+
   const sameKeySongs = await db.songs.where('normKey').equals(normKey).toArray();
   const exactCandidate = sameKeySongs.find(
     (s) => Math.abs(s.durationSec - track.durationSec) <= 3
@@ -316,6 +358,8 @@ export async function ingestLocalTrack(
     durationSec: track.durationSec,
     normKey,
     youtubeId: track.youtubeId,
+    fingerprint: track.fingerprint,
+    fingerprintDurationSec: track.fingerprintDurationSec,
     createdAt: Date.now()
   };
   await db.songs.add(newSong);
@@ -445,6 +489,22 @@ export async function findSongByPath(
   const song = await db.songs.get(variant.songId);
   if (!song) return undefined;
   return { song, variant };
+}
+
+/**
+ * Store/replace the acoustic fingerprint for a song.
+ */
+export async function setSongFingerprint(
+  songId: string,
+  fingerprint: string,
+  durationSec?: number
+): Promise<void> {
+  const db = getLibraryDB();
+  const updates: Partial<Song> = { fingerprint };
+  if (typeof durationSec === 'number' && durationSec > 0) {
+    updates.fingerprintDurationSec = durationSec;
+  }
+  await db.songs.update(songId, updates);
 }
 
 /**

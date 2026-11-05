@@ -66,8 +66,8 @@
       </setting-item>
 
       <setting-item
-        title="底栏音视频切换胶囊 (Song | Video Switcher)"
-        description="当正在播放的歌曲包含官方MV或视频源时，在底栏歌曲标题右侧显示 [Song | Video] 切换胶囊"
+        title="Song | Video switcher in the play bar"
+        description="Shows a Song | Video pill next to the track title when the current song has an official video or video source"
       >
         <n-switch v-model:value="setData.showPlayBarVideoSwitcher">
           <template #checked>{{ t('common.show') }}</template>
@@ -76,8 +76,8 @@
       </setting-item>
 
       <setting-item
-        title="底栏波形进度条 (Waveform Seekbar)"
-        description="在底栏播放条进度滑块后方渲染动态波形能量柱可视化"
+        title="Waveform seek bar"
+        description="Renders an animated waveform behind the progress slider in the play bar"
       >
         <n-switch
           v-model:value="setData.showWaveformSeekbar"
@@ -89,8 +89,8 @@
       </setting-item>
 
       <setting-item
-        title="播放/暂停平滑淡入淡出 (200ms Smooth Fade)"
-        description="暂停或恢复播放时施加 200ms 线性音量渐变，消除突兀爆音"
+        title="Smooth play/pause fade (200 ms)"
+        description="Applies a 200 ms linear volume fade when pausing or resuming to avoid audible clicks"
       >
         <n-switch
           v-model:value="setData.enablePlayPauseFade"
@@ -102,8 +102,8 @@
       </setting-item>
 
       <setting-item
-        title="跨曲等功率淡入淡出 (Equal-Power Crossfade)"
-        description="曲目即将播放完毕时与下一首歌曲平滑过渡 (1-10秒)"
+        title="Equal-power crossfade"
+        description="Blends smoothly into the next track as the current one ends (1-10 s)"
       >
         <div class="flex items-center gap-3">
           <n-switch
@@ -120,8 +120,8 @@
       </setting-item>
 
       <setting-item
-        title="智能静音跳过 (Skip Silence)"
-        description="自动检测歌曲首尾低于 -50 dBFS 的静音空白并快速推进"
+        title="Skip silence"
+        description="Detects silent gaps below -50 dBFS at the start and end of a track and skips them"
       >
         <n-switch
           v-model:value="setData.enableSkipSilence"

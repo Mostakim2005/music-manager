@@ -3,6 +3,16 @@ import { ElectronAPI } from '@electron-toolkit/preload';
 import type { AppUpdateState } from '../shared/appUpdate';
 
 interface API {
+  /** Loopback HTTP origin for local media playback ('' when the server is unavailable). */
+  localMediaBaseUrl: string;
+  /** Computes an acoustic fingerprint used to match the same recording across qualities. */
+  getAudioFingerprint: (
+    filePath: string
+  ) => Promise<{ fingerprint: string; durationSec: number; windows: number } | null>;
+  /** Deletes a downloaded or local variant file from disk. */
+  deleteVariantFile: (
+    filePath: string
+  ) => Promise<{ ok: boolean; deleted?: boolean; error?: string }>;
   minimize: () => void;
   maximize: () => void;
   isMaximized: () => Promise<boolean>;

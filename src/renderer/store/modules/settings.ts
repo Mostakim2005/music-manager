@@ -25,7 +25,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const showArtistDrawer = ref(false);
   const currentArtistId = ref<number | null>(null);
   const systemFonts = ref<{ label: string; value: string }[]>([
-    { label: '系统默认', value: 'system-ui' }
+    { label: 'System Default', value: 'system-ui' }
   ]);
   const showDownloadDrawer = ref(false);
 
@@ -167,7 +167,7 @@ export const useSettingsStore = defineStore('settings', () => {
 
   const setSystemFonts = (fonts: string[]) => {
     systemFonts.value = [
-      { label: '系统默认', value: 'system-ui' },
+      { label: 'System Default', value: 'system-ui' },
       ...fonts.map((font) => ({
         label: font,
         value: font

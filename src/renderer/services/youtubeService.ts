@@ -117,7 +117,7 @@ export const youtubeService = {
    */
   async getStreamUrl(
     idOrUrl: string,
-    options?: { kind?: 'audio' | 'video'; height?: number }
+    options?: { kind?: 'audio' | 'video'; height?: number; preferProgressive?: boolean }
   ): Promise<YtStreamUrlResult> {
     return getBridge().streamUrl(idOrUrl, options);
   },

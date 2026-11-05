@@ -1,6 +1,6 @@
 <template>
   <div
-    class="w-80 rounded-2xl bg-black/30 backdrop-blur-3xl border border-white/10 shadow-2xl overflow-hidden"
+    class="w-[27rem] max-w-[92vw] rounded-2xl bg-black/30 backdrop-blur-3xl border border-white/10 shadow-2xl overflow-hidden"
   >
     <!-- 标题栏 -->
     <div class="px-6 py-4 border-b border-white/5">
@@ -16,8 +16,9 @@
           v-for="tab in tabs"
           :key="tab.key"
           @click="activeTab = tab.key"
+          :title="tab.label"
           :class="[
-            'flex-1 px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200',
+            'flex-1 min-w-0 px-2 py-2 text-xs font-medium rounded-lg transition-all duration-200 whitespace-nowrap overflow-hidden text-ellipsis',
             activeTab === tab.key
               ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/30'
               : 'hover:bg-white/5'
@@ -57,7 +58,7 @@
           <input type="checkbox" v-model="config.showTranslation" class="toggle-switch" />
         </div>
         <div class="setting-item">
-          <span>显示罗马音 / 音译 (Romanization)</span>
+          <span>Romanization / Transliteration</span>
           <input type="checkbox" v-model="config.showRomanization" class="toggle-switch" />
         </div>
         <div class="setting-item">
@@ -402,9 +403,9 @@
                 class="slider-emerald"
               />
               <div class="slider-marks">
-                <span>暗</span>
-                <span>正常</span>
-                <span>亮</span>
+                <span>Dark</span>
+                <span>Normal</span>
+                <span>Bright</span>
               </div>
             </div>
           </div>

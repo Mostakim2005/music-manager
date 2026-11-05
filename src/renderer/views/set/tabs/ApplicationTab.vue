@@ -64,8 +64,8 @@
 
     <setting-item
       v-if="isElectron"
-      title="Discord 状态共享 (Discord Rich Presence)"
-      description="在 Discord 个人资料状态中实时显示正在播放的歌曲、歌手及播放进度"
+      title="Discord Rich Presence"
+      description="Show the current song, artist and playback progress in your Discord profile status"
     >
       <n-switch
         v-model:value="setData.enableDiscordRpc"

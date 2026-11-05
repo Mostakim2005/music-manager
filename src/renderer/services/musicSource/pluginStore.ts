@@ -73,7 +73,7 @@ export const MusicSourcePluginStore = {
   ): Promise<PluginInstallResult> {
     let dialect = detectMusicSourcePluginDialect(source);
     if (source.length > MAX_SOURCE_BYTES) {
-      throw new Error('音源脚本不能超过 2 MB。');
+      throw new Error('Source script must not exceed 2 MB.');
     }
     if (!dialect) {
       // 重度混淆脚本（lx 等标识符被编码，静态特征不可见）：试 LX 装载兜底，
@@ -101,7 +101,9 @@ export const MusicSourcePluginStore = {
       }
     }
     if (!dialect) {
-      throw new Error('无法识别的音源脚本格式，支持 Alger 原生、MusicFree 与 LX Music 脚本。');
+      throw new Error(
+        'Unrecognized source script format. Alger native, MusicFree and LX Music scripts are supported.'
+      );
     }
 
     const existing = readPlugins();
@@ -147,7 +149,7 @@ export const MusicSourcePluginStore = {
       const runner = await getPluginSandboxRunner(plugin);
       const runtime = runner.getRuntimeMeta();
       if (!runtime?.methods.length) {
-        throw new Error('脚本未导出任何能力方法');
+        throw new Error('Script does not export any capability methods');
       }
       // 运行时声明的变量（MusicFree userVariables）合并进插件条目
       if (runtime.userVariables.length) {

@@ -4,7 +4,7 @@
       <h3 class="text-xl font-semibold text-gray-800 dark:text-gray-200">
         {{ t('player.eq.title') }}
         <n-tag type="warning" size="small" round v-if="!isElectron">
-          桌面版可用，网页端不支持
+          Available in the desktop app only
         </n-tag>
       </h3>
       <div class="eq-controls">

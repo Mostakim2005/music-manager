@@ -91,6 +91,11 @@ import { initializeDownloadManager, setDownloadManagerWindow } from './modules/d
 import { initializeFileManager } from './modules/fileManager';
 import { registerLocalProtocol } from './modules/localProtocol';
 import { initializeFonts } from './modules/fonts';
+import {
+  getLocalMediaBaseUrl,
+  registerLocalMediaIpc,
+  startLocalMediaServer
+} from './modules/localMediaServer';
 import { initializeLocalMusicScanner } from './modules/localMusicScanner';
 import { initializeTagAndMetadataManager } from './modules/tagAndMetadataManager';
 import { initializeYoutube } from './modules/youtube';
@@ -116,6 +121,9 @@ const icon = nativeImage.createFromPath(
 );
 
 let mainWindow: Electron.BrowserWindow;
+
+// Synchronous base-URL bridge used by the preload script; registered before any window is created.
+registerLocalMediaIpc();
 
 // 初始化应用
 function initialize(configStore: any) {
@@ -223,7 +231,7 @@ if (!isSingleInstance) {
   });
 
   // 应用程序准备就绪时的处理
-  app.whenReady().then(() => {
+  app.whenReady().then(async () => {
     // 设置应用ID
     electronApp.setAppUserModelId('com.alger.music');
 
@@ -253,6 +261,14 @@ if (!isSingleInstance) {
 
     // 重新初始化配置管理以获取完整的配置存储
     const store = initializeConfig();
+
+    // Local files are served over loopback HTTP so <audio>/<video> can load and seek them.
+    try {
+      await startLocalMediaServer();
+    } catch (error) {
+      console.error('[local-media] failed to start server:', error);
+    }
+    console.log('[local-media] base url:', getLocalMediaBaseUrl() || '(unavailable)');
 
     // 初始化应用
     initialize(store);

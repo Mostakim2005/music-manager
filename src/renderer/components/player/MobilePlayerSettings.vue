@@ -126,7 +126,7 @@
                         type="text"
                         inputmode="numeric"
                         pattern="[0-9]*"
-                        placeholder="分钟"
+                        placeholder="min"
                         class="flex-1 px-2 py-2 text-sm text-center bg-transparent text-white/80 border-0 outline-none placeholder-white/40"
                         @input="handleMinutesInput"
                       />

@@ -1,5 +1,6 @@
 import type { AudioOutputDevice } from '@/types/audio';
 import type { SongResult } from '@/types/music';
+import { toPlayableMediaUrl } from '@/utils/localMediaUrl';
 import { getImgUrl, isElectron } from '@/utils';
 import { addListeningSeconds, recordTrackPlay } from '@/services/listeningStatsService';
 import { mediaCoordinator, setAudioServiceInstance } from '@/services/mediaCoordinator';
@@ -536,6 +537,10 @@ class AudioService {
     seekTime?: number,
     _existingSound?: HTMLAudioElement
   ): Promise<HTMLAudioElement> {
+    // Local files are served over loopback HTTP: Chromium's media layer rejects
+    // custom schemes ("Media load rejected by URL safety check") and cannot seek
+    // them. Stored URLs stay local:// so local-track detection keeps working.
+    url = toPlayableMediaUrl(url);
     if (!url || !track) {
       if (this.audio.src) {
         if (seekTime !== undefined) {
@@ -551,7 +556,7 @@ class AudioService {
           return this.audio;
         });
       }
-      return Promise.reject(new Error('缺少必要参数: url和track'));
+      return Promise.reject(new Error('Missing required parameters: url and track'));
     }
 
     const currentSrc = this.audio.src;
@@ -679,7 +684,7 @@ class AudioService {
             }, 1000 * retryCount);
           } else {
             // 初次加载失败交给调用方恢复，避免与切歌失败处理同时抢占播放。
-            failLoad(new Error('音频加载失败，请尝试切换其他歌曲'));
+            failLoad(new Error('Audio failed to load. Try another track.'));
           }
         };
 
@@ -865,6 +870,8 @@ class AudioService {
     }
   }
 
+  private pendingSeekTime: number | null = null;
+
   public seek(time: number) {
     if (!Number.isFinite(time) || !this.audio.src) return;
     this.forceResetOperationLock();
@@ -874,6 +881,31 @@ class AudioService {
         0,
         Number.isFinite(duration) && duration > 0 ? Math.min(time, duration) : time
       );
+
+      // A seek issued before metadata exists is silently ignored by the media
+      // element, which is why jumping right after a track starts did nothing.
+      // Remember it and apply it once the duration is known.
+      if (this.audio.readyState === 0) {
+        this.pendingSeekTime = target;
+        this.emit('seek_start', target);
+        this.audio.addEventListener(
+          'loadedmetadata',
+          () => {
+            const pending = this.pendingSeekTime;
+            this.pendingSeekTime = null;
+            if (pending === null) return;
+            try {
+              this.audio.currentTime = pending;
+              this.emit('seek_start', pending);
+            } catch {
+              // ignore
+            }
+          },
+          { once: true }
+        );
+        return;
+      }
+
       this.audio.currentTime = target;
       this.emit('seek_start', target);
       this.updateMediaSessionPositionState();

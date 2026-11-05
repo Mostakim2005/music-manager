@@ -446,10 +446,10 @@ const sleepTimerDisplayText = computed(() => {
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   }
   if (timer.type === 'songs' && timer.remainingSongs) {
-    return `${timer.remainingSongs}首`;
+    return `${timer.remainingSongs} songs`;
   }
   if (timer.type === 'end') {
-    return '列表结束';
+    return 'End of list';
   }
   return '';
 });

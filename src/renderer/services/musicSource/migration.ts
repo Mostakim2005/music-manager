@@ -103,7 +103,7 @@ export const migrateLegacyMusicSources = (): boolean => {
     plugins.push({
       id,
       platform: sanitizeMusicSourcePlatform(script.name, `lx-${id.slice(0, 6)}`),
-      name: script.name || 'LX Music 音源',
+      name: script.name || 'LX Music source',
       dialect: 'lxmusic',
       ...(script.info?.version ? { version: script.info.version } : {}),
       ...(script.info?.author ? { author: script.info.author } : {}),

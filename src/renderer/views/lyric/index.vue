@@ -54,7 +54,7 @@
         <div
           v-if="hasRomanization"
           class="control-button"
-          :title="showRomanization ? '隐藏罗马音' : '显示罗马音'"
+          :title="showRomanization ? 'Hide romanization' : 'Show romanization'"
           @click="lyricSetting.showRomanization = !lyricSetting.showRomanization"
         >
           <span class="text-xs font-bold leading-none" :class="{ active: showRomanization }">A</span>
@@ -63,7 +63,7 @@
         <div
           v-if="hasTranslation"
           class="control-button"
-          :title="showTranslation ? '隐藏翻译' : '显示翻译'"
+          :title="showTranslation ? 'Hide translation' : 'Show translation'"
           @click="lyricSetting.showTranslation = !lyricSetting.showTranslation"
         >
           <i class="ri-translate-2" :class="{ active: showTranslation }"></i>
@@ -74,10 +74,10 @@
           class="control-button"
           :title="
             displayMode === 'scroll'
-              ? '滚动模式'
+              ? 'Scroll mode'
               : displayMode === 'single'
-                ? '单行模式'
-                : '双行模式'
+                ? 'Single line mode'
+                : 'Two line mode'
           "
           @click="cycleDisplayMode"
         >
@@ -160,7 +160,7 @@
               </div>
             </div>
           </template>
-          <div v-else class="lyric-empty">无歌词</div>
+          <div v-else class="lyric-empty">No lyrics</div>
         </div>
       </div>
 
@@ -206,7 +206,7 @@
             </div>
           </div>
         </template>
-        <div v-else class="lyric-empty">无歌词</div>
+        <div v-else class="lyric-empty">No lyrics</div>
       </div>
 
       <!-- ③ 双行模式（固定分组，每 2 行为一组） -->
@@ -250,7 +250,7 @@
             </div>
           </div>
         </template>
-        <div v-else class="lyric-empty">无歌词</div>
+        <div v-else class="lyric-empty">No lyrics</div>
       </div>
     </div>
   </div>

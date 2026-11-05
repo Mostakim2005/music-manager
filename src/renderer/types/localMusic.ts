@@ -42,6 +42,10 @@ export type LocalMusicMeta = {
   fileSize: number;
   /** 文件修改时间戳 */
   modifiedTime: number;
+  /** Acoustic fingerprint (loudness envelope) used for cross-format matching. */
+  fingerprint?: string;
+  /** Duration covered by the fingerprint, in seconds. */
+  fingerprintDurationSec?: number;
 };
 
 /**
