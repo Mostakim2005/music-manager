@@ -6,7 +6,6 @@ import axios from 'axios';
 import { spawnSync } from 'child_process';
 import * as crypto from 'crypto';
 import { app, dialog, ipcMain } from 'electron';
-import ffmpegStatic from 'ffmpeg-static';
 import type { FlacTags } from 'flac-tagger';
 import { PictureType, readFlacTags, writeFlacTags } from 'flac-tagger';
 import * as fs from 'fs';
@@ -15,17 +14,7 @@ import NodeID3 from 'node-id3';
 import * as path from 'path';
 
 import { generateRomanizedLyricLrc } from '../../shared/transliteration';
-
-function getFfmpegPath(): string {
-  try {
-    const raw =
-      typeof ffmpegStatic === 'string' ? ffmpegStatic : (require('ffmpeg-static') as string);
-    if (!raw) return '';
-    return raw.replace('app.asar', 'app.asar.unpacked');
-  } catch {
-    return '';
-  }
-}
+import { getFfmpegPath } from './youtube';
 
 async function safeRename(
   source: string,

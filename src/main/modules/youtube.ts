@@ -101,7 +101,11 @@ export function getYtDlpPath(): string {
 }
 
 /**
- * Resolves the path to ffmpeg binary.
+ * Resolves the path to the single bundled ffmpeg binary.
+ *
+ * This is the only ffmpeg in the app. `resources/bin/ffmpeg.exe` is seeded by
+ * `scripts/fetch-binaries.mjs` and shipped once via `extraResources.bin`, so
+ * every caller must go through here rather than bundling its own copy.
  */
 export function getFfmpegPath(): string {
   const binaryName = process.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg';
@@ -109,22 +113,7 @@ export function getFfmpegPath(): string {
     ? process.resourcesPath
     : path.join(__dirname, '../../resources');
 
-  const binPath = path.join(resourceRoot, 'bin', binaryName);
-  if (fs.existsSync(binPath)) {
-    return binPath;
-  }
-
-  // Check npm package ffmpeg-static as fallback
-  try {
-    const ffmpegStatic = require('ffmpeg-static');
-    if (ffmpegStatic && fs.existsSync(ffmpegStatic)) {
-      return ffmpegStatic;
-    }
-  } catch {
-    // ignore
-  }
-
-  return binPath;
+  return path.join(resourceRoot, 'bin', binaryName);
 }
 
 /**

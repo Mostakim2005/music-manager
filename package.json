@@ -1,6 +1,6 @@
 {
   "name": "music-manager",
-  "version": "5.3.0",
+  "version": "5.3.5",
   "description": "Music Manager",
   "author": "Alger <algerkc@qq.com>",
   "main": "./out/main/index.js",
@@ -30,7 +30,8 @@
     "test:e2e": "node scripts/e2e/playback-e2e.mjs",
     "test:all": "npm run typecheck && npm test && ALGER_PLUGIN_NETWORK_E2E=1 npm test && npm run test:e2e && npm run test:e2e:vip",
     "test:e2e:vip": "node scripts/e2e/vip-resolve-e2e.mjs",
-    "test:e2e:bulk": "node scripts/e2e/plugins-bulk-e2e.mjs"
+    "test:e2e:bulk": "node scripts/e2e/plugins-bulk-e2e.mjs",
+    "build:installer": "node scripts/fetch-binaries.mjs && npm run build && electron-builder --win nsis --x64 --publish never"
   },
   "lint-staged": {
     "*.{ts,tsx,vue,js}": [
@@ -56,7 +57,6 @@
     "electron-window-state": "^5.0.3",
     "express": "^4.22.1",
     "fflate": "^0.8.3",
-    "ffmpeg-static": "^5.3.0",
     "file-type": "^21.1.1",
     "flac-tagger": "^1.0.7",
     "font-list": "^1.6.0",
@@ -146,9 +146,6 @@
         "owner": "algerkong",
         "repo": "AlgerMusicPlayer"
       }
-    ],
-    "asarUnpack": [
-      "**/node_modules/ffmpeg-static/**"
     ],
     "extraResources": [
       {
@@ -255,7 +252,10 @@
       "include": "build/installer.nsh",
       "deleteAppDataOnUninstall": true,
       "uninstallDisplayName": "Music Manager"
-    }
+    },
+    "electronLanguages": [
+      "en-US"
+    ]
   },
   "pnpm": {
     "onlyBuiltDependencies": [

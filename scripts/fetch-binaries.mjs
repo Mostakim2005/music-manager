@@ -21,24 +21,38 @@ if (!fs.existsSync(binDir)) {
 }
 
 // 1. ffmpeg binary resolution
+//
+// This is the app's ONLY ffmpeg copy. It is downloaded on demand and shipped
+// once via extraResources (`resources/bin` -> `bin`). Do not reintroduce the
+// `ffmpeg-static` npm package: unpacking it added a second 79 MB binary that
+// nothing used, because every caller goes through `getFfmpegPath()`.
 const isWindows = process.platform === 'win32';
 const ffmpegBinaryName = isWindows ? 'ffmpeg.exe' : 'ffmpeg';
 const ffmpegTarget = path.join(binDir, ffmpegBinaryName);
 
+// A pinned, small essentials build. Only use direct-binary URLs here: this
+// helper streams raw bytes to disk and cannot unpack an archive.
+const FFMPEG_URLS = [
+  'https://github.com/eugeneware/ffmpeg-static/releases/latest/download/ffmpeg-win32-x64'
+];
+
 if (!fs.existsSync(ffmpegTarget)) {
-  console.log('[fetch-binaries] Checking ffmpeg from ffmpeg-static package...');
-  try {
-    const ffmpegPath = require('ffmpeg-static');
-    if (ffmpegPath && fs.existsSync(ffmpegPath)) {
-      console.log(`[fetch-binaries] Copying ffmpeg from "${ffmpegPath}" to "${ffmpegTarget}"`);
-      fs.copyFileSync(ffmpegPath, ffmpegTarget);
-      fs.chmodSync(ffmpegTarget, 0o755);
-      console.log('[fetch-binaries] ffmpeg copied successfully.');
-    } else {
-      console.warn('[fetch-binaries] ffmpeg-static binary not found on disk.');
+  console.log('[fetch-binaries] ffmpeg missing; attempting download...');
+  let ok = false;
+  for (const url of FFMPEG_URLS) {
+    try {
+      await downloadFile(url, ffmpegTarget);
+      console.log('[fetch-binaries] ffmpeg downloaded from', url);
+      ok = true;
+      break;
+    } catch (err) {
+      console.warn('[fetch-binaries] ffmpeg download failed from', url, '-', err.message);
     }
-  } catch (err) {
-    console.warn('[fetch-binaries] Error locating ffmpeg-static:', err.message);
+  }
+  if (!ok) {
+    console.warn(
+      '[fetch-binaries] Could not fetch ffmpeg automatically. Place ffmpeg.exe in resources/bin manually.'
+    );
   }
 } else {
   console.log('[fetch-binaries] ffmpeg binary already exists at:', ffmpegTarget);
@@ -51,7 +65,7 @@ const ytDlpTarget = path.join(binDir, ytDlpBinaryName);
 function downloadFile(url, destPath) {
   return new Promise((resolve, reject) => {
     https
-      .get(url, { headers: { 'User-Agent': 'MusicManager/5.2.0' } }, (res) => {
+      .get(url, { headers: { 'User-Agent': 'MusicManager/5.3.5' } }, (res) => {
         if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
           return resolve(downloadFile(res.headers.location, destPath));
         }

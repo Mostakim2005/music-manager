@@ -1,5 +1,41 @@
 # Changelog
 
+## v5.3.5
+
+### Smaller portable build: 474 MB → 447 MB (−27 MB)
+
+Two packaging defects were shipping dead weight. Neither was a feature change;
+both are pure size wins with no loss of functionality.
+
+- **Removed a duplicate 79 MB ffmpeg.** `build.asarUnpack` unpacked the
+  `ffmpeg-static` npm package *as well as* `extraResources` shipping
+  `resources/bin/ffmpeg.exe`, so the installer carried two identical 79 MB
+  binaries. The two were genuinely both in use — `youtube.ts` read
+  `resources/bin`, while `tagAndMetadataManager.ts` read the unpacked npm copy.
+  Both now resolve through the single `getFfmpegPath()` helper in `youtube.ts`,
+  and the `ffmpeg-static` dependency is gone. `scripts/fetch-binaries.mjs` now
+  downloads ffmpeg directly instead of copying it out of that package.
+- **Ship one Electron locale instead of 55.** `build.electronLanguages` is set
+  to `['en-US']`, dropping ~44 MB of Chromium locale paks for languages the app
+  can never display (`src/i18n/lang/` contains only `en-US`).
+
+### Build targets
+
+- Added `npm run build:installer` (`electron-builder --win nsis`). The NSIS
+  config was already complete and untouched; it simply had no script wired to
+  it. The default `win.target` remains `portable`, which is the rapid-testing
+  artifact; the installer is the intended shipping format later.
+
+### Verified
+
+`typecheck:node`, `typecheck:web`, `vitest` (18 files / 169 tests) all pass. The
+packaged main bundle was inspected to confirm it no longer references
+`ffmpeg-static` or `app.asar.unpacked`, and that both bundled binaries
+(`ffmpeg.exe`, `yt-dlp.exe`) still execute from `resources/bin`.
+
+**Not verified:** the GUI was not launched, because this environment cannot
+initialize an Electron window (see `docs/BUGS.md` §6).
+
 ## v5.3.0
 
 ### Completed: English-only source sweep
