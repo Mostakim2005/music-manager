@@ -26,15 +26,19 @@ export interface Song {
 }
 
 export interface Variant {
-  id: string; // uuid
+  id: string;
   songId: string;
-  kind: 'audio' | 'video';
+  kind: 'audio' | 'video' | 'lyrics';
   source: 'local' | 'youtube' | 'download';
   path?: string;
   url?: string;
-  container?: string; // mp3/m4a/flac/mp4/webm...
+  container?: string;
   bitrateKbps?: number;
-  height?: number; // for video
+  height?: number;
+  /** Normalized codec name (h264, av01, vp9, aac, opus, …). */
+  codec?: string;
+  /** Exact yt-dlp format id this variant was downloaded from. */
+  formatId?: string;
   sizeBytes?: number;
   addedAt: number;
 }
@@ -396,6 +400,8 @@ export async function linkVariant(
     container: variant.container,
     bitrateKbps: variant.bitrateKbps,
     height: variant.height,
+    codec: variant.codec,
+    formatId: variant.formatId,
     sizeBytes: variant.sizeBytes,
     addedAt: variant.addedAt || Date.now()
   };

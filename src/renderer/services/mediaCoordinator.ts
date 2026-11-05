@@ -93,12 +93,20 @@ class MediaCoordinator {
   }
 
   private initGlobalDOMListener() {
-    if (typeof document !== 'undefined') {
+    if (
+      typeof document !== 'undefined' &&
+      typeof document.addEventListener === 'function' &&
+      typeof HTMLMediaElement !== 'undefined'
+    ) {
       document.addEventListener(
         'play',
         (event: Event) => {
           const target = event.target;
           if (target instanceof HTMLMediaElement) {
+            // A muted element (the linked A/V video, which follows the audio
+            // element) is not an audible surface and must never claim playback
+            // exclusivity from the audio it is linked to.
+            if (target.muted) return;
             const isRegistered = Array.from(this.registry.values()).some(
               (r) => r.element === target
             );
@@ -240,6 +248,27 @@ class MediaCoordinator {
     } finally {
       this.isProcessingEvent = false;
     }
+  }
+
+  /**
+   * Toggle whichever non-audio surface currently owns playback (MV drawer,
+   * picture-in-picture, …). Returns true when handled here; false means the
+   * caller should fall back to the audio play/pause path. Used by the shared
+   * play button so it controls the surface that is actually audible.
+   */
+  public toggleActiveNonAudioPlayback(): boolean {
+    const owner = currentMediaOwner.value;
+    const el = activeMediaElement.value;
+    if (!owner || owner === 'audioService' || !el) return false;
+    const item = this.registry.get(owner);
+    if (!item) return false;
+    if (el.paused) {
+      this.claimPlayback(owner, el);
+      el.play().catch(() => {});
+    } else {
+      item.pause();
+    }
+    return true;
   }
 
   /**

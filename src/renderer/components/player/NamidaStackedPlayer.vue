@@ -270,7 +270,13 @@ const currentLyricText = computed(() => {
 });
 
 const currentLyricSub = computed(() => {
-  return props.currentLyricLine?.trText || props.currentLyricLine?.romaText || '';
+  const line = props.currentLyricLine;
+  if (!line) return '';
+  if (line.trText) return line.trText;
+  // Romanization echoes the text for Latin-script lyrics; only show it when it
+  // is a real transliteration, otherwise the same line renders twice.
+  if (line.romaText && line.romaText !== line.text) return line.romaText;
+  return '';
 });
 
 const nextLyricText = computed(() => {

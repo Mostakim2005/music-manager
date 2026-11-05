@@ -141,6 +141,9 @@ export const playTrack = async (
   if (gen !== getCurrentGeneration()) return false;
   if (music.id !== playerCore.playMusic.id) {
     SongSourceConfigManager.clearTriedSources(music.id);
+    // Media (video/mode) is matched by song ID: drop the previous song's video
+    // mode before the new track loads so no stale video/artwork survives.
+    playerCore.resetMediaStateForNewSong();
   }
   if (!options.recovery) resetUrlExpiredRetry();
 

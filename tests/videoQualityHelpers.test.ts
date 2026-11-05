@@ -21,15 +21,35 @@ describe('videoQualityHelpers', () => {
     expect(formatBitrate(0)).toBe('-- kb/s');
   });
 
-  it('formats quality row matching spec (mp4 • <kbps> kb/s • <size MB>)', () => {
+  it('formats quality row matching spec (mp4 • <codec> • <kbps> kb/s, size only in badge)', () => {
     const row = formatQualityRow({
       height: 1080,
       vbr: 2500,
       sizeBytes: 45 * 1024 * 1024,
-      container: 'mp4'
+      container: 'mp4',
+      vcodec: 'av01.0.08M.08'
     });
     expect(row.label).toBe('1080p');
-    expect(row.detail).toBe('mp4 • 2500 kb/s • 45.0 MB');
+    expect(row.codec).toBe('av01');
+    // The size must NOT appear inline again — it lives in the bordered badge.
+    expect(row.detail).toBe('mp4 • av01 • 2500 kb/s');
+    expect(row.displaySize).toBe('45.0 MB');
+  });
+
+  it('lists one row per height and codec pair', () => {
+    const mockFormats = [
+      { formatId: '1', height: 1080, vbr: 2500, sizeBytes: 45_000_000, container: 'mp4', vcodec: 'avc1.640028' },
+      { formatId: '2', height: 1080, vbr: 1800, sizeBytes: 30_000_000, container: 'mp4', vcodec: 'av01.0.08M.08' },
+      { formatId: '3', height: 720, vbr: 1200, sizeBytes: 20_000_000, container: 'mp4', vcodec: 'avc1.64001f' }
+    ] as any;
+
+    const rows = getUniqueVideoHeights(mockFormats);
+    expect(rows).toHaveLength(3);
+    expect(rows.map((r) => `${r.height}-${r.codec}`)).toEqual([
+      '1080-h264',
+      '1080-av01',
+      '720-h264'
+    ]);
   });
 
   it('groups formats and extracts unique video heights descending', () => {

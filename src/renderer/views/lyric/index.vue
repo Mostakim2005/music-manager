@@ -137,7 +137,7 @@
                 </span>
               </div>
               <div
-                v-if="showRomanization && line.romaText"
+                v-if="showRomanization && line.romaText && line.romaText !== line.text"
                 class="lyric-translation italic opacity-85"
                 :style="{ fontSize: `${fontSize * 0.58}px` }"
               >
@@ -182,7 +182,12 @@
               </span>
             </div>
             <div
-              v-if="showRomanization && staticData.lrcArray[currentIndex]?.romaText"
+              v-if="
+                showRomanization &&
+                staticData.lrcArray[currentIndex]?.romaText &&
+                staticData.lrcArray[currentIndex]?.romaText !==
+                  staticData.lrcArray[currentIndex]?.text
+              "
               class="lyric-translation italic opacity-85"
               :style="{ fontSize: `${fontSize * 0.58}px` }"
             >
@@ -224,7 +229,7 @@
               </span>
             </div>
             <div
-              v-if="showRomanization && line.romaText"
+              v-if="showRomanization && line.romaText && line.romaText !== line.text"
               class="lyric-translation italic opacity-85"
               :style="{ fontSize: `${fontSize * 0.58}px` }"
             >
@@ -340,7 +345,9 @@ const loadLyricSettings = () => {
 const lyricSetting = ref(loadLyricSettings());
 
 const hasTranslation = computed(() => staticData.value.lrcArray.some((line) => line.trText));
-const hasRomanization = computed(() => staticData.value.lrcArray.some((line) => line.romaText));
+const hasRomanization = computed(() =>
+  staticData.value.lrcArray.some((line) => line.romaText && line.romaText !== line.text)
+);
 
 const currentGroupIndex = computed(() => Math.floor(currentIndex.value / 2));
 
@@ -496,7 +503,7 @@ const wrapperStyle = computed(() => {
 
   const getLineHeight = (line: { text: string; trText: string; romaText?: string }) => {
     let totalHeight = lineHeight.value;
-    if (showRomanization.value && line.romaText) {
+    if (showRomanization.value && line.romaText && line.romaText !== line.text) {
       totalHeight += Math.round(fontSize.value * 0.58 * 1.4);
     }
     if (showTranslation.value && line.trText) {
@@ -543,7 +550,7 @@ const getDynamicLineStyle = (
   withTranslation = true
 ) => {
   let totalHeight = lineHeight.value;
-  if (showRomanization.value && line.romaText) {
+  if (showRomanization.value && line.romaText && line.romaText !== line.text) {
     totalHeight += Math.round(fontSize.value * 0.58 * 1.4);
   }
   if (withTranslation && line.trText) {

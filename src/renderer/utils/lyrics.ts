@@ -188,18 +188,20 @@ export async function copyLyric(lyric: string): Promise<boolean> {
 /**
  * Format raw seconds into standard LRC timestamp string "[mm:ss.xx]"
  * Example: 65.34 -> "[01:05.34]"
+ * Pass `precision: 3` for extended LRC milliseconds ("[01:05.340]").
  */
-export function formatLrcTimestamp(seconds: number): string {
+export function formatLrcTimestamp(seconds: number, precision: 2 | 3 = 2): string {
   if (isNaN(seconds) || seconds < 0) seconds = 0;
+  const scale = precision === 3 ? 1000 : 100;
   const mins = Math.floor(seconds / 60);
   const remSecs = seconds % 60;
   const wholeSecs = Math.floor(remSecs);
-  let hundredths = Math.round((remSecs - wholeSecs) * 100);
+  let frac = Math.round((remSecs - wholeSecs) * scale);
   let finalSecs = wholeSecs;
   let finalMins = mins;
 
-  if (hundredths >= 100) {
-    hundredths = 0;
+  if (frac >= scale) {
+    frac = 0;
     finalSecs += 1;
   }
   if (finalSecs >= 60) {
@@ -209,8 +211,38 @@ export function formatLrcTimestamp(seconds: number): string {
 
   const mStr = String(finalMins).padStart(2, '0');
   const sStr = String(finalSecs).padStart(2, '0');
-  const msStr = String(hundredths).padStart(2, '0');
+  const msStr = String(frac).padStart(precision, '0');
   return `[${mStr}:${sStr}.${msStr}]`;
+}
+
+/**
+ * Format seconds as a compact "mm:ss,ms" line-time label (milliseconds with a
+ * comma separator), e.g. 15.59 -> "00:15,590". Pass `brackets: true` to get
+ * "[00:15,590]".
+ */
+export function formatLrcTimestampMs(
+  seconds: number,
+  opts?: { brackets?: boolean }
+): string {
+  if (isNaN(seconds) || seconds < 0) seconds = 0;
+  const mins = Math.floor(seconds / 60);
+  const remSecs = seconds % 60;
+  const wholeSecs = Math.floor(remSecs);
+  let ms = Math.round((remSecs - wholeSecs) * 1000);
+  let finalSecs = wholeSecs;
+  let finalMins = mins;
+  if (ms >= 1000) {
+    ms = 0;
+    finalSecs += 1;
+  }
+  if (finalSecs >= 60) {
+    finalSecs = 0;
+    finalMins += 1;
+  }
+  const mStr = String(finalMins).padStart(2, '0');
+  const sStr = String(finalSecs).padStart(2, '0');
+  const msStr = String(ms).padStart(3, '0');
+  return opts?.brackets ? `[${mStr}:${sStr},${msStr}]` : `${mStr}:${sStr},${msStr}`;
 }
 
 /**
@@ -237,15 +269,17 @@ export function stripLrcTimestamps(lrcText: string): string {
 }
 
 /**
- * Parse an LRC timestamp string "[mm:ss.xx]" or "mm:ss.xx" into raw seconds.
- * Returns NaN if the timestamp cannot be parsed.
+ * Parse an LRC timestamp string "[mm:ss.xx]", "mm:ss.xx" or the millisecond
+ * form "mm:ss,ms" into raw seconds. Returns NaN if the timestamp cannot be
+ * parsed.
  *
  * @example parseLrcTimestamp("[01:05.34]") // 65.34
  * @example parseLrcTimestamp("00:02.500") // 2.5
+ * @example parseLrcTimestamp("00:15,590") // 15.59
  */
 export function parseLrcTimestamp(timestamp: string): number {
   if (!timestamp || typeof timestamp !== 'string') return NaN;
-  const match = timestamp.trim().match(/\[?(\d+):(\d+)(?:\.(\d+))?\]?/);
+  const match = timestamp.trim().match(/\[?(\d+):(\d+)(?:[.,](\d+))?\]?/);
   if (!match) return NaN;
 
   const mins = parseInt(match[1], 10);

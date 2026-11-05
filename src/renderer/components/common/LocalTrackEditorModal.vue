@@ -133,6 +133,83 @@
             </div>
           </div>
         </div>
+
+        <!-- Lyric Match Candidates: pick the version closest to this file -->
+        <div
+          v-if="lyricCandidates.length > 1"
+          class="mt-3 pt-3 border-t border-neutral-200/50 dark:border-neutral-700/50"
+        >
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-semibold text-neutral-700 dark:text-neutral-300">
+              Lyric Matches ({{ lyricCandidates.length }} found) — pick by length &amp; offset:
+            </span>
+            <button
+              type="button"
+              class="text-xs text-neutral-400 hover:text-neutral-600 transition"
+              @click="lyricCandidates = []"
+            >
+              Dismiss
+            </button>
+          </div>
+
+          <div class="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+            <div
+              v-for="(cand, idx) in lyricCandidates"
+              :key="cand.id ?? idx"
+              class="flex items-center justify-between p-2 rounded-xl bg-white/70 dark:bg-neutral-800/70 border border-neutral-200/40 dark:border-neutral-700/40 hover:border-info/50 transition cursor-pointer"
+              @click="applyLyricCandidate(cand)"
+            >
+              <div class="flex items-center gap-2.5 min-w-0">
+                <div class="min-w-0">
+                  <div class="text-xs font-medium text-neutral-900 dark:text-white truncate">
+                    {{ cand.trackName }} — {{ cand.artistName }}
+                  </div>
+                  <div
+                    class="flex flex-wrap items-center gap-1.5 text-[11px] text-neutral-500 mt-0.5"
+                  >
+                    <span
+                      class="px-1.5 py-0.2 rounded text-[10px] bg-primary/10 text-primary font-medium"
+                    >
+                      {{ cand.source }}
+                    </span>
+                    <span
+                      v-if="cand.durationMatch"
+                      class="px-1.5 py-0.2 rounded text-[10px] bg-emerald-500/15 text-emerald-600 font-medium"
+                    >
+                      length ✓ {{ formatCandidateDuration(cand.duration) }}
+                    </span>
+                    <span
+                      v-else-if="cand.durationDelta !== undefined"
+                      class="px-1.5 py-0.2 rounded text-[10px] bg-amber-500/15 text-amber-600 font-medium"
+                    >
+                      Δ {{ cand.durationDelta > 0 ? '+' : '' }}{{ Math.round(cand.durationDelta) }}s
+                      vs file
+                    </span>
+                    <span v-else class="text-[10px] text-neutral-400">
+                      {{ formatCandidateDuration(cand.duration) }}
+                    </span>
+                    <span
+                      v-if="cand.offsetSec !== undefined"
+                      class="px-1.5 py-0.2 rounded text-[10px] bg-neutral-500/10 text-neutral-500 font-mono"
+                      title="First lyric timestamp (offset)"
+                    >
+                      starts {{ formatCandidateOffset(cand.offsetSec) }}
+                    </span>
+                    <span v-if="!cand.syncedLyrics" class="text-[10px] text-neutral-400">
+                      plain text only
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-info text-white hover:brightness-110 shrink-0 ml-2 shadow-sm transition"
+              >
+                Use
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Main Symmetric 2-Column Grid (Cover 180px Left, Fields Right) -->
@@ -304,6 +381,8 @@ import { audioService } from '@/services/audioService';
 import { usePlayerStore } from '@/store/modules/player';
 import type { LocalMusicEntry } from '@/types/localMusic';
 import { filePathToLocalUrl, toSongResult } from '@/utils/localMusicUtils';
+import { formatLrcTimestampMs } from '@/utils/lyrics';
+import { generateRomanizedLyricLrc } from '@/utils/transliteration';
 
 const props = defineProps<{
   show: boolean;
@@ -323,6 +402,7 @@ const fetchingMeta = ref(false);
 const fetchingLyrics = ref(false);
 const showLrcSync = ref(false);
 const metaCandidates = ref<any[]>([]);
+const lyricCandidates = ref<any[]>([]);
 const coverImageBroken = ref(false);
 
 const form = reactive({
@@ -376,6 +456,7 @@ function handleCoverImageError() {
 
 function initFormFromEntry(entry: LocalMusicEntry | null) {
   metaCandidates.value = [];
+  lyricCandidates.value = [];
   coverImageBroken.value = false;
   if (!entry) return;
 
@@ -475,9 +556,16 @@ async function handleAutoFetchLyrics() {
       album: form.album.trim() || undefined,
       durationSec: props.entry?.duration ? Math.round(props.entry.duration / 1000) : undefined
     });
+    // Keep every candidate so the user can pick the version closest to their
+    // file by length and offset, instead of trusting the auto-pick alone.
+    lyricCandidates.value = Array.isArray(res?.candidates) ? res.candidates : [];
     if (res?.lrc) {
       form.lyrics = res.romalrc ? `${res.lrc}\n\n${res.romalrc}` : res.lrc;
-      message.success(`Fetched lyrics via ${res.source || 'LRCLIB'}.`);
+      message.success(
+        `Fetched lyrics via ${res.source || 'LRCLIB'}${
+          lyricCandidates.value.length > 1 ? ` (${lyricCandidates.value.length} matches)` : ''
+        }.`
+      );
     } else {
       message.info('No synced or plain lyrics found for this track.');
     }
@@ -487,6 +575,26 @@ async function handleAutoFetchLyrics() {
     fetchingLyrics.value = false;
   }
 }
+
+function applyLyricCandidate(cand: any) {
+  const lrc = cand?.syncedLyrics || cand?.plainLyrics || '';
+  if (!lrc) return;
+  const romalrc = generateRomanizedLyricLrc(lrc);
+  form.lyrics = romalrc ? `${lrc}\n\n${romalrc}` : lrc;
+  message.success('Lyrics applied. Save to write them to the file.');
+}
+
+const formatCandidateDuration = (sec?: number) => {
+  if (!sec || sec <= 0) return '--:--';
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return `${m}:${String(s).padStart(2, '0')}`;
+};
+
+const formatCandidateOffset = (sec?: number) => {
+  if (sec === undefined || sec === null) return '';
+  return formatLrcTimestampMs(sec);
+};
 
 async function handleSave() {
   if (!props.entry) return;

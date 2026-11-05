@@ -226,6 +226,12 @@
             </template>
             {{ isDownloading ? t('songItem.message.downloading') : t('player.playBar.download') }}
           </n-tooltip>
+          <n-tooltip v-if="editableLocalEntry" trigger="hover" :z-index="9999999">
+            <template #trigger>
+              <i class="iconfont ri-edit-box-line" @click="openTrackEditor" />
+            </template>
+            Edit Metadata, Artwork &amp; Filename
+          </n-tooltip>
 
           <advanced-controls-popover />
 
@@ -254,6 +260,13 @@
     />
 
     <ab-loop-modal v-model:show="showAbLoopModal" />
+
+    <!-- Edit Metadata, Artwork & Filename (same editor as the Local Music list) -->
+    <local-track-editor-modal
+      v-model:show="showTrackEditor"
+      :entry="editingEntry"
+      @saved="handleTrackSaved"
+    />
   </div>
 </template>
 
@@ -263,6 +276,7 @@ import { storeToRefs } from 'pinia';
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 
+import LocalTrackEditorModal from '@/components/common/LocalTrackEditorModal.vue';
 import MusicFullWrapper from '@/components/lyric/MusicFullWrapper.vue';
 import MvPlayer from '@/components/MvPlayer.vue';
 import AbLoopModal from '@/components/player/AbLoopModal.vue';
@@ -280,6 +294,7 @@ import {
 import { useArtist } from '@/hooks/useArtist';
 import { useDownload } from '@/hooks/useDownload';
 import { useFavorite } from '@/hooks/useFavorite';
+import { useLocalTrackEditor } from '@/hooks/useLocalTrackEditor';
 import { usePlaybackControl } from '@/hooks/usePlaybackControl';
 import { usePlayMode } from '@/hooks/usePlayMode';
 import { useVolumeControl } from '@/hooks/useVolumeControl';
@@ -291,6 +306,9 @@ import { getImgUrl, isElectron, isMobile, secondToMinute, setAnimationClass } fr
 const playerStore = usePlayerStore();
 const settingsStore = useSettingsStore();
 const { t } = useI18n();
+
+const { showTrackEditor, editingEntry, editableLocalEntry, openTrackEditor, handleTrackSaved } =
+  useLocalTrackEditor(playMusic);
 
 const { isPlaying: play, playMusicEvent, handleNext, handlePrev } = usePlaybackControl();
 
@@ -491,6 +509,17 @@ watch(
 
 const videoDrawerVisible = ref(false);
 const videoSyncTime = ref(0);
+
+// The MV drawer shows one song's video: it must not survive a track change
+// (the linked media and the mode indicator reset per song).
+watch(
+  () => playMusic.value?.id,
+  (newId, oldId) => {
+    if (!newId || newId === oldId) return;
+    videoDrawerVisible.value = false;
+    videoSyncTime.value = 0;
+  }
+);
 
 const hasVideoSupport = computed(() => {
   const song = playMusic.value as any;

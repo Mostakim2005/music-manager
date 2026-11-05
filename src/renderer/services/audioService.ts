@@ -543,6 +543,10 @@ class AudioService {
         if (seekTime !== undefined) {
           this.seek(seekTime);
         }
+        // A pending fade-out pause scheduled by pause(true) must be cancelled
+        // here, otherwise it fires ~200ms after this resume and silently stops
+        // the audio again (the classic "button shows playing but it paused").
+        this.cancelFadeTimer();
         try {
           mediaCoordinator.claimPlayback('audioService', this.audio);
         } catch {

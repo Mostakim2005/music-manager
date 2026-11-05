@@ -127,6 +127,7 @@ export const usePlayerStore = defineStore('player', () => {
     toggleMute: playerCore.toggleMute,
     handlePause: playerCore.handlePause,
     setPlaybackMode: playerCore.setPlaybackMode,
+    resetMediaStateForNewSong: playerCore.resetMediaStateForNewSong,
     setShowWaveformSeekbar: playerCore.setShowWaveformSeekbar,
     setShowVideoModeToggle: playerCore.setShowVideoModeToggle,
     setShowAbLoopOnBar: playerCore.setShowAbLoopOnBar,

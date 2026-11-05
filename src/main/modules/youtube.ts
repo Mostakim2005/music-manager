@@ -26,6 +26,14 @@ export interface YtStreamUrlResult {
 export interface YtDownloadOptions {
   kind: 'audio' | 'video';
   height?: number;
+  /** Exact yt-dlp format id (per-codec quality row selection). */
+  formatId?: string;
+  /**
+   * Download the video stream without an audio track. Playback is linked A/V:
+   * the song's own audio file is the sound source and the video is shown muted
+   * next to it, so a video-only file is smaller and avoids duplicated audio.
+   */
+  videoOnly?: boolean;
   audioFormat?: 'm4a' | 'mp3' | 'opus';
   targetDir?: string;
   fileBaseName?: string;
@@ -518,13 +526,21 @@ export async function getFormats(idOrUrl: string): Promise<YtFormatsResult> {
  */
 export async function getStreamUrl(
   idOrUrl: string,
-  options?: { kind?: 'audio' | 'video'; height?: number; preferProgressive?: boolean }
+  options?: {
+    kind?: 'audio' | 'video';
+    height?: number;
+    preferProgressive?: boolean;
+    videoOnly?: boolean;
+  }
 ): Promise<YtStreamUrlResult> {
   const kind = options?.kind || 'video';
   const reqHeight = options?.height;
   const preferProgressive = Boolean(options?.preferProgressive);
+  const videoOnly = Boolean(options?.videoOnly);
   const videoId = extractVideoId(idOrUrl) || idOrUrl;
-  const cacheKey = `${videoId}_${kind}_${reqHeight || 'any'}${preferProgressive ? '_prog' : ''}`;
+  const cacheKey = `${videoId}_${kind}_${reqHeight || 'any'}${preferProgressive ? '_prog' : ''}${
+    videoOnly ? '_vo' : ''
+  }`;
 
   // Check cache
   const cached = streamUrlCache.get(cacheKey);
@@ -566,6 +582,37 @@ export async function getStreamUrl(
   } else {
     // Video requested
     const videoFormats = validFormats.filter((f) => f.vcodec && f.vcodec !== 'none');
+
+    if (videoOnly && !preferProgressive) {
+      // Linked A/V playback: the renderer plays the song's own audio and shows
+      // this stream muted, so a video-only format is enough — no ffmpeg muxing
+      // (which also makes the stream directly seekable over HTTP range).
+      const videoOnlyFormats = videoFormats.filter((f) => !f.acodec || f.acodec === 'none');
+      let chosen: any = null;
+      if (reqHeight) {
+        const matches = videoOnlyFormats.filter((f) => Math.abs((f.height || 0) - reqHeight) <= 4);
+        matches.sort(
+          (a, b) => (b.fps || 0) - (a.fps || 0) || (b.vbr || b.tbr || 0) - (a.vbr || a.tbr || 0)
+        );
+        chosen = matches[0];
+      }
+      if (!chosen) {
+        const sorted = [...videoOnlyFormats].sort((a, b) => (b.height || 0) - (a.height || 0));
+        // Never upscale past the requested height when falling back.
+        chosen =
+          (reqHeight ? sorted.find((f) => (f.height || 0) <= reqHeight + 4) : null) || sorted[0];
+      }
+      if (chosen && chosen.url) {
+        result = {
+          videoUrl: chosen.url,
+          headers: chosen.http_headers || undefined,
+          isMuxedProxy: false
+        };
+        streamUrlCache.set(cacheKey, { result, timestamp: Date.now() });
+        return result;
+      }
+      // No video-only format available — fall through to progressive/muxed.
+    }
 
     // 1. If height requested, check if a progressive format (format 18, 22 or hasAudio: true) matches
     let progressiveMatch: any = null;
@@ -909,15 +956,31 @@ export async function downloadMedia(idOrUrl: string, options: YtDownloadOptions)
   ];
 
   if (options.kind === 'video') {
-    if (options.height) {
+    if (options.formatId) {
+      // Exact variant picked in the qualities list (per-height, per-codec).
+      if (options.videoOnly) {
+        args.push('-f', options.formatId);
+      } else {
+        args.push('-f', `${options.formatId}+bestaudio/best`);
+        args.push('--merge-output-format', 'mp4');
+      }
+    } else if (options.videoOnly) {
+      // Video-only: the audio is a separate file (linked A/V playback), so no
+      // audio track is muxed in — smaller files, no duplicated audio.
+      args.push(
+        '-f',
+        `bestvideo[height<=${options.height || 99999}]/best[height<=${options.height || 99999}]/best`
+      );
+    } else if (options.height) {
       args.push(
         '-f',
         `bestvideo[height<=${options.height}]+bestaudio/best[height<=${options.height}]/best`
       );
+      args.push('--merge-output-format', 'mp4');
     } else {
       args.push('-f', 'bestvideo+bestaudio/best');
+      args.push('--merge-output-format', 'mp4');
     }
-    args.push('--merge-output-format', 'mp4');
   } else {
     const audioFmt = options.audioFormat || 'm4a';
     args.push('-x', '--audio-format', audioFmt);

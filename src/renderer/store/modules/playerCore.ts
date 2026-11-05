@@ -2,6 +2,7 @@ import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
 
 import { audioService, PLAY_PAUSE_FADE_DURATION } from '@/services/audioService';
+import { mediaCoordinator } from '@/services/mediaCoordinator';
 import { playbackRequestManager } from '@/services/playbackRequestManager';
 import { getSongKey, savePosition } from '@/services/songLibrary';
 
@@ -50,11 +51,13 @@ export const usePlayerCoreStore = defineStore(
 
       if (prevMode !== mode) {
         if (mode === 'video') {
-          // Carry currentTime from audio across to video
+          // Linked A/V mode: the audio element stays the master clock and the
+          // only sound source; the (muted) video element follows it. The audio
+          // is deliberately NOT paused here — pausing it caused the ~1s gap and
+          // the late crossfade 'pause' events that desynced the play button.
           const audioTime =
             typeof carryTime === 'number' ? carryTime : audioService.getCurrentTime();
           videoCarryTime.value = audioTime;
-          audioService.pause(true);
         } else if (mode === 'song') {
           // Carry currentTime from video back across to audio
           const targetTime = typeof carryTime === 'number' ? carryTime : videoCarryTime.value;
@@ -63,6 +66,17 @@ export const usePlayerCoreStore = defineStore(
           }
         }
       }
+    };
+
+    /**
+     * Per-song media reset. Media (video, quality, youtube link) is matched by
+     * song ID, so none of it may survive a track change: without this the
+     * previous song's video/artwork and the mode pill carried over and the play
+     * button toggled the stale video element instead of the new audio.
+     */
+    const resetMediaStateForNewSong = () => {
+      playbackMode.value = 'song';
+      videoCarryTime.value = 0;
     };
 
     const setShowWaveformSeekbar = (enabled: boolean) => {
@@ -205,6 +219,14 @@ export const usePlayerCoreStore = defineStore(
       userPlayIntent.value = false;
       setIsPlay(false);
       playMusic.value.playLoading = false;
+      // A pause must stop every surface: the audio element AND any video
+      // element that is playing (fullscreen linked video, MV drawer). Pausing
+      // only the audio left the video running ("video keeps playing").
+      try {
+        mediaCoordinator.pauseAllLocal('audioService');
+      } catch {
+        // Coordinator not ready in headless tests
+      }
       try {
         const currentSound = audioService.getCurrentSound();
         if (currentSound && audioService.getCurrentTrack()?.id === playMusic.value.id) {
@@ -305,6 +327,7 @@ export const usePlayerCoreStore = defineStore(
       toggleMute,
       handlePause,
       setPlaybackMode,
+      resetMediaStateForNewSong,
       setShowWaveformSeekbar,
       setShowVideoModeToggle,
       setShowAbLoopOnBar,

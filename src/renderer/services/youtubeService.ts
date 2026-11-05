@@ -25,6 +25,10 @@ export interface YtStreamUrlResult {
 export interface YtDownloadOptions {
   kind: 'audio' | 'video';
   height?: number;
+  /** Exact yt-dlp format id (per-codec quality row selection). */
+  formatId?: string;
+  /** Download/stream the video without an audio track (linked A/V playback). */
+  videoOnly?: boolean;
   audioFormat?: 'm4a' | 'mp3' | 'opus';
   targetDir?: string;
   fileBaseName?: string;
@@ -117,7 +121,12 @@ export const youtubeService = {
    */
   async getStreamUrl(
     idOrUrl: string,
-    options?: { kind?: 'audio' | 'video'; height?: number; preferProgressive?: boolean }
+    options?: {
+      kind?: 'audio' | 'video';
+      height?: number;
+      preferProgressive?: boolean;
+      videoOnly?: boolean;
+    }
   ): Promise<YtStreamUrlResult> {
     return getBridge().streamUrl(idOrUrl, options);
   },

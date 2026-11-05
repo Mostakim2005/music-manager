@@ -25,8 +25,8 @@
         @ended="handleEnded"
         @timeupdate="handleTimeUpdate"
         @loadedmetadata="handleLoadedMetadata"
-        @play="isPlaying = true"
-        @pause="isPlaying = false"
+        @play="handleVideoPlay"
+        @pause="handleVideoPause"
         @waiting="isBuffering = true"
         @playing="isBuffering = false"
       ></video>
@@ -343,7 +343,8 @@ import { computed, nextTick, onUnmounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import { getMvUrl } from '@/api/mv';
-import { mediaCoordinator } from '@/services/mediaCoordinator';
+import { currentMediaOwner, mediaCoordinator } from '@/services/mediaCoordinator';
+import { usePlayerStore } from '@/store/modules/player';
 import { IMvItem } from '@/types/mv';
 import { toPlayableMediaUrl } from '@/utils/localMediaUrl';
 
@@ -386,9 +387,24 @@ const containerRef = ref<HTMLElement | null>(null);
 const videoRef = ref<HTMLVideoElement | null>(null);
 
 // State
+const playerStore = usePlayerStore();
 const mvUrl = ref<string>();
 const playMode = ref<PlayMode>(PLAY_MODE.Auto);
 const isPlaying = ref(false);
+
+// Keep the shared play state in step with the MV surface so the main play
+// button never shows "paused" while this video is playing (and vice versa).
+const handleVideoPlay = () => {
+  isPlaying.value = true;
+  playerStore.setIsPlay(true);
+};
+
+const handleVideoPause = () => {
+  isPlaying.value = false;
+  if (currentMediaOwner.value === 'mv-player-video') {
+    playerStore.setIsPlay(false);
+  }
+};
 const isBuffering = ref(false);
 const currentTime = ref(0);
 const duration = ref(0);

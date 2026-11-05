@@ -320,10 +320,10 @@
           </div>
 
           <div v-else class="space-y-2">
-            <!-- Video Qualities -->
+            <!-- Video Qualities: one row per height AND codec -->
             <div
               v-for="row in qualityRows"
-              :key="row.height"
+              :key="`${row.height}-${row.codec}`"
               class="p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 flex items-center justify-between transition cursor-pointer group"
               :class="{
                 'ring-1 ring-emerald-500 bg-emerald-500/10': selectedHeight === row.height
@@ -354,22 +354,43 @@
               </div>
 
               <div class="flex items-center gap-2" @click.stop>
-                <!-- Downloaded indicator -->
-                <span
-                  v-if="isHeightDownloaded(row.height)"
-                  class="px-2 py-0.5 rounded text-xs font-medium text-emerald-400 bg-emerald-500/10 flex items-center gap-1"
-                >
-                  <i class="ri-check-line"></i>
-                  <span>downloaded</span>
-                </span>
+                <!-- Downloaded: completion tick + per-variant delete -->
+                <template v-if="downloadedVariantFor(row)">
+                  <span
+                    class="px-2 py-0.5 rounded text-xs font-medium text-emerald-400 bg-emerald-500/10 flex items-center gap-1"
+                  >
+                    <i class="ri-check-line"></i>
+                    <span>downloaded</span>
+                  </span>
+                  <button
+                    type="button"
+                    class="w-8 h-8 rounded-lg flex items-center justify-center text-white/50 hover:text-red-400 hover:bg-red-500/10 transition cursor-pointer"
+                    title="Delete downloaded video file"
+                    :disabled="deletingVariantId === downloadedVariantFor(row)?.id"
+                    @click="deleteDownloadedVariant(row)"
+                  >
+                    <i
+                      class="ri-delete-bin-line text-base"
+                      :class="{
+                        'animate-spin': deletingVariantId === downloadedVariantFor(row)?.id
+                      }"
+                    ></i>
+                  </button>
+                </template>
 
-                <!-- Active download progress ring -->
+                <!-- Active download: progress + speed -->
                 <div
                   v-else-if="downloadProgressMap[`video-${row.height}`]"
                   class="flex items-center gap-2 text-xs font-mono text-emerald-400"
                 >
                   <i class="ri-loader-4-line animate-spin text-sm"></i>
                   <span>{{ downloadProgressMap[`video-${row.height}`].percent }}%</span>
+                  <span
+                    v-if="downloadProgressMap[`video-${row.height}`].speed"
+                    class="text-white/40"
+                  >
+                    {{ downloadProgressMap[`video-${row.height}`].speed }}
+                  </span>
                 </div>
 
                 <!-- Download button -->
@@ -377,7 +398,7 @@
                   v-else
                   type="button"
                   class="w-8 h-8 rounded-lg flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 transition cursor-pointer"
-                  title="Download this quality to disk"
+                  title="Download this quality to disk (video only — audio is played from the song file)"
                   @click="downloadVideoQuality(row)"
                 >
                   <i class="ri-download-line text-base"></i>
@@ -399,7 +420,7 @@
                   >
                     Audio
                   </span>
-                  <div class="text-xs text-white/80 font-mono">m4a / opus • high bitrate</div>
+                  <div class="text-xs text-white/80 font-mono">{{ audioFormatLabel }}</div>
                 </div>
                 <div class="flex items-center gap-2">
                   <span
@@ -415,6 +436,9 @@
                   >
                     <i class="ri-loader-4-line animate-spin text-sm"></i>
                     <span>{{ downloadProgressMap['audio'].percent }}%</span>
+                    <span v-if="downloadProgressMap['audio'].speed" class="text-white/40">
+                      {{ downloadProgressMap['audio'].speed }}
+                    </span>
                   </div>
                   <button
                     v-else
@@ -545,7 +569,12 @@ import {
   unlinkVariant as dbUnlinkVariant,
   type Variant
 } from '@/services/songLibrary';
-import { youtubeService, type YtSearchResult, type YtVideoFormat } from '@/services/youtubeService';
+import {
+  youtubeService,
+  type YtAudioFormat,
+  type YtSearchResult,
+  type YtVideoFormat
+} from '@/services/youtubeService';
 import type { SongResult } from '@/types/music';
 import { getImgUrl } from '@/utils';
 import {
@@ -740,10 +769,19 @@ const linkVideoId = async (id: string) => {
 // Formats & Qualities
 // ----------------------------------------------------
 const rawVideoFormats = ref<YtVideoFormat[]>([]);
+const rawAudioFormats = ref<YtAudioFormat[]>([]);
 const isLoadingFormats = ref(false);
 
 const qualityRows = computed(() => {
   return getUniqueVideoHeights(rawVideoFormats.value);
+});
+
+// Real audio numbers instead of the old hard-coded "high bitrate" label.
+const audioFormatLabel = computed(() => {
+  const best = rawAudioFormats.value[0];
+  if (!best) return 'm4a / opus • -- kb/s';
+  const codec = best.acodec && best.acodec !== 'unknown' ? ` / ${best.acodec}` : '';
+  return `${best.ext}${codec} • ${Math.round(best.abrKbps)} kb/s`;
 });
 
 const loadFormats = async () => {
@@ -754,10 +792,12 @@ const loadFormats = async () => {
   try {
     const res = await youtubeService.getFormats(id);
     rawVideoFormats.value = res.video || [];
+    rawAudioFormats.value = res.audio || [];
   } catch (err) {
     console.error('[VideoSourcePopover] Failed to fetch formats:', err);
     // Provide standard ladder fallback
     rawVideoFormats.value = [];
+    rawAudioFormats.value = [];
   } finally {
     isLoadingFormats.value = false;
   }
@@ -767,8 +807,26 @@ const selectQualityRow = (row: { height: number }) => {
   emit('selectQuality', row.height);
 };
 
-const isHeightDownloaded = (height: number) => {
-  return props.variants.some((v) => v.kind === 'video' && v.height === height && Boolean(v.path));
+/**
+ * Finds the downloaded variant backing a quality row. Rows are per codec, so
+ * match codec when the variant recorded one (older rows only carry the height).
+ */
+const downloadedVariantFor = (row: { height: number; codec?: string }) => {
+  return props.variants.find((v) => {
+    if (v.kind !== 'video' || !v.path) return false;
+    if (v.height !== row.height) return false;
+    if (row.codec && (v as any).codec && (v as any).codec !== 'unknown') {
+      return (v as any).codec === row.codec;
+    }
+    return true;
+  });
+};
+
+const deleteDownloadedVariant = async (row: { height: number; codec?: string }) => {
+  const variant = downloadedVariantFor(row);
+  if (variant) {
+    await deleteVariantFromDisk(variant);
+  }
 };
 
 // Download tracking
@@ -776,7 +834,11 @@ const downloadProgressMap = ref<Record<string, { percent: number; speed: string;
   {}
 );
 
-const downloadVideoQuality = async (row: { height: number; rawFormat?: YtVideoFormat }) => {
+const downloadVideoQuality = async (row: {
+  height: number;
+  codec?: string;
+  rawFormat?: YtVideoFormat;
+}) => {
   const id = props.currentYoutubeId;
   if (!id) return;
 
@@ -792,6 +854,11 @@ const downloadVideoQuality = async (row: { height: number; rawFormat?: YtVideoFo
       {
         kind: 'video',
         height: row.height,
+        // Exact per-codec variant when the row came from a real format list.
+        formatId: row.rawFormat?.formatId,
+        // Linked A/V playback: the song's audio file is the sound source, so
+        // the video is downloaded without an audio track.
+        videoOnly: true,
         targetDir,
         embedLink: true
       },
@@ -814,7 +881,10 @@ const downloadVideoQuality = async (row: { height: number; rawFormat?: YtVideoFo
               source: 'download',
               path: progress.filePath,
               height: row.height,
-              container: 'mp4',
+              container: row.rawFormat?.ext || 'mp4',
+              codec: row.codec || row.rawFormat?.vcodec,
+              formatId: row.rawFormat?.formatId,
+              bitrateKbps: row.rawFormat?.vbrKbps,
               sizeBytes: row.rawFormat?.sizeBytes
             });
             emit('variantsUpdated');
@@ -922,7 +992,11 @@ const deletingVariantId = ref<string | null>(null);
 const deleteVariantFromDisk = async (variant: Variant) => {
   if (!variant.path) return;
   const label =
-    variant.kind === 'video' ? `video${variant.height ? ` (${variant.height}p)` : ''}` : 'audio';
+    variant.kind === 'video'
+      ? `video${variant.height ? ` (${variant.height}p)` : ''}`
+      : variant.kind === 'lyrics'
+        ? 'lyrics (.lrc)'
+        : 'audio';
   const confirmed = window.confirm(
     `Delete this ${label} file from disk?\n\n${variant.path}\n\nThis cannot be undone.`
   );

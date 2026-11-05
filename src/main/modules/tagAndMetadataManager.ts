@@ -163,6 +163,35 @@ export interface LyricCandidate {
   syncedLyrics: string;
   plainLyrics: string;
   source: string;
+  /** Track duration reported by the lyric source (seconds). */
+  duration?: number;
+  /** candidate.duration minus the file's duration (seconds; negative = shorter). */
+  durationDelta?: number;
+  /** First lyric timestamp (seconds) — the offset at which singing starts. */
+  offsetSec?: number;
+  /** Last lyric timestamp (seconds) — how far the lyrics span. */
+  spanSec?: number;
+  /** True when the candidate's length is within 3s of the file's length. */
+  durationMatch?: boolean;
+}
+
+/** First and last "[mm:ss.xx]" timestamps in an LRC string, in seconds. */
+function lrcTimeBounds(lrc: string): { first: number | null; last: number | null } {
+  let first: number | null = null;
+  let last: number | null = null;
+  const re = /\[(\d{1,3}):(\d{2})(?:[.,](\d{1,3}))?\]/g;
+  for (const line of String(lrc || '').split(/\r?\n/)) {
+    re.lastIndex = 0;
+    let match: RegExpExecArray | null;
+    while ((match = re.exec(line)) !== null) {
+      const fracRaw = (match[3] || '0').slice(0, 3).padEnd(3, '0');
+      const seconds =
+        parseInt(match[1], 10) * 60 + parseInt(match[2], 10) + parseInt(fracRaw, 10) / 1000;
+      if (first === null || seconds < first) first = seconds;
+      if (last === null || seconds > last) last = seconds;
+    }
+  }
+  return { first, last };
 }
 
 export interface MultiSourceLyricsResult {
@@ -523,16 +552,27 @@ export function initializeTagAndMetadataManager(): void {
         });
 
         const rawList = Array.isArray(res.data) ? res.data : [];
-        const candidates: Array<LyricCandidate & { duration?: number }> = rawList.map((item) => ({
-          id: item.id,
-          trackName: item.trackName || item.name || '',
-          artistName: item.artistName || '',
-          albumName: item.albumName || '',
-          syncedLyrics: item.syncedLyrics || '',
-          plainLyrics: item.plainLyrics || '',
-          duration: typeof item.duration === 'number' ? item.duration : 0,
-          source: 'LRCLIB'
-        }));
+        const candidates: Array<LyricCandidate & { duration?: number }> = rawList.map((item) => {
+          const duration = typeof item.duration === 'number' ? item.duration : 0;
+          const bounds = lrcTimeBounds(item.syncedLyrics || '');
+          const durationDelta =
+            durationSec && durationSec > 0 && duration > 0 ? duration - durationSec : undefined;
+          return {
+            id: item.id,
+            trackName: item.trackName || item.name || '',
+            artistName: item.artistName || '',
+            albumName: item.albumName || '',
+            syncedLyrics: item.syncedLyrics || '',
+            plainLyrics: item.plainLyrics || '',
+            duration,
+            durationDelta,
+            offsetSec: bounds.first ?? undefined,
+            spanSec: bounds.last ?? undefined,
+            durationMatch:
+              typeof durationDelta === 'number' ? Math.abs(durationDelta) <= 3 : undefined,
+            source: 'LRCLIB'
+          };
+        });
 
         candidates.sort((a, b) => {
           const aSynced = Boolean(a.syncedLyrics);
@@ -565,6 +605,11 @@ export function initializeTagAndMetadataManager(): void {
             albumName: c.albumName,
             syncedLyrics: c.syncedLyrics,
             plainLyrics: c.plainLyrics,
+            duration: c.duration,
+            durationDelta: c.durationDelta,
+            offsetSec: c.offsetSec,
+            spanSec: c.spanSec,
+            durationMatch: c.durationMatch,
             source: 'LRCLIB'
           }))
         };

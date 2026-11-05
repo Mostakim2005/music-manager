@@ -61,16 +61,32 @@
             <div class="font-medium text-white truncate">{{ song?.name || 'Current Song' }}</div>
             <div class="text-white/50 truncate mt-0.5">{{ songArtist }}</div>
           </div>
+          <div
+            v-if="savedCount > 0"
+            class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[11px] font-medium shrink-0"
+          >
+            <i class="ri-check-double-line"></i>
+            <span>{{ savedCount }} saved</span>
+          </div>
         </div>
 
         <!-- 3 Save Options -->
         <div class="space-y-3">
           <!-- 1. Save Audio -->
           <div
-            class="p-4 rounded-xl bg-white/5 border border-white/5 hover:border-emerald-500/40 transition"
+            class="p-4 rounded-xl bg-white/5 border transition"
+            :class="
+              savedAudio ? 'border-emerald-500/30' : 'border-white/5 hover:border-emerald-500/40'
+            "
           >
             <div class="flex items-center justify-between">
               <div class="flex items-center gap-3">
+                <input
+                  v-model="selected.audio"
+                  type="checkbox"
+                  class="save-checkbox"
+                  aria-label="Select audio for batch save"
+                />
                 <div
                   class="w-9 h-9 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-lg"
                 >
@@ -81,24 +97,45 @@
                   <div class="text-xs text-white/50">High-bitrate M4A / MP3 to destination</div>
                 </div>
               </div>
-              <button
-                type="button"
-                class="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-white text-xs font-medium rounded-xl transition cursor-pointer disabled:opacity-50"
-                :disabled="isSavingAudio"
-                @click="saveAudio"
-              >
-                <i v-if="isSavingAudio" class="ri-loader-4-line animate-spin mr-1"></i>
-                <span>{{ isSavingAudio ? `${audioProgress}%` : 'Save Audio' }}</span>
-              </button>
+              <div class="flex items-center gap-2">
+                <span v-if="savedAudio" class="saved-badge">
+                  <i class="ri-check-line"></i>
+                  Saved • {{ savedAudio.container || 'm4a' }}
+                </span>
+                <button
+                  v-else
+                  type="button"
+                  class="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-white text-xs font-medium rounded-xl transition cursor-pointer disabled:opacity-50"
+                  :disabled="isSavingAudio"
+                  @click="saveAudio"
+                >
+                  <i v-if="isSavingAudio" class="ri-loader-4-line animate-spin mr-1"></i>
+                  <span>{{ isSavingAudio ? `${audioProgress}%` : 'Save Audio' }}</span>
+                </button>
+              </div>
+            </div>
+            <div v-if="audioSpeed" class="text-[11px] text-white/40 text-right mt-1 font-mono">
+              {{ audioSpeed }}
             </div>
           </div>
 
           <!-- 2. Save Video -->
           <div
-            class="p-4 rounded-xl bg-white/5 border border-white/5 hover:border-blue-500/40 transition space-y-3"
+            class="p-4 rounded-xl bg-white/5 border transition space-y-3"
+            :class="
+              videoSavedAtSelection
+                ? 'border-blue-500/30'
+                : 'border-white/5 hover:border-blue-500/40'
+            "
           >
             <div class="flex items-center justify-between">
               <div class="flex items-center gap-3">
+                <input
+                  v-model="selected.video"
+                  type="checkbox"
+                  class="save-checkbox"
+                  aria-label="Select video for batch save"
+                />
                 <div
                   class="w-9 h-9 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center text-lg"
                 >
@@ -122,7 +159,12 @@
                   <option :value="360">360p</option>
                 </select>
 
+                <span v-if="videoSavedAtSelection" class="saved-badge">
+                  <i class="ri-check-line"></i>
+                  Saved • {{ selectedVideoHeight }}p
+                </span>
                 <button
+                  v-else
                   type="button"
                   class="px-4 py-2 bg-blue-500 hover:bg-blue-400 text-white text-xs font-medium rounded-xl transition cursor-pointer disabled:opacity-50"
                   :disabled="isSavingVideo || !youtubeId"
@@ -133,17 +175,32 @@
                 </button>
               </div>
             </div>
+            <div v-if="videoSpeed" class="text-[11px] text-white/40 text-right font-mono">
+              {{ videoSpeed }}
+            </div>
             <div v-if="!youtubeId" class="text-[11px] text-amber-300/80 pl-12">
               * Requires a linked YouTube video. Link one in the Video Source menu first.
+            </div>
+            <div v-else-if="savedVideoHeights.length" class="text-[11px] text-white/40 pl-12">
+              Already on disk: {{ savedVideoHeights.map((h) => `${h}p`).join(', ') }}
             </div>
           </div>
 
           <!-- 3. Save Lyrics (.lrc) -->
           <div
-            class="p-4 rounded-xl bg-white/5 border border-white/5 hover:border-purple-500/40 transition"
+            class="p-4 rounded-xl bg-white/5 border transition"
+            :class="
+              savedLyrics ? 'border-purple-500/30' : 'border-white/5 hover:border-purple-500/40'
+            "
           >
             <div class="flex items-center justify-between">
               <div class="flex items-center gap-3">
+                <input
+                  v-model="selected.lyrics"
+                  type="checkbox"
+                  class="save-checkbox"
+                  aria-label="Select lyrics for batch save"
+                />
                 <div
                   class="w-9 h-9 rounded-lg bg-purple-500/20 text-purple-400 flex items-center justify-center text-lg"
                 >
@@ -154,16 +211,44 @@
                   <div class="text-xs text-white/50">Export synchronized .lrc sidecar file</div>
                 </div>
               </div>
-              <button
-                type="button"
-                class="px-4 py-2 bg-purple-500 hover:bg-purple-400 text-white text-xs font-medium rounded-xl transition cursor-pointer disabled:opacity-50"
-                :disabled="isSavingLyrics || !hasLyrics"
-                @click="saveLyrics"
-              >
-                <span>Save .lrc</span>
-              </button>
+              <div class="flex items-center gap-2">
+                <span v-if="savedLyrics" class="saved-badge">
+                  <i class="ri-check-line"></i>
+                  Saved • .lrc
+                </span>
+                <button
+                  v-else
+                  type="button"
+                  class="px-4 py-2 bg-purple-500 hover:bg-purple-400 text-white text-xs font-medium rounded-xl transition cursor-pointer disabled:opacity-50"
+                  :disabled="isSavingLyrics || !hasLyrics"
+                  @click="saveLyrics"
+                >
+                  <i v-if="isSavingLyrics" class="ri-loader-4-line animate-spin mr-1"></i>
+                  <span>{{ isSavingLyrics ? 'Saving...' : 'Save .lrc' }}</span>
+                </button>
+              </div>
             </div>
           </div>
+        </div>
+
+        <!-- Batch save footer -->
+        <div class="flex items-center justify-between pt-1">
+          <label class="flex items-center gap-2 text-xs text-white/60 cursor-pointer select-none">
+            <input v-model="selectAll" type="checkbox" class="save-checkbox" />
+            <span>Select all</span>
+          </label>
+          <button
+            type="button"
+            class="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-white text-xs font-semibold rounded-xl transition cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+            :disabled="isBatchSaving || pendingSelectedCount === 0"
+            @click="saveSelected"
+          >
+            <i v-if="isBatchSaving" class="ri-loader-4-line animate-spin"></i>
+            <i v-else class="ri-download-cloud-2-line"></i>
+            <span>
+              {{ isBatchSaving ? 'Saving...' : `Save Selected (${pendingSelectedCount})` }}
+            </span>
+          </button>
         </div>
       </div>
     </div>
@@ -171,9 +256,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
 
-import { linkVariant } from '@/services/songLibrary';
+import { getVariants, linkVariant, type Variant } from '@/services/songLibrary';
 import { youtubeService } from '@/services/youtubeService';
 import { useSettingsStore } from '@/store/modules/settings';
 import type { SongResult } from '@/types/music';
@@ -198,11 +283,16 @@ const selectedVideoHeight = ref<number>(720);
 
 const isSavingAudio = ref(false);
 const audioProgress = ref(0);
+const audioSpeed = ref('');
 
 const isSavingVideo = ref(false);
 const videoProgress = ref(0);
+const videoSpeed = ref('');
 
 const isSavingLyrics = ref(false);
+const isBatchSaving = ref(false);
+
+const selected = reactive({ audio: true, video: true, lyrics: true });
 
 const songArtist = computed(() => {
   if (Array.isArray(props.song?.ar)) {
@@ -221,6 +311,58 @@ const trackThumb = computed(() => {
 
 const hasLyrics = computed(() => {
   return Boolean(props.lrcString && props.lrcString.trim());
+});
+
+// ---- Saved state (source of truth: the linked variants table) ---------------
+const savedVariants = ref<Variant[]>([]);
+
+const loadSavedState = async () => {
+  if (!props.songId) {
+    savedVariants.value = [];
+    return;
+  }
+  try {
+    savedVariants.value = await getVariants(props.songId);
+  } catch (err) {
+    console.error('[SaveToDiskModal] Failed to load saved variants:', err);
+  }
+};
+
+const savedAudio = computed(
+  () => savedVariants.value.find((v) => v.kind === 'audio' && Boolean(v.path)) || null
+);
+const savedVideoHeights = computed(() =>
+  savedVariants.value
+    .filter((v) => v.kind === 'video' && v.height && Boolean(v.path))
+    .map((v) => v.height!)
+);
+const savedLyrics = computed(
+  () => savedVariants.value.find((v) => v.kind === 'lyrics' && Boolean(v.path)) || null
+);
+const videoSavedAtSelection = computed(() =>
+  savedVideoHeights.value.includes(selectedVideoHeight.value)
+);
+const savedCount = computed(
+  () => (savedAudio.value ? 1 : 0) + savedVideoHeights.value.length + (savedLyrics.value ? 1 : 0)
+);
+
+const selectAll = computed({
+  get: () => selected.audio && selected.video && selected.lyrics,
+  set: (val: boolean) => {
+    selected.audio = val;
+    selected.video = val;
+    selected.lyrics = val;
+  }
+});
+
+// How many of the checked items still need work (already-saved ones are skipped,
+// so re-running "Save Selected" never duplicates a file).
+const pendingSelectedCount = computed(() => {
+  let count = 0;
+  if (selected.audio && !savedAudio.value) count++;
+  if (selected.video && props.youtubeId && !videoSavedAtSelection.value) count++;
+  if (selected.lyrics && hasLyrics.value && !savedLyrics.value) count++;
+  return count;
 });
 
 const close = () => {
@@ -243,6 +385,7 @@ watch(
   (val) => {
     if (val) {
       resolveInitialFolder();
+      loadSavedState();
     }
   }
 );
@@ -250,6 +393,7 @@ watch(
 onMounted(() => {
   if (props.visible) {
     resolveInitialFolder();
+    loadSavedState();
   }
 });
 
@@ -278,8 +422,14 @@ const sanitizeFilename = (name: string): string => {
   return name.replace(/[<>:"/\\|?*]/g, '_').trim();
 };
 
+const markSaved = async () => {
+  await loadSavedState();
+  emit('savedMedia');
+};
+
 // 1. Save Audio
 const saveAudio = async () => {
+  if (savedAudio.value) return;
   if (!destinationFolder.value) {
     window.$message?.warning?.('Please select a destination folder');
     return;
@@ -287,6 +437,7 @@ const saveAudio = async () => {
 
   isSavingAudio.value = true;
   audioProgress.value = 0;
+  audioSpeed.value = '';
 
   try {
     const id = props.youtubeId;
@@ -312,9 +463,11 @@ const saveAudio = async () => {
       },
       async (progress) => {
         audioProgress.value = progress.percent;
+        audioSpeed.value = progress.state === 'downloading' ? progress.speed : '';
         if (progress.state === 'completed') {
           unsubscribe();
           isSavingAudio.value = false;
+          audioSpeed.value = '';
           window.$message?.success?.('Audio saved to disk successfully');
 
           if (props.songId && progress.filePath) {
@@ -324,11 +477,12 @@ const saveAudio = async () => {
               path: progress.filePath,
               container: 'm4a'
             });
-            emit('savedMedia');
           }
+          await markSaved();
         } else if (progress.state === 'error') {
           unsubscribe();
           isSavingAudio.value = false;
+          audioSpeed.value = '';
           window.$message?.error?.(`Save audio failed: ${progress.error || 'Unknown error'}`);
         }
       }
@@ -346,6 +500,7 @@ const saveVideo = async () => {
     window.$message?.warning?.('No YouTube ID linked to this song');
     return;
   }
+  if (videoSavedAtSelection.value) return;
   if (!destinationFolder.value) {
     window.$message?.warning?.('Please select a destination folder');
     return;
@@ -353,6 +508,7 @@ const saveVideo = async () => {
 
   isSavingVideo.value = true;
   videoProgress.value = 0;
+  videoSpeed.value = '';
 
   try {
     const height = selectedVideoHeight.value;
@@ -361,6 +517,9 @@ const saveVideo = async () => {
       {
         kind: 'video',
         height,
+        // Linked A/V playback: the song's audio file is the sound source, so
+        // the video is saved without an audio track.
+        videoOnly: true,
         targetDir: destinationFolder.value,
         fileBaseName: sanitizeFilename(
           `${props.song?.name || 'video'} - ${songArtist.value} (${height}p)`
@@ -369,9 +528,11 @@ const saveVideo = async () => {
       },
       async (progress) => {
         videoProgress.value = progress.percent;
+        videoSpeed.value = progress.state === 'downloading' ? progress.speed : '';
         if (progress.state === 'completed') {
           unsubscribe();
           isSavingVideo.value = false;
+          videoSpeed.value = '';
           window.$message?.success?.(`Video (${height}p) saved to disk successfully`);
 
           if (props.songId && progress.filePath) {
@@ -382,11 +543,12 @@ const saveVideo = async () => {
               height,
               container: 'mp4'
             });
-            emit('savedMedia');
           }
+          await markSaved();
         } else if (progress.state === 'error') {
           unsubscribe();
           isSavingVideo.value = false;
+          videoSpeed.value = '';
           window.$message?.error?.(`Save video failed: ${progress.error || 'Unknown error'}`);
         }
       }
@@ -399,6 +561,7 @@ const saveVideo = async () => {
 
 // 3. Save Lyrics
 const saveLyrics = async () => {
+  if (savedLyrics.value) return;
   if (!props.lrcString || !props.lrcString.trim()) {
     window.$message?.warning?.('No synchronized lyrics available for this song');
     return;
@@ -429,6 +592,16 @@ const saveLyrics = async () => {
 
     if (result?.success) {
       window.$message?.success?.(`Saved .lrc to: ${result.path || destinationFolder.value}`);
+      if (props.songId && result.path) {
+        // Record the sidecar like any other media so the saved tick persists.
+        await linkVariant(props.songId, {
+          kind: 'lyrics',
+          source: 'download',
+          path: result.path,
+          container: 'lrc'
+        });
+      }
+      await markSaved();
     } else {
       throw new Error(result?.error || 'Failed to write .lrc file');
     }
@@ -438,4 +611,29 @@ const saveLyrics = async () => {
     isSavingLyrics.value = false;
   }
 };
+
+// Batch: run every checked item in order; already-saved items are skipped.
+const saveSelected = async () => {
+  isBatchSaving.value = true;
+  try {
+    if (selected.audio && !savedAudio.value) await saveAudio();
+    if (selected.video && props.youtubeId && !videoSavedAtSelection.value) await saveVideo();
+    if (selected.lyrics && hasLyrics.value && !savedLyrics.value) await saveLyrics();
+    if (pendingSelectedCount.value === 0) {
+      window.$message?.success?.('All selected items are saved');
+    }
+  } finally {
+    isBatchSaving.value = false;
+  }
+};
 </script>
+
+<style scoped>
+.save-checkbox {
+  @apply w-4 h-4 shrink-0 rounded border-white/30 bg-black/40 text-emerald-500 cursor-pointer accent-emerald-500;
+}
+
+.saved-badge {
+  @apply px-2.5 py-1 rounded-lg text-xs font-medium text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 flex items-center gap-1 whitespace-nowrap;
+}
+</style>

@@ -8,6 +8,8 @@ export interface YtAudioFormat {
   ext: string;
   abrKbps: number;
   sizeBytes: number;
+  /** Normalized codec name (aac, opus, mp3, …). */
+  acodec: string;
 }
 
 export interface YtVideoFormat {
@@ -18,6 +20,8 @@ export interface YtVideoFormat {
   vbrKbps: number;
   sizeBytes: number;
   hasAudio: boolean;
+  /** Normalized codec name (h264, av01, vp9, …). */
+  vcodec: string;
 }
 
 export interface YtFormatsResult {
@@ -81,6 +85,28 @@ export function extractVideoId(input: string | null | undefined): string | null 
   }
 
   return null;
+}
+
+/**
+ * Normalizes a raw yt-dlp codec string to a short display name.
+ * e.g. "av01.0.08M.08" -> "av01", "vp09.00.10.08" -> "vp9", "avc1.640028" -> "h264".
+ */
+export function normalizeCodec(raw: string | null | undefined): string {
+  if (!raw || raw === 'none') return 'unknown';
+  const lower = raw.toLowerCase();
+  if (lower.startsWith('av01')) return 'av01';
+  if (lower.startsWith('vp09') || lower.startsWith('vp9')) return 'vp9';
+  if (lower.startsWith('vp08') || lower.startsWith('vp8')) return 'vp8';
+  if (lower.startsWith('avc1') || lower.startsWith('avc')) return 'h264';
+  if (lower.startsWith('hev1') || lower.startsWith('hvc1') || lower.startsWith('hevc')) return 'hevc';
+  if (lower.startsWith('mp4a') || lower.startsWith('aac')) return 'aac';
+  if (lower.startsWith('opus')) return 'opus';
+  if (lower.startsWith('mp3')) return 'mp3';
+  if (lower.startsWith('vorbis')) return 'vorbis';
+  if (lower.startsWith('flac')) return 'flac';
+  if (lower.startsWith('ac-3') || lower.startsWith('ac3')) return 'ac3';
+  // Generic fallback: the raw codec family without profile/level suffixes.
+  return raw.split('.')[0].toLowerCase();
 }
 
 /**
@@ -155,7 +181,8 @@ export function mapAndGroupFormats(raw: any): YtFormatsResult {
 
       const sizeBytes = estimateSizeBytes(f.filesize, f.filesize_approx, abr, durationSec);
       const ext = f.ext || 'm4a';
-      const key = `${ext}_${abr}`;
+      const acodec = normalizeCodec(f.acodec);
+      const key = `${ext}_${abr}_${acodec}`;
 
       if (!audioSeen.has(key)) {
         audioSeen.add(key);
@@ -163,7 +190,8 @@ export function mapAndGroupFormats(raw: any): YtFormatsResult {
           formatId: String(f.format_id),
           ext,
           abrKbps: abr,
-          sizeBytes
+          sizeBytes,
+          acodec
         });
       }
     }
@@ -182,6 +210,7 @@ export function mapAndGroupFormats(raw: any): YtFormatsResult {
     vbrKbps: number;
     sizeBytes: number;
     hasAudio: boolean;
+    vcodec: string;
   }> = [];
 
   for (const f of formats) {
@@ -211,39 +240,51 @@ export function mapAndGroupFormats(raw: any): YtFormatsResult {
       ext: f.ext || 'mp4',
       vbrKbps: vbr,
       sizeBytes,
-      hasAudio
+      hasAudio,
+      vcodec: normalizeCodec(f.vcodec)
     });
   }
 
-  // Group by standard heights (1080, 720, 480, 360, 240, 144)
+  // Group by standard heights (1080, 720, 480, 360, 240, 144), one entry per
+  // (height, codec) pair: the same resolution can arrive in several codecs with
+  // different bitrates and sizes, and each becomes its own selectable row.
   // For any candidate, map its height to the closest standard height
   // (e.g. 1080p, 720p, etc.) or match exact
-  const videoMap = new Map<number, (typeof videoCandidates)[0]>();
+  const videoMap = new Map<string, (typeof videoCandidates)[0]>();
 
   for (const stdHeight of STANDARD_HEIGHTS) {
     // Find candidates whose height matches stdHeight (or close within ±4px)
     const matches = videoCandidates.filter((v) => Math.abs(v.height - stdHeight) <= 4);
     if (matches.length > 0) {
-      // Pick best candidate:
-      // Preference:
-      // 1. Higher FPS (e.g. 60 vs 30)
-      // 2. Higher vbrKbps
-      // 3. Progressive (hasAudio = true) if bitrates are similar
-      // 4. ext == 'mp4' for best compatibility in Chromium
-      matches.sort((a, b) => {
-        if (b.fps !== a.fps) return b.fps - a.fps;
-        if (b.vbrKbps !== a.vbrKbps) return b.vbrKbps - a.vbrKbps;
-        if (a.hasAudio !== b.hasAudio) return a.hasAudio ? -1 : 1;
-        if (a.ext === 'mp4' && b.ext !== 'mp4') return -1;
-        if (b.ext === 'mp4' && a.ext !== 'mp4') return 1;
-        return 0;
-      });
+      const byCodec = new Map<string, (typeof videoCandidates)[0][]>();
+      for (const m of matches) {
+        const list = byCodec.get(m.vcodec) || [];
+        list.push(m);
+        byCodec.set(m.vcodec, list);
+      }
 
-      const best = matches[0];
-      videoMap.set(stdHeight, {
-        ...best,
-        height: stdHeight // normalize to standard height label
-      });
+      for (const [codec, list] of byCodec.entries()) {
+        // Pick best candidate per codec:
+        // Preference:
+        // 1. Higher FPS (e.g. 60 vs 30)
+        // 2. Higher vbrKbps
+        // 3. Progressive (hasAudio = true) if bitrates are similar
+        // 4. ext == 'mp4' for best compatibility in Chromium
+        list.sort((a, b) => {
+          if (b.fps !== a.fps) return b.fps - a.fps;
+          if (b.vbrKbps !== a.vbrKbps) return b.vbrKbps - a.vbrKbps;
+          if (a.hasAudio !== b.hasAudio) return a.hasAudio ? -1 : 1;
+          if (a.ext === 'mp4' && b.ext !== 'mp4') return -1;
+          if (b.ext === 'mp4' && a.ext !== 'mp4') return 1;
+          return 0;
+        });
+
+        const best = list[0];
+        videoMap.set(`${stdHeight}|${codec}`, {
+          ...best,
+          height: stdHeight // normalize to standard height label
+        });
+      }
     }
   }
 
@@ -252,19 +293,22 @@ export function mapAndGroupFormats(raw: any): YtFormatsResult {
   // The spec: "Group the video list by height (1080/720/480/360/240/144), picking the best per height."
   const videoList: YtVideoFormat[] = [];
   for (const h of STANDARD_HEIGHTS) {
-    const item = videoMap.get(h);
-    if (item) {
-      videoList.push(item);
-    }
+    const codecEntries = [...videoMap.entries()]
+      .filter(([key]) => key.startsWith(`${h}|`))
+      .map(([, v]) => v);
+    // Within one height, strongest variant first (highest bitrate).
+    codecEntries.sort((a, b) => b.vbrKbps - a.vbrKbps);
+    videoList.push(...codecEntries);
   }
 
   // If no video matched standard heights (e.g. only non-standard height present), include available
   if (videoList.length === 0 && videoCandidates.length > 0) {
-    videoCandidates.sort((a, b) => b.height - a.height);
-    const seenH = new Set<number>();
+    videoCandidates.sort((a, b) => b.height - a.height || b.vbrKbps - a.vbrKbps);
+    const seenHC = new Set<string>();
     for (const v of videoCandidates) {
-      if (!seenH.has(v.height)) {
-        seenH.add(v.height);
+      const key = `${v.height}|${v.vcodec}`;
+      if (!seenHC.has(key)) {
+        seenHC.add(key);
         videoList.push(v);
       }
     }

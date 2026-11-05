@@ -58,6 +58,10 @@
           <input type="checkbox" v-model="config.showRomanization" class="toggle-switch" />
         </div>
         <div class="setting-item">
+          <span>Line Start Times (mm:ss,ms)</span>
+          <input type="checkbox" v-model="config.showLineTimes" class="toggle-switch" />
+        </div>
+        <div class="setting-item">
           <span>{{ t('settings.lyricSettings.hideLyrics') }}</span>
           <input type="checkbox" v-model="config.hideLyrics" class="toggle-switch" />
         </div>

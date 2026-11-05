@@ -3,6 +3,7 @@ import { computed, type ComputedRef, nextTick, onUnmounted, ref, watch } from 'v
 
 import { musicDB } from '@/hooks/IndexDBHook';
 import { audioService } from '@/services/audioService';
+import { currentMediaOwner } from '@/services/mediaCoordinator';
 import { playbackRequestManager } from '@/services/playbackRequestManager';
 import { getSongKey, savePosition } from '@/services/songLibrary';
 import type { usePlayerStore } from '@/store';
@@ -280,11 +281,16 @@ const setupAudioListeners = () => {
         const isVideoMode = store.playbackMode === 'video';
         const currentSound = audioService.getCurrentSound();
 
-        // In video mode the audio element is paused on purpose and the video
-        // element is the only authoritative clock. Reading the paused audio
-        // element here used to overwrite nowTime on every tick, which froze the
-        // lyrics, the progress bar and the lyric window.
-        if (!isVideoMode) {
+        // Linked A/V mode: the audio element stays the master clock even in
+        // video mode (the video is muted and follows it). Only when the audio
+        // is not playing this song does the video element push nowTime.
+        const audioIsMaster = Boolean(
+          currentSound &&
+            audioService.getCurrentTrack()?.id === store.playMusic.id &&
+            !currentSound.paused
+        );
+
+        if (!isVideoMode || audioIsMaster) {
           if (!currentSound || audioService.getCurrentTrack()?.id !== store.playMusic.id) {
             return;
           }
@@ -476,10 +482,14 @@ const setupAudioListeners = () => {
 
   audioService.on('pause', () => {
     console.log('Audio paused');
-    getPlayerStore().setIsPlay(false);
-    // The pause is expected when switching to video mode; the video clock still
-    // needs this interval to advance lyrics.
-    if (getPlayerStore().playbackMode !== 'video') {
+    // The pause is expected when switching to video mode, and a crossfade pause
+    // can land late (it completes ~200ms after the call). Neither may flip the
+    // shared play flag while another surface (video / MV) is still playing —
+    // that was the "button shows paused while media plays" desync.
+    const owner = currentMediaOwner.value;
+    const otherSurfaceOwnsPlayback = Boolean(owner && owner !== 'audioService');
+    if (getPlayerStore().playbackMode !== 'video' && !otherSurfaceOwnsPlayback) {
+      getPlayerStore().setIsPlay(false);
       clearInterval();
     }
     if (isElectron && isLyricWindowOpen.value) {
