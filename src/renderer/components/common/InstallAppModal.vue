@@ -31,7 +31,7 @@
           <a
             class="text-green-500"
             target="_blank"
-            href="https://github.com/algerkong/AlgerMusicPlayer/releases"
+            href="https://github.com/Mostakim2005/music-manager/releases"
             >GitHub</a
           >
           {{ t('comp.installApp.downloadProblemLinkText') }}

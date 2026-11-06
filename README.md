@@ -140,9 +140,31 @@ organizations are permitted; commercial use is not.
 Third-party components retain their own licenses (MIT, ISC, Apache-2.0,
 Unlicense, GPL) — see [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
 
+## Built on
+
+Music Manager is an **independent derivative of
+[AlgerMusicPlayer](https://github.com/algerkong/AlgerMusicPlayer)**, forked from
+commit `f57204d` in October 2026. The majority of the source tree originates
+there under the MIT License; the local-first library, the linked audio/video
+playback, the English-only sweep and the rebrand are additions made in this
+repository. This project does not track upstream.
+
+| Source | What came from it | License |
+| --- | --- | --- |
+| [AlgerMusicPlayer](https://github.com/algerkong/AlgerMusicPlayer) by Alger | Electron shell, player core, renderer components, download and update pipeline — most of the tree | MIT |
+| [YesPlayMusic](https://github.com/qier222/YesPlayMusic) by qier222 | Lyric parser and aligner, IndexedDB schema, play/pause volume fade | MIT |
+| [Namida](https://github.com/namidaco/Namida) | Stacked fullscreen player and video pill — design inspiration only, no code incorporated | — |
+
+Every dependency and bundled tool is listed with its license in
+[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md), which also reproduces the MIT
+notice text for the two projects above. Fork point, commit split and a
+file-level map of what originates where are recorded in
+[`UPSTREAM.md`](UPSTREAM.md).
+
 ## Acknowledgements
 
-This project is built on [AlgerMusicPlayer](https://github.com/algerkong/AlgerMusicPlayer)
-by Alger (MIT), and draws its visual language from
-[YesPlayMusic](https://github.com/qier222/YesPlayMusic) (MIT) and the feature
-design of Namida.
+Thanks to Alger, qier222 and the other YesPlayMusic and AlgerMusicPlayer
+contributors, whose MIT-licensed work this project is built on. The upstream
+authors appear in the GitHub contributor sidebar because their commits are part
+of this repository's history — that is accurate, and it is not an endorsement of
+this project by them.

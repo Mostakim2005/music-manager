@@ -152,7 +152,7 @@ const checkForUpdates = async () => {
 const handleUpdate = async () => {
   const version = updateInfo.value.latestVersion;
 
-  const downloadUrl = `https://github.com/algerkong/AlgerMusicPlayer/releases/download/v${version}/AlgerMusicPlayer-${version}.apk`;
+  const downloadUrl = `https://github.com/Mostakim2005/music-manager/releases/download/v${version}/MusicManager-${version}.apk`;
 
   try {
     const proxyHosts = await getProxyNodes();
@@ -167,7 +167,7 @@ const handleUpdate = async () => {
     console.error('Failed to open download link:', error);
     const releaseUrl =
       updateInfo.value.releaseInfo?.html_url ||
-      'https://github.com/algerkong/AlgerMusicPlayer/releases/latest';
+      'https://github.com/Mostakim2005/music-manager/releases/latest';
     window.open(releaseUrl, '_blank');
     closeModal();
   }

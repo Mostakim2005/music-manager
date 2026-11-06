@@ -119,9 +119,7 @@ export const getLatestReleaseInfo = async (): Promise<GithubReleaseInfo | null> 
     const token = import.meta.env.VITE_GITHUB_TOKEN;
     const headers = {};
     const apiUrls = [
-      'https://api.github.com/repos/algerkong/AlgerMusicPlayer/releases/latest',
-
-      'http://music.alger.fun/package.json'
+      'https://api.github.com/repos/Mostakim2005/music-manager/releases/latest'
     ];
 
     if (token) {

@@ -15,6 +15,59 @@ License texts: [MIT](https://opensource.org/licenses/MIT) · [ISC](https://opens
 | YesPlayMusic | Ported utilities: lyric parser/aligner, IndexedDB schema, play/pause volume fade | MIT | [License](https://github.com/qier222/YesPlayMusic/blob/main/LICENSE) |
 | Namida | Feature-design inspiration only (stacked player, video pill UX). No source code incorporated. | — | [Project](https://github.com/namidaco/Namida) |
 
+### Copyright notices for incorporated source
+
+MIT requires that the copyright notice and permission text travel with any copy or
+substantial portion of the software. Because Music Manager is a derivative of the
+projects below, their notices are reproduced here in full. See
+[`UPSTREAM.md`](UPSTREAM.md) for exactly which parts of the tree originate where.
+
+#### AlgerMusicPlayer — Copyright (c) Alger
+
+> Required Notice: AlgerMusicPlayer, Copyright (c) Alger. Licensed under the MIT License.
+
+The full MIT License text below applies to all AlgerMusicPlayer source contained in
+this repository. Upstream: <https://github.com/algerkong/AlgerMusicPlayer>.
+
+Portions of this software source are Copyright (c) Alger, used under the MIT License
+reproduced here. Music Manager's own additions are Copyright (c) 2026 Mostakim2005
+and are licensed separately under the PolyForm Noncommercial License 1.0.0.
+
+#### YesPlayMusic — Copyright (c) 2020-2023 qier222
+
+> Required Notice: YesPlayMusic, Copyright (c) 2020-2023 qier222. Licensed under the MIT License.
+
+The utilities ported from YesPlayMusic (lyric parser/aligner, IndexedDB schema,
+play/pause volume fade) are Copyright (c) 2020-2023 qier222, used under the MIT
+License reproduced here. Upstream: <https://github.com/qier222/YesPlayMusic>.
+
+#### The MIT License (applies to both notices above)
+
+```text
+MIT License
+
+Copyright (c) Alger (AlgerMusicPlayer)
+Copyright (c) 2020-2023 qier222 (YesPlayMusic)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
 ## Ships inside the app
 
 ### Bundled binaries

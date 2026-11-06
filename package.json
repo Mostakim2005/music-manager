@@ -2,9 +2,21 @@
   "name": "music-manager",
   "version": "5.4.0",
   "description": "Music Manager",
-  "author": "Alger <algerkc@qq.com>",
+  "author": "Mostakim2005",
+  "contributors": [
+    {
+      "name": "Alger",
+      "url": "https://github.com/algerkong",
+      "roles": ["upstream source"]
+    },
+    {
+      "name": "qier222",
+      "url": "https://github.com/qier222",
+      "roles": ["upstream source"]
+    }
+  ],
   "main": "./out/main/index.js",
-  "homepage": "https://github.com/algerkong/AlgerMusicPlayer",
+  "homepage": "https://github.com/Mostakim2005/music-manager",
   "scripts": {
     "prepare": "husky",
     "format": "prettier --write ./src",
