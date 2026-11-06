@@ -19,6 +19,10 @@ dist.zip
 bun.lockb
 bun.lock
 
+# secret environment files (the tracked dev default is whitelisted)
+.env
+.env.*
+!.env.development
 .env.*.local
 
 out

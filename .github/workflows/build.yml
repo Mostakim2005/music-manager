@@ -1,114 +1,58 @@
-name: Build and Release
+name: Build Portable Release
 
+# Tag-triggered cloud build: push a version tag (v*) and GitHub's Windows
+# runner builds the portable .exe and attaches it to the GitHub Release.
+# Heavy binaries are never committed to git history — they are built here.
 on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
-  build:
-    runs-on: ${{ matrix.os }}
-
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - id: mac-x64
-            os: macos-latest
-            build_command: npm run build:mac:x64
-          - id: mac-arm64
-            os: macos-latest
-            build_command: npm run build:mac:arm64
-          - id: windows
-            os: windows-latest
-            build_command: npm run build:win
-          - id: linux
-            os: ubuntu-latest
-            build_command: npm run build:linux
-
+  build-portable:
+    runs-on: windows-latest
     steps:
-      - name: Check out Git repository
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install Node.js
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: 20
 
       - name: Install dependencies
         run: npm install
 
-      - name: Install Linux build dependencies
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev webkit2gtk-4.0 libappindicator3-dev librsvg2-dev patchelf
+      - name: Type checks
+        run: npm run typecheck
 
-      - name: Build artifacts
-        run: ${{ matrix.build_command }}
+      - name: Unit tests
+        run: npm test
+
+      - name: English sweep gate
+        run: node .sweep-gate.mjs
+
+      - name: Build portable .exe
         env:
-          CSC_IDENTITY_AUTO_DISCOVERY: false
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: npm run build:portable
 
-      - name: Prepare mac update metadata
-        if: startsWith(matrix.id, 'mac-')
-        run: rm -f dist/latest-mac.yml
-
-      - name: Upload release bundle
+      - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.id }}
+          name: portable-exe
+          path: dist/*.exe
           if-no-files-found: error
-          path: |
-            dist/*.dmg
-            dist/*.zip
-            dist/*.exe
-            dist/*.deb
-            dist/*.rpm
-            dist/*.AppImage
-            dist/latest*.yml
-            dist/*.blockmap
 
-  release:
-    needs: build
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Check out Git repository
-        uses: actions/checkout@v4
-
-      - name: Get version from tag
-        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_ENV
-
-      - name: Read release notes
-        run: |
-          NOTES=$(awk "/## \[v${{ env.VERSION }}\]/{p=1;print;next} /## \[v/{p=0}p" CHANGELOG.md)
-          echo "NOTES<<EOF" >> $GITHUB_ENV
-          echo "$NOTES" >> $GITHUB_ENV
-          echo "EOF" >> $GITHUB_ENV
-
-      - name: Download build artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: release-artifacts
-
-      - name: Prepare release files
-        run: |
-          mkdir -p release-upload
-          find release-artifacts -type f \
-            ! -name 'latest-mac-x64.yml' \
-            ! -name 'latest-mac-arm64.yml' \
-            -exec cp {} release-upload/ \;
-          node scripts/merge_latest_mac_yml.mjs \
-            release-artifacts/mac-x64/latest-mac-x64.yml \
-            release-artifacts/mac-arm64/latest-mac-arm64.yml \
-            release-upload/latest-mac.yml
-
-      - name: Publish GitHub Release
+      - name: Attach to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          body: ${{ env.NOTES }}
-          draft: false
-          prerelease: false
-          files: release-upload/*
+          files: dist/*.exe
+          generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
