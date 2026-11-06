@@ -130,10 +130,10 @@
 
 ## 3. Planned Features & App-Merge Wishlist
 
-### [WISHLIST: Cloud-Built-Portable-Releases] | Aliases: github actions, cloud build, releases, tag build
-> **1-Line Summary:** Version tags should trigger a GitHub Actions cloud build that attaches the portable `.exe` to the release, instead of storing builds locally.
-* **User Intention:** Keep GitHub as the single source of truth; no heavy binaries in git history.
-* **Target Integration Point:** `.github/workflows/build.yml` → `electron-builder` portable target.
+### [WISHLIST: Cloud-Built-Releases] | Aliases: github actions, cloud build, releases, tag build, portable and installer
+> **1-Line Summary:** Version tags trigger a GitHub Actions build that attaches both the portable `.exe` and the NSIS installer to the release, instead of storing builds locally.
+* **User Intention:** Keep GitHub as the single source of truth; no heavy binaries in git history; every release offers both formats.
+* **Target Integration Point:** `.github/workflows/build.yml` → `build:portable` + `build:installer`.
 
 ### [WISHLIST: Desktop-GUI-Verification] | Aliases: manual checklist, real desktop test, gui check
 > **1-Line Summary:** Run the manual desktop verification checklist against a fresh portable build, since the agent sandbox cannot launch the GUI.
@@ -145,7 +145,7 @@
 * **User Intention:** A leaner download without losing functionality.
 * **Target Integration Point:** `package.json` production dependency tree.
 
-### [WISHLIST: Installer-Distribution] | Aliases: nsis installer, setup exe, start menu
-> **1-Line Summary:** Ship the NSIS installer alongside the portable exe once the installer target has been verified end to end.
-* **User Intention:** Portable stays the default; an installer is optional convenience.
-* **Target Integration Point:** `npm run build:installer` (NSIS config already wired).
+### [WISHLIST: Installer-Verification-On-Real-Machine] | Aliases: nsis installer, setup exe, install test
+> **1-Line Summary:** Install and uninstall the NSIS setup once on a real machine to confirm shortcuts and clean removal.
+* **User Intention:** Portable stays the default; the installer is optional convenience and must cleanly uninstall.
+* **Target Integration Point:** `MusicManager-v<version>-Setup.exe` from the cloud release.

@@ -143,8 +143,8 @@
     "publish": [
       {
         "provider": "github",
-        "owner": "algerkong",
-        "repo": "AlgerMusicPlayer"
+        "owner": "Mostakim2005",
+        "repo": "music-manager"
       }
     ],
     "extraResources": [
@@ -244,6 +244,7 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
+      "artifactName": "MusicManager-v${version}-Setup.${ext}",
       "installerIcon": "resources/icon.ico",
       "uninstallerIcon": "resources/icon.ico",
       "createDesktopShortcut": true,

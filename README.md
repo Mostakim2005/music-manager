@@ -75,10 +75,14 @@ promotional modules removed. All upstream open-source credits are listed in
 
 ## Getting started
 
-Download the latest portable executable from the
+Download the latest release from the
 [Releases page](https://github.com/Mostakim2005/music-manager/releases) and run
-it. No installation is required. Releases are built in the cloud by GitHub
-Actions whenever a `v*` tag is pushed.
+it. Each release ships **both** formats, built in the cloud by GitHub Actions
+whenever a `v*` tag is pushed:
+
+- `MusicManager-v<version>-Portable.exe` — run-anywhere, no installation.
+- `MusicManager-v<version>-Setup.exe` — NSIS installer (choose install folder,
+  desktop and Start-menu shortcuts).
 
 ## Documentation
 
