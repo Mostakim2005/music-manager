@@ -130,7 +130,7 @@ sequenceDiagram
 
 ### [VERIFY: Automated-Check-Suite] | Aliases: test commands, build check, typecheck, lint, sweep gate
 > **1-Line Summary:** Commands every AI must run to prove nothing broke before committing.
-* **Type & Lint Check:** `npm run typecheck:web` and `npm run typecheck:node` (both must exit 0); `npx eslint ./src` (the `no-empty` count must stay 0).
+* **Type & Lint Check:** `npm run typecheck:web` and `npm run typecheck:node` (both must exit 0); `npx eslint ./src` (the `no-empty` count must stay 0). On a fresh clone run `npm run build` first — it generates the gitignored `auto-imports.d.ts` / `components.d.ts` stubs that the type checks require.
 * **Automated UI / Logic Verification:** `npx vitest run` (all unit tests must pass).
 * **English-Sweep Gate:** `node .sweep-gate.mjs` (must report 0 unexplained CJK lines).
 * **Bundle Check:** `npm run build` (electron-vite build must exit 0).

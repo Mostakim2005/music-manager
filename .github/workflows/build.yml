@@ -27,6 +27,11 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      # Generates the gitignored auto-import/component type stubs that the
+      # type checks require on a fresh checkout, and catches bundle errors early.
+      - name: Build bundle (generates type stubs)
+        run: npm run build
+
       - name: Type checks
         run: npm run typecheck
 
