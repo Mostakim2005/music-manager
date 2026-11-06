@@ -138,7 +138,7 @@
 ### [WISHLIST: Desktop-GUI-Verification] | Aliases: manual checklist, real desktop test, gui check
 > **1-Line Summary:** Run the manual desktop verification checklist against a fresh portable build, since the agent sandbox cannot launch the GUI.
 * **User Intention:** Prove playback, linked video, lyric editing and save flows visually before wider use.
-* **Target Integration Point:** Checklist in the project handoff; `npm run build:portable` artifact.
+* **Target Integration Point:** The manual checklist in `docs/legacy/HANDOFF.md` §3.3; `npm run build:portable` artifact.
 
 ### [WISHLIST: Smaller-Portable-Through-Pruning] | Aliases: size reduction, dependency pruning, smaller exe
 > **1-Line Summary:** Reduce `app.asar` weight by proving duplicate or unused dependencies unreferenced before removing them.
