@@ -171,3 +171,18 @@ flowchart LR
 * **Why This Trap Exists (Plain English):** The sandbox's Electron stub resolves `require('electron')` to the npm stub, so `app.whenReady()` never fires and the process exits 0 looking broken. Real verification needs a desktop session.
 * **Protected Code Anchors (Grep Targets):**
   * `docs/ARCHITECTURE.md` -> `Automated-Check-Suite` (verification commands)
+
+### [TRAP: Release-Binary-Timing-Gap] | Aliases: release timing, v5.4.0 defect, tag before commit, stale binaries
+> **1-Line Summary:** NEVER cut or push a release tag (v*) until all intended code commits (identity, URLs, attribution) are committed to main.
+* **Strict Rule:** **NEVER** tag a release until the commit tree on `main` is completely clean, verified, and pushed.
+* **Why This Trap Exists (Plain English):** CI cloud builds are triggered by tags. In v5.4.0, a tag was placed at commit `28008e1` two hours before rebrand commit `ad01e26` was pushed, causing the shipped executables to carry upstream URLs and identity despite GitHub looking correct.
+* **Protected Code Anchors (Grep Targets):**
+  * `.github/workflows/build.yml` -> `on.push.tags`
+  * `package.json` -> `version`
+
+### [TRAP: Nested-Repository-Scaffolding] | Aliases: double git, outer repo, master vs main, wrong remote
+> **1-Line Summary:** NEVER maintain an outer .git wrapper around an active project clone.
+* **Strict Rule:** **NEVER** initialize or leave an outer `.git` folder in parent directories of the real application repository.
+* **Why This Trap Exists (Plain English):** An outer repository scaffold without a remote traps git commands and coding agents into committing changes locally to the wrong repository branch (`master` vs `main`), obscuring the real git status.
+* **Protected Code Anchors (Grep Targets):**
+  * Project root `.git` boundary
