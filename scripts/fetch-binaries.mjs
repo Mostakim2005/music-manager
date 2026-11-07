@@ -65,7 +65,7 @@ const ytDlpTarget = path.join(binDir, ytDlpBinaryName);
 function downloadFile(url, destPath) {
   return new Promise((resolve, reject) => {
     https
-      .get(url, { headers: { 'User-Agent': 'MusicManager/5.3.5' } }, (res) => {
+      .get(url, { headers: { 'User-Agent': 'MusicManager/5.4.1' } }, (res) => {
         if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
           return resolve(downloadFile(res.headers.location, destPath));
         }

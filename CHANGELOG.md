@@ -1,5 +1,24 @@
 # Changelog
 
+## v5.4.1
+
+### Rebranding in Release Binaries & Update Repointing
+
+- **Rebrand in Shipped Binaries**: Bumps version to `v5.4.1` and incorporates commit `ad01e26` into the CI release build. Shipped executables now correctly display "Music Manager" in the About window and installer metadata.
+- **Update Check Repointed**: Fixed in-app update checker to query `Mostakim2005/music-manager` release endpoints instead of the upstream fork.
+- **Progressive Information Architecture**: Standardized documentation with `docs/INDEX.md`, `docs/FEATURES.md`, and `docs/BUGS.md` alongside existing `docs/PRODUCT.md` and `docs/ARCHITECTURE.md`.
+- **System & IPC Identity**: Updated Windows `AppUserModelId` to `com.musicmanager.app`, Linux MPRIS service to `MusicManager`, and removed residual telemetry scripts and old URLs.
+
+## v5.4.0
+
+### Linked Audio/Video Engine & Enhanced Library
+
+- **Linked A/V Playback**: Muted video follows the audio master clock; one shared play state with zero audible gap when toggling modes.
+- **Per-Song Media Reset**: Dropped stale video/artwork states across track changes.
+- **Per-Codec Video Ladder**: Normalized height/codec format selection with video-only streams/downloads via bundled `yt-dlp`.
+- **Responsive Synced Lyrics & Edit LRC**: Under-artwork lyric strip for narrow windows, inline timestamps, and +/- 0.1s adjustment controls.
+- **Tag Editor & Metadata Repair**: In-player metadata repair using iTunes Search, MusicBrainz, and Cover Art Archive with native ID3v2/Vorbis/MP4 tagging.
+
 ## v5.3.5
 
 ### Smaller portable build: 474 MB → 447 MB (−27 MB)

@@ -12,7 +12,7 @@
           <img src="@/assets/logo.png" alt="App Icon" />
         </div>
         <div class="app-info">
-          <h2 class="app-name">Alger Music Player {{ config.version }}</h2>
+          <h2 class="app-name">Music Manager {{ config.version }}</h2>
           <p class="app-desc mb-2">{{ t('comp.installApp.description') }}</p>
           <n-checkbox v-model:checked="noPrompt">{{ t('comp.installApp.noPrompt') }}</n-checkbox>
         </div>
@@ -74,7 +74,7 @@ onMounted(async () => {
 });
 
 const handleInstall = async (): Promise<void> => {
-  window.open('http://donate.alger.fun/download', '_blank');
+  window.open('https://github.com/Mostakim2005/music-manager/releases/latest', '_blank');
 };
 </script>
 

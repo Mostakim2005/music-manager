@@ -769,7 +769,7 @@ const sendTrayLyric = (index: number) => {
     const lrcObj = JSON.stringify({
       content: lyric.text || '',
       time: duration.toFixed(1),
-      sender: 'AlgerMusicPlayer'
+      sender: 'MusicManager'
     });
 
     window.electron.ipcRenderer.send('tray-lyric-update', lrcObj);

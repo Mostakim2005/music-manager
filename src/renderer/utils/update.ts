@@ -142,7 +142,7 @@ export const getLatestReleaseInfo = async (): Promise<GithubReleaseInfo | null> 
           return {
             tag_name: response.data.version,
             body: changelogResponse.data,
-            html_url: 'https://github.com/algerkong/AlgerMusicPlayer/releases/latest',
+            html_url: 'https://github.com/Mostakim2005/music-manager/releases/latest',
             assets: []
           } as unknown as GithubReleaseInfo;
         }

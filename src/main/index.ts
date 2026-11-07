@@ -192,7 +192,7 @@ if (!isSingleInstance) {
   });
 
   app.whenReady().then(async () => {
-    electronApp.setAppUserModelId('com.alger.music');
+    electronApp.setAppUserModelId('com.musicmanager.app');
 
     app.on('browser-window-created', (_, window) => {
       optimizer.watchWindowShortcuts(window);

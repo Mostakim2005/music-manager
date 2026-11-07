@@ -1,6 +1,6 @@
 {
   "name": "music-manager",
-  "version": "5.4.0",
+  "version": "5.4.1",
   "description": "Music Manager",
   "author": "Mostakim2005",
   "contributors": [
@@ -251,7 +251,7 @@
       ],
       "artifactName": "${productName}-${version}-linux-${arch}.${ext}",
       "category": "Audio",
-      "maintainer": "Alger <algerkc@qq.com>"
+      "maintainer": "Mostakim2005"
     },
     "nsis": {
       "oneClick": false,
