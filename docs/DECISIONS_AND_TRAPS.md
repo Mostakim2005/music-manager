@@ -186,3 +186,10 @@ flowchart LR
 * **Why This Trap Exists (Plain English):** An outer repository scaffold without a remote traps git commands and coding agents into committing changes locally to the wrong repository branch (`master` vs `main`), obscuring the real git status.
 * **Protected Code Anchors (Grep Targets):**
   * Project root `.git` boundary
+
+### [TRAP: Self-Identifying-Release-Binaries] | Aliases: release naming, branch identification, engine disambiguation
+> **1-Line Summary:** ALL release executables MUST follow `MusicManager-Electron-Chromium-v<Version>-branch-<BranchSlug>-<ShortSHA>-<Type>.<ext>` to avoid multi-repo/multi-branch ambiguity.
+* **Strict Rule:** **NEVER** publish release binaries with generic names like `MusicManager-Portable.exe` or `MusicManager-v5.4.1-Setup.exe`. Every artifact MUST explicitly state engine (`Electron-Chromium`), version, branch, short commit SHA, and artifact type.
+* **Why This Trap Exists (Plain English):** When parallel ports (Electron vs Tauri) and multiple branches exist, users cannot tell which engine or branch an executable was compiled from. Self-identifying filenames eliminate ambiguity.
+* **Protected Code Anchors (Grep Targets):**
+  * `.github/workflows/build.yml` -> `discover-branches` and `Standardize Self-Identifying Binary Names`

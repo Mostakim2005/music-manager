@@ -4,7 +4,7 @@
 ## 1. Project Tech Stack & Environment
 * **Runtime / Language:** Node.js v20+, TypeScript 5+, Electron 30+
 * **Framework / Host:** Vue 3 + Vite + Tailwind CSS + Naive UI + Pinia
-* **Target OS / Build Output:** Windows 10/11 x64 portable `.exe` (`dist/MusicManager-v<version>-Portable.exe`) and NSIS installer (`dist/MusicManager-v<version>-Setup.exe`)
+* **Target OS / Build Output:** Windows 10/11 x64 portable `.exe` and NSIS installer `.exe`. Every cloud release binary uses the self-identifying naming scheme `MusicManager-Electron-Chromium-v<Version>-branch-<BranchSlug>-<ShortSHA>-<Type>.<ext>` across all deduplicated branches.
 * **Local Media Tools:** Bundled `yt-dlp` and `ffmpeg` in `resources/bin/` (auto-downloaded on `npm install` via `scripts/fetch-binaries.mjs`)
 
 ## 2. Mandatory Verification & Build Commands
