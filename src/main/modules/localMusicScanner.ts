@@ -145,6 +145,9 @@ type LocalMusicMeta = {
   lyrics: string | null;
   fileSize: number;
   modifiedTime: number;
+  genre?: string;
+  bitrate?: number;
+  codec?: string;
   /** Acoustic fingerprint (loudness envelope) for cross-format matching. */
   fingerprint?: string;
   /** Duration covered by the fingerprint, in seconds. */
@@ -276,7 +279,10 @@ async function scanMusicFiles(folderPath: string): Promise<string[]> {
 
 /**
  */
-async function scanMusicFilesWithStats(folderPath: string): Promise<ScannedMusicFile[]> {
+async function scanMusicFilesWithStats(
+  folderPath: string,
+  excludedFolders: string[] = []
+): Promise<ScannedMusicFile[]> {
   const results: ScannedMusicFile[] = [];
 
   if (!fs.existsSync(folderPath)) {
@@ -288,7 +294,31 @@ async function scanMusicFilesWithStats(folderPath: string): Promise<ScannedMusic
     throw new Error(`Path is not a folder: ${folderPath}`);
   }
 
+  const normalizedExcluded = (excludedFolders || [])
+    .map((p) => String(p || '').trim())
+    .filter(Boolean)
+    .map((p) => {
+      const resolved = path.resolve(p);
+      return process.platform === 'win32' ? resolved.toLowerCase() : resolved;
+    });
+
+  const isExcludedDir = (dirPath: string): boolean => {
+    if (normalizedExcluded.length === 0) return false;
+    const resolved = path.resolve(dirPath);
+    const candidate = process.platform === 'win32' ? resolved.toLowerCase() : resolved;
+    return normalizedExcluded.some(
+      (exc) => candidate === exc || candidate.startsWith(exc + path.sep)
+    );
+  };
+
+  if (isExcludedDir(folderPath)) {
+    return results;
+  }
+
   async function walkDirectory(dirPath: string): Promise<void> {
+    if (isExcludedDir(dirPath)) {
+      return;
+    }
     try {
       const entries = await fs.promises.readdir(dirPath, { withFileTypes: true });
 
@@ -296,7 +326,7 @@ async function scanMusicFilesWithStats(folderPath: string): Promise<ScannedMusic
         const fullPath = path.join(dirPath, entry.name);
 
         if (entry.isDirectory()) {
-          if (DEFAULT_EXCLUDED_DIRS.has(entry.name)) {
+          if (DEFAULT_EXCLUDED_DIRS.has(entry.name) || isExcludedDir(fullPath)) {
             continue;
           }
           await walkDirectory(fullPath);
@@ -378,6 +408,9 @@ async function parseMetadata(filePath: string): Promise<LocalMusicMeta> {
       lyrics: extractLyrics(common.lyrics),
       fileSize,
       modifiedTime,
+      genre: Array.isArray(common.genre) && common.genre.length > 0 ? common.genre.join('; ') : undefined,
+      bitrate: format.bitrate ? Math.round(format.bitrate / 1000) : undefined,
+      codec: format.codec || format.container || undefined,
       fingerprint,
       fingerprintDurationSec
     };
@@ -427,15 +460,18 @@ export function initializeLocalMusicScanner(): void {
     }
   });
 
-  ipcMain.handle('scan-local-music-with-stats', async (_, folderPath: string) => {
-    try {
-      const files = await scanMusicFilesWithStats(folderPath);
-      return { files, count: files.length };
-    } catch (error: any) {
-      console.error('Failed to scan local music (with file info):', error);
-      return { error: error.message || 'Scan failed' };
+  ipcMain.handle(
+    'scan-local-music-with-stats',
+    async (_, folderPath: string, excludedFolders?: string[]) => {
+      try {
+        const files = await scanMusicFilesWithStats(folderPath, excludedFolders);
+        return { files, count: files.length };
+      } catch (error: any) {
+        console.error('Failed to scan local music (with file info):', error);
+        return { error: error.message || 'Scan failed' };
+      }
     }
-  });
+  );
 
   ipcMain.handle('local-music:fingerprint', async (_, filePath: string) => {
     try {

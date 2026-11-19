@@ -78,6 +78,20 @@
           <i class="ri-star-fill text-[10px]" />
           {{ ratingValue }}
         </span>
+        <span
+          v-for="mood in moodsList.slice(0, 2)"
+          :key="`mood-${mood}`"
+          class="px-1.5 py-0.5 rounded bg-violet-500/15 text-violet-600 dark:text-violet-300"
+        >
+          {{ mood }}
+        </span>
+        <span
+          v-for="tag in tagsList.slice(0, 2)"
+          :key="`tag-${tag}`"
+          class="px-1.5 py-0.5 rounded bg-sky-500/15 text-sky-600 dark:text-sky-300"
+        >
+          #{{ tag }}
+        </span>
       </div>
     </div>
 
@@ -89,7 +103,34 @@
     </div>
 
     <!-- 5. Compact Icon Buttons Grouped Tightly on the Right (8px gap) -->
-    <div class="flex items-center gap-2 shrink-0">
+    <div class="flex items-center gap-1.5 shrink-0">
+      <button
+        type="button"
+        class="w-7 h-7 rounded-full flex items-center justify-center text-neutral-400 hover:text-primary hover:bg-primary/10 opacity-0 group-hover:opacity-100 transition active:scale-95"
+        title="Play Next"
+        @click.stop="emit('play-next', item)"
+      >
+        <i class="ri-skip-forward-line text-sm" />
+      </button>
+
+      <button
+        type="button"
+        class="w-7 h-7 rounded-full flex items-center justify-center text-neutral-400 hover:text-primary hover:bg-primary/10 opacity-0 group-hover:opacity-100 transition active:scale-95"
+        title="Add to Queue"
+        @click.stop="emit('queue-end', item)"
+      >
+        <i class="ri-play-list-add-line text-sm" />
+      </button>
+
+      <button
+        type="button"
+        class="w-7 h-7 rounded-full flex items-center justify-center text-neutral-400 hover:text-amber-500 hover:bg-amber-500/10 opacity-0 group-hover:opacity-100 transition active:scale-95"
+        title="Rate, Mood & Tags"
+        @click.stop="emit('edit-tags', entry)"
+      >
+        <i class="ri-price-tag-3-line text-sm" />
+      </button>
+
       <button
         type="button"
         class="w-8 h-8 rounded-full flex items-center justify-center text-neutral-400 hover:text-red-500 hover:bg-red-500/10 transition active:scale-95"
@@ -138,7 +179,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 
-import { getListeningStatsSummary } from '@/services/listeningStatsService';
 import { usePlayerStore } from '@/store/modules/player';
 import type { LocalMusicEntry } from '@/types/localMusic';
 import type { SongResult } from '@/types/music';
@@ -149,17 +189,26 @@ const props = withDefaults(
     entry: LocalMusicEntry;
     index: number;
     showMetaRow?: boolean;
+    playCount?: number;
     rating?: number;
+    moods?: string[];
+    tags?: string[];
   }>(),
   {
     showMetaRow: true,
-    rating: 0
+    playCount: undefined,
+    rating: 0,
+    moods: () => [],
+    tags: () => []
   }
 );
 
 const emit = defineEmits<{
   (e: 'play', item: SongResult): void;
+  (e: 'play-next', item: SongResult): void;
+  (e: 'queue-end', item: SongResult): void;
   (e: 'edit', entry: LocalMusicEntry): void;
+  (e: 'edit-tags', entry: LocalMusicEntry): void;
   (e: 'remove', item: SongResult): void;
 }>();
 
@@ -229,15 +278,10 @@ const hasLinkedVideo = computed(() => {
 });
 
 const playCountValue = computed(() => {
-  try {
-    const summary = getListeningStatsSummary();
-    const match = summary.topTracks.find(
-      (t) => String(t.id) === String(props.item.id) || t.name === props.item.name
-    );
-    return match?.plays || 0;
-  } catch {
-    return 0;
+  if (typeof props.playCount === 'number' && Number.isFinite(props.playCount)) {
+    return Math.max(0, props.playCount);
   }
+  return Number((props.item as any).playCount ?? 0);
 });
 
 const ratingValue = computed(() => {
@@ -245,8 +289,31 @@ const ratingValue = computed(() => {
   return Number.isFinite(r) ? Math.max(0, Math.min(5, Math.round(r))) : 0;
 });
 
+const moodsList = computed(() =>
+  Array.isArray(props.moods) && props.moods.length > 0
+    ? props.moods
+    : Array.isArray((props.entry as any).moods)
+      ? (props.entry as any).moods
+      : []
+);
+
+const tagsList = computed(() =>
+  Array.isArray(props.tags) && props.tags.length > 0
+    ? props.tags
+    : Array.isArray((props.entry as any).tags)
+      ? (props.entry as any).tags
+      : []
+);
+
 const hasMetaChips = computed(() =>
-  Boolean(formatBadge.value || hasLinkedVideo.value || playCountValue.value > 0 || ratingValue.value > 0)
+  Boolean(
+    formatBadge.value ||
+      hasLinkedVideo.value ||
+      playCountValue.value > 0 ||
+      ratingValue.value > 0 ||
+      moodsList.value.length > 0 ||
+      tagsList.value.length > 0
+  )
 );
 
 const formattedDuration = computed(() => {

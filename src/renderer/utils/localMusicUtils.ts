@@ -88,13 +88,97 @@ export function parseLrcToILyric(lrcString: string | null): ILyric | null {
   }
 }
 
+export const DEFAULT_ARTIST_EXCEPTIONS: readonly string[] = [
+  'Tyler, The Creator',
+  'Simon & Garfunkel',
+  'Earth, Wind & Fire',
+  'Hall & Oates',
+  'Crosby, Stills & Nash',
+  'Above & Beyond',
+  'Florence + The Machine',
+  'Mumford & Sons',
+  'Kool & The Gang',
+  'Brooks & Dunn',
+  'AC/DC'
+];
+
+export const ARTIST_EXCEPTIONS_STORAGE_KEY = 'music_manager_artist_split_exceptions_v1';
+
+export function getArtistSplitExceptions(): string[] {
+  try {
+    if (typeof localStorage === 'undefined' || typeof localStorage.getItem !== 'function') {
+      return [];
+    }
+    const raw = localStorage.getItem(ARTIST_EXCEPTIONS_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return Array.from(new Set(parsed.map((s) => String(s || '').trim()).filter(Boolean)));
+  } catch {
+    return [];
+  }
+}
+
+export function setArtistSplitExceptions(list: string[]): string[] {
+  const normalized = Array.from(new Set((list || []).map((s) => String(s || '').trim()).filter(Boolean)));
+  try {
+    if (typeof localStorage !== 'undefined' && typeof localStorage.setItem === 'function') {
+      localStorage.setItem(ARTIST_EXCEPTIONS_STORAGE_KEY, JSON.stringify(normalized));
+    }
+  } catch {
+    // ignore storage errors in headless/test contexts
+  }
+  return normalized;
+}
+
+function escapeRegExp(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 /**
+ * Splits a multi-artist credit string while preserving combined artist names
+ * from DEFAULT_ARTIST_EXCEPTIONS and user-configured allowlist exceptions.
  */
-export function parseMultiArtists(raw: string | null | undefined): string[] {
+export function parseMultiArtists(
+  raw: string | null | undefined,
+  customExceptions?: string[]
+): string[] {
   if (!raw || typeof raw !== 'string') return ['Unknown Artist'];
-  const parts = raw
+
+  const allExceptions = Array.from(
+    new Set([...DEFAULT_ARTIST_EXCEPTIONS, ...getArtistSplitExceptions(), ...(customExceptions || [])])
+  )
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .sort((a, b) => b.length - a.length);
+
+  let masked = raw;
+  const tokens: Array<{ token: string; value: string }> = [];
+  allExceptions.forEach((exc, idx) => {
+    const token = `__ARTIST_EXC_${idx}__`;
+    const regex = new RegExp(escapeRegExp(exc), 'gi');
+    if (regex.test(masked)) {
+      masked = masked.replace(regex, (matched) => {
+        const entryToken = `${token}_${tokens.length}__`;
+        tokens.push({ token: entryToken, value: matched });
+        return entryToken;
+      });
+    }
+  });
+
+  const restore = (chunk: string): string => {
+    let out = chunk;
+    for (const item of tokens) {
+      if (out.includes(item.token)) {
+        out = out.split(item.token).join(item.value);
+      }
+    }
+    return out.trim();
+  };
+
+  const parts = masked
     .split(/\s*(?:feat\.?|ft\.?|&|;|,|\/|\x00)\s*/i)
-    .map((item) => item.trim())
+    .map(restore)
     .filter(Boolean);
   return parts.length > 0 ? Array.from(new Set(parts)) : [raw.trim() || 'Unknown Artist'];
 }
@@ -187,6 +271,10 @@ export function toSongResult(entry: LocalMusicEntry): SongResult {
       album: { name: entry.album }
     },
     playMusicUrl: localMediaUrl,
+    localPath: entry.filePath,
+    genre: entry.genre,
+    bitrate: entry.bitrate,
+    codec: entry.codec,
     duration: entry.duration,
     dt: entry.duration,
     source: 'local' as any,

@@ -104,7 +104,8 @@ interface API {
   lxMusicHttpCancel: (requestId: string) => Promise<void>;
   scanLocalMusic: (folderPath: string) => Promise<{ files: string[]; count: number }>;
   scanLocalMusicWithStats: (
-    folderPath: string
+    folderPath: string,
+    excludedFolders?: string[]
   ) => Promise<{ files: { path: string; modifiedTime: number }[]; count: number }>;
   parseLocalMusicMetadata: (
     filePaths: string[]

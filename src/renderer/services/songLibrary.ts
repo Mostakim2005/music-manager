@@ -34,6 +34,13 @@ export interface Song {
   fingerprintDurationSec?: number;
   lastPositionSec?: number;
   lastPlayedAt?: number;
+  rating?: number;
+  moods?: string[];
+  tags?: string[];
+  artistsSplit?: string[];
+  genresSplit?: string[];
+  bitrateKbps?: number;
+  codec?: string;
   createdAt: number;
 }
 
@@ -67,6 +74,50 @@ export interface WaveformCacheRecord {
   updatedAt: number;
 }
 
+export interface SavedQueueRecord {
+  id: string;
+  name: string;
+  trackIds: Array<string | number>;
+  songs: any[];
+  currentIndex: number;
+  updatedAt: number;
+}
+
+export type SmartPlaylistField =
+  | 'rating'
+  | 'mood'
+  | 'tag'
+  | 'genre'
+  | 'artist'
+  | 'minDurationSec'
+  | 'maxDurationSec'
+  | 'hasVideo'
+  | 'playCount';
+
+export type SmartPlaylistOperator = 'eq' | 'gte' | 'lte' | 'includes' | 'contains';
+
+export interface SmartPlaylistRule {
+  field: SmartPlaylistField;
+  operator: SmartPlaylistOperator;
+  value: string | number | boolean;
+}
+
+export interface SmartPlaylistRecord {
+  id: string;
+  name: string;
+  matchMode: 'all' | 'any';
+  rules: SmartPlaylistRule[];
+  sortBy?: 'recent' | 'title' | 'artist' | 'rating' | 'playCount' | 'duration';
+  limit?: number;
+  updatedAt: number;
+}
+
+export interface SongAnnotationRecord {
+  rating: number;
+  moods: string[];
+  tags: string[];
+}
+
 export interface IngestTrackInput {
   path: string;
   title: string;
@@ -92,6 +143,8 @@ export class MusicManagerLibraryDB extends Dexie {
   variants!: Table<Variant, string>;
   playbackPositions!: Table<PlaybackPositionRecord, string>;
   waveforms!: Table<WaveformCacheRecord, string>;
+  queues!: Table<SavedQueueRecord, string>;
+  smartPlaylists!: Table<SmartPlaylistRecord, string>;
 
   constructor(customIndexedDB?: any) {
     super('musicManagerLibrary', customIndexedDB ? { indexedDB: customIndexedDB } : undefined);
@@ -107,6 +160,16 @@ export class MusicManagerLibraryDB extends Dexie {
       variants: '&id, songId, path, kind, addedAt',
       playbackPositions: '&key, updatedAt',
       waveforms: '&filePath, updatedAt'
+    });
+
+    this.version(4).stores({
+      songs:
+        '&id, normKey, youtubeId, fingerprint, createdAt, rating, *artistsSplit, *genresSplit, *moods, *tags',
+      variants: '&id, songId, path, kind, addedAt',
+      playbackPositions: '&key, updatedAt',
+      waveforms: '&filePath, updatedAt',
+      queues: '&id, updatedAt',
+      smartPlaylists: '&id, updatedAt'
     });
   }
 }
@@ -801,4 +864,354 @@ export async function getOrComputeWaveformPeaks(
   }
 
   return buildProceduralWaveformFallback(cleanPath, buckets);
+}
+
+// ==================== Dexie v4 Multi-Queues, Ratings/Tags & Smart Playlists ====================
+
+export async function saveNamedQueue(
+  input: {
+    id?: string;
+    name: string;
+    songs: any[];
+    currentIndex?: number;
+  },
+  customIndexedDB?: any
+): Promise<SavedQueueRecord> {
+  const db = getLibraryDB(customIndexedDB);
+  const record: SavedQueueRecord = {
+    id: input.id || generateUUID(),
+    name: input.name.trim() || 'Saved Queue',
+    trackIds: (input.songs || []).map((s) => s?.id ?? s?.filePath ?? '').filter(Boolean),
+    songs: Array.isArray(input.songs) ? input.songs.map((s) => ({ ...s })) : [],
+    currentIndex: Math.max(0, Math.round(input.currentIndex ?? 0)),
+    updatedAt: Date.now()
+  };
+  await db.queues.put(record);
+  return record;
+}
+
+export async function listSavedQueues(customIndexedDB?: any): Promise<SavedQueueRecord[]> {
+  if (typeof indexedDB === 'undefined' && !customIndexedDB) return [];
+  const db = getLibraryDB(customIndexedDB);
+  const all = await db.queues.toArray();
+  return all.sort((a, b) => b.updatedAt - a.updatedAt);
+}
+
+export async function deleteSavedQueue(id: string, customIndexedDB?: any): Promise<void> {
+  if (!id) return;
+  const db = getLibraryDB(customIndexedDB);
+  await db.queues.delete(id);
+}
+
+export async function saveSmartPlaylist(
+  input: {
+    id?: string;
+    name: string;
+    matchMode?: 'all' | 'any';
+    rules: SmartPlaylistRule[];
+    sortBy?: SmartPlaylistRecord['sortBy'];
+    limit?: number;
+  },
+  customIndexedDB?: any
+): Promise<SmartPlaylistRecord> {
+  const db = getLibraryDB(customIndexedDB);
+  const record: SmartPlaylistRecord = {
+    id: input.id || generateUUID(),
+    name: input.name.trim() || 'Smart Playlist',
+    matchMode: input.matchMode === 'any' ? 'any' : 'all',
+    rules: Array.isArray(input.rules) ? input.rules.map((r) => ({ ...r })) : [],
+    sortBy: input.sortBy || 'recent',
+    limit: input.limit && input.limit > 0 ? Math.round(input.limit) : undefined,
+    updatedAt: Date.now()
+  };
+  await db.smartPlaylists.put(record);
+  return record;
+}
+
+export async function listSmartPlaylists(customIndexedDB?: any): Promise<SmartPlaylistRecord[]> {
+  if (typeof indexedDB === 'undefined' && !customIndexedDB) return [];
+  const db = getLibraryDB(customIndexedDB);
+  const all = await db.smartPlaylists.toArray();
+  return all.sort((a, b) => b.updatedAt - a.updatedAt);
+}
+
+export async function deleteSmartPlaylist(id: string, customIndexedDB?: any): Promise<void> {
+  if (!id) return;
+  const db = getLibraryDB(customIndexedDB);
+  await db.smartPlaylists.delete(id);
+}
+
+function cleanStringArray(values?: string[]): string[] {
+  if (!Array.isArray(values)) return [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const val of values) {
+    const trimmed = String(val || '').trim();
+    if (!trimmed) continue;
+    const key = trimmed.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(trimmed);
+  }
+  return out;
+}
+
+export async function updateSongTagsAndRating(
+  input: {
+    songId?: string;
+    filePath?: string;
+    title?: string;
+    artist?: string;
+    album?: string;
+    durationSec?: number;
+    rating?: number;
+    moods?: string[];
+    tags?: string[];
+  },
+  customIndexedDB?: any
+): Promise<Song | null> {
+  const db = getLibraryDB(customIndexedDB);
+  let targetSong: Song | undefined;
+
+  if (input.songId) {
+    targetSong = await db.songs.get(input.songId);
+  }
+  if (!targetSong && input.filePath) {
+    const variants = await db.variants.where('path').equals(input.filePath).toArray();
+    if (variants[0]) {
+      targetSong = await db.songs.get(variants[0].songId);
+    }
+  }
+  if (!targetSong && input.title && input.artist) {
+    const nk = computeNormKey(input.artist, input.title);
+    const byKey = await db.songs.where('normKey').equals(nk).toArray();
+    targetSong = byKey[0];
+  }
+
+  const normalizedRating =
+    typeof input.rating === 'number' && Number.isFinite(input.rating)
+      ? Math.max(0, Math.min(5, Math.round(input.rating)))
+      : undefined;
+  const normalizedMoods = input.moods ? cleanStringArray(input.moods) : undefined;
+  const normalizedTags = input.tags ? cleanStringArray(input.tags) : undefined;
+
+  if (!targetSong) {
+    if (!input.filePath && !input.title) return null;
+    const newId = input.songId || generateUUID();
+    const title = input.title || 'Unknown Title';
+    const artist = input.artist || 'Unknown Artist';
+    const newSong: Song = {
+      id: newId,
+      title,
+      artist,
+      album: input.album || '',
+      durationSec: input.durationSec ?? 0,
+      normKey: computeNormKey(artist, title),
+      rating: normalizedRating ?? 0,
+      moods: normalizedMoods ?? [],
+      tags: normalizedTags ?? [],
+      createdAt: Date.now()
+    };
+    await db.songs.put(newSong);
+    if (input.filePath) {
+      await db.variants.put({
+        id: generateUUID(),
+        songId: newId,
+        kind: /\.(mp4|webm)$/i.test(input.filePath) ? 'video' : 'audio',
+        source: 'local',
+        path: input.filePath,
+        container: getExtension(input.filePath),
+        addedAt: Date.now()
+      });
+    }
+    return newSong;
+  }
+
+  const updates: Partial<Song> = {};
+  if (normalizedRating !== undefined) updates.rating = normalizedRating;
+  if (normalizedMoods !== undefined) updates.moods = normalizedMoods;
+  if (normalizedTags !== undefined) updates.tags = normalizedTags;
+  await db.songs.update(targetSong.id, updates);
+  return (await db.songs.get(targetSong.id)) || null;
+}
+
+export async function getSongAnnotationMap(customIndexedDB?: any): Promise<{
+  byPath: Record<string, SongAnnotationRecord>;
+  bySongId: Record<string, SongAnnotationRecord>;
+}> {
+  if (typeof indexedDB === 'undefined' && !customIndexedDB) {
+    return { byPath: {}, bySongId: {} };
+  }
+  const db = getLibraryDB(customIndexedDB);
+  const [songs, variants] = await Promise.all([db.songs.toArray(), db.variants.toArray()]);
+  const bySongId: Record<string, SongAnnotationRecord> = {};
+  const byPath: Record<string, SongAnnotationRecord> = {};
+
+  for (const song of songs) {
+    const ann: SongAnnotationRecord = {
+      rating: Number(song.rating || 0),
+      moods: Array.isArray(song.moods) ? song.moods : [],
+      tags: Array.isArray(song.tags) ? song.tags : []
+    };
+    if (ann.rating > 0 || ann.moods.length > 0 || ann.tags.length > 0) {
+      bySongId[song.id] = ann;
+    }
+  }
+
+  for (const v of variants) {
+    if (v.kind === 'lyrics' || !v.path) continue;
+    const ann = bySongId[v.songId];
+    if (ann) {
+      byPath[v.path] = ann;
+    }
+  }
+
+  return { byPath, bySongId };
+}
+
+function resolveTrackDurationSec(track: Record<string, any>): number {
+  if (typeof track.durationSec === 'number' && Number.isFinite(track.durationSec)) {
+    return track.durationSec;
+  }
+  const raw = Number(track.duration ?? track.dt ?? 0);
+  if (!Number.isFinite(raw) || raw <= 0) return 0;
+  return raw / 1000;
+}
+
+function resolveTrackArtists(track: Record<string, any>): string[] {
+  const out: string[] = [];
+  if (Array.isArray(track.artistsSplit)) out.push(...track.artistsSplit);
+  if (Array.isArray(track.ar)) {
+    for (const a of track.ar) if (a?.name) out.push(String(a.name));
+  }
+  if (Array.isArray(track.song?.artists)) {
+    for (const a of track.song.artists) if (a?.name) out.push(String(a.name));
+  }
+  if (typeof track.artist === 'string' && track.artist) out.push(track.artist);
+  return cleanStringArray(out);
+}
+
+function resolveTrackGenres(track: Record<string, any>): string[] {
+  if (Array.isArray(track.genresSplit)) return cleanStringArray(track.genresSplit);
+  const raw = track.genre || track.meta?.genre;
+  if (typeof raw === 'string' && raw.trim()) {
+    return cleanStringArray(raw.split(/\s*(?:;|,|\/|\x00)\s*/i));
+  }
+  return [];
+}
+
+function matchStringList(list: string[], op: SmartPlaylistOperator, target: string): boolean {
+  const needle = target.trim().toLowerCase();
+  if (!needle) return true;
+  if (op === 'eq') {
+    return list.some((item) => item.toLowerCase() === needle);
+  }
+  return list.some((item) => item.toLowerCase().includes(needle));
+}
+
+function matchNumberRule(actual: number, op: SmartPlaylistOperator, expected: number): boolean {
+  if (!Number.isFinite(expected)) return true;
+  if (op === 'gte') return actual >= expected;
+  if (op === 'lte') return actual <= expected;
+  return actual === expected;
+}
+
+function evaluateRule(
+  track: Record<string, any>,
+  rule: SmartPlaylistRule,
+  playCounts?: Record<string, number>
+): boolean {
+  const durationSec = resolveTrackDurationSec(track);
+  const trackPlayCount = Number(
+    playCounts?.[String(track.id ?? '')] ??
+      playCounts?.[String(track.filePath ?? track.path ?? '')] ??
+      track.playCount ??
+      track.plays ??
+      0
+  );
+
+  switch (rule.field) {
+    case 'rating':
+      return matchNumberRule(Number(track.rating ?? 0), rule.operator, Number(rule.value));
+    case 'playCount':
+      return matchNumberRule(trackPlayCount, rule.operator, Number(rule.value));
+    case 'minDurationSec':
+      return rule.operator === 'lte' || rule.operator === 'eq'
+        ? matchNumberRule(durationSec, rule.operator, Number(rule.value))
+        : durationSec >= Number(rule.value);
+    case 'maxDurationSec':
+      return rule.operator === 'gte' || rule.operator === 'eq'
+        ? matchNumberRule(durationSec, rule.operator, Number(rule.value))
+        : durationSec <= Number(rule.value);
+    case 'hasVideo': {
+      const hasVideo = Boolean(
+        track.videoUrl ||
+          track.hasVideo ||
+          /\.(mp4|webm)$/i.test(String(track.filePath || track.path || ''))
+      );
+      return hasVideo === Boolean(rule.value === true || rule.value === 'true');
+    }
+    case 'mood':
+      return matchStringList(
+        cleanStringArray(track.moods),
+        rule.operator,
+        String(rule.value ?? '')
+      );
+    case 'tag':
+      return matchStringList(
+        cleanStringArray(track.tags),
+        rule.operator,
+        String(rule.value ?? '')
+      );
+    case 'genre':
+      return matchStringList(resolveTrackGenres(track), rule.operator, String(rule.value ?? ''));
+    case 'artist':
+      return matchStringList(resolveTrackArtists(track), rule.operator, String(rule.value ?? ''));
+    default:
+      return true;
+  }
+}
+
+export function evaluateSmartPlaylist<T extends Record<string, any>>(
+  tracks: T[],
+  playlist: SmartPlaylistRecord,
+  playCounts?: Record<string, number>
+): T[] {
+  const rules = Array.isArray(playlist.rules) ? playlist.rules : [];
+  const matched =
+    rules.length === 0
+      ? [...tracks]
+      : tracks.filter((track) => {
+          if (playlist.matchMode === 'any') {
+            return rules.some((rule) => evaluateRule(track, rule, playCounts));
+          }
+          return rules.every((rule) => evaluateRule(track, rule, playCounts));
+        });
+
+  const sortBy = playlist.sortBy || 'recent';
+  matched.sort((a, b) => {
+    if (sortBy === 'title') {
+      return String(a.title || a.name || '').localeCompare(String(b.title || b.name || ''));
+    }
+    if (sortBy === 'artist') {
+      return (resolveTrackArtists(a)[0] || '').localeCompare(resolveTrackArtists(b)[0] || '');
+    }
+    if (sortBy === 'rating') {
+      return Number(b.rating ?? 0) - Number(a.rating ?? 0);
+    }
+    if (sortBy === 'playCount') {
+      const ca = Number(playCounts?.[String(a.id ?? '')] ?? a.playCount ?? a.plays ?? 0);
+      const cb = Number(playCounts?.[String(b.id ?? '')] ?? b.playCount ?? b.plays ?? 0);
+      return cb - ca;
+    }
+    if (sortBy === 'duration') {
+      return resolveTrackDurationSec(b) - resolveTrackDurationSec(a);
+    }
+    return Number(b.modifiedTime ?? b.createdAt ?? 0) - Number(a.modifiedTime ?? a.createdAt ?? 0);
+  });
+
+  if (playlist.limit && playlist.limit > 0) {
+    return matched.slice(0, playlist.limit);
+  }
+  return matched;
 }

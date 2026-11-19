@@ -19,6 +19,14 @@
     <div class="playlist-panel-header">
       <div class="title">{{ t('player.playBar.playList') }}</div>
       <div class="header-actions">
+        <n-tooltip v-if="playList.length > 0" trigger="hover">
+          <template #trigger>
+            <div class="action-btn" @click="showSaveQueueInput = !showSaveQueueInput">
+              <i class="iconfont ri-bookmark-line"></i>
+            </div>
+          </template>
+          Save Queue Snapshot
+        </n-tooltip>
         <n-tooltip trigger="hover">
           <template #trigger>
             <div class="action-btn" @click="handleClearPlaylist">
@@ -32,12 +40,69 @@
         </div>
       </div>
     </div>
+
+    <!-- Saved Queues Bar -->
+    <div
+      v-if="showSaveQueueInput || savedQueues.length > 0"
+      class="px-3 py-2 border-b border-gray-100 dark:border-gray-800 space-y-2 text-xs shrink-0"
+    >
+      <div v-if="showSaveQueueInput && playList.length > 0" class="flex items-center gap-1.5">
+        <n-input
+          v-model:value="newQueueName"
+          size="tiny"
+          placeholder="Queue name..."
+          clearable
+          @keydown.enter="handleSaveCurrentQueue"
+        />
+        <n-button size="tiny" type="primary" @click="handleSaveCurrentQueue">Save</n-button>
+      </div>
+      <n-scrollbar v-if="savedQueues.length > 0" x-scrollable>
+        <div class="flex items-center gap-1.5 whitespace-nowrap pb-0.5">
+          <div
+            v-for="q in savedQueues"
+            :key="q.id"
+            class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 cursor-pointer hover:bg-primary/15 transition-colors"
+            @click="loadSavedQueue(q)"
+          >
+            <i class="ri-play-list-2-line text-[11px] text-primary" />
+            <span>{{ q.name }} ({{ q.songs.length }})</span>
+            <button
+              type="button"
+              class="ml-0.5 text-gray-400 hover:text-red-500"
+              title="Delete Saved Queue"
+              @click.stop="removeSavedQueue(q.id)"
+            >
+              <i class="ri-close-line text-[11px]" />
+            </button>
+          </div>
+        </div>
+      </n-scrollbar>
+    </div>
+
+    <!-- Undo Clear Banner -->
+    <div
+      v-if="lastClearedCount > 0"
+      class="px-3 py-1.5 bg-amber-500/10 border-b border-amber-500/20 flex items-center justify-between text-xs text-amber-600 dark:text-amber-300 shrink-0"
+    >
+      <span>Queue cleared ({{ lastClearedCount }} tracks)</span>
+      <n-button size="tiny" type="warning" secondary @click="handleUndoClear">
+        Undo Clear
+      </n-button>
+    </div>
+
     <div class="playlist-panel-content">
       <div v-if="playList.length === 0" class="empty-playlist">
         <i class="iconfont ri-music-2-line"></i>
         <p>{{ t('player.playList.empty') }}</p>
       </div>
-      <n-virtual-list v-else ref="playListRef" :item-size="62" item-resizable :items="playList">
+      <n-virtual-list
+        v-else
+        ref="playListRef"
+        style="height: 100%"
+        :item-size="62"
+        item-resizable
+        :items="playList"
+      >
         <template #default="{ item }">
           <div class="music-play-list-content">
             <div class="flex items-center justify-between">
@@ -61,9 +126,16 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import SongItem from '@/components/common/SongItem.vue';
+import {
+  deleteSavedQueue,
+  listSavedQueues,
+  type SavedQueueRecord,
+  saveNamedQueue
+} from '@/services/songLibrary';
 import { usePlayerStore } from '@/store/modules/player';
 import type { SongResult } from '@/types/music';
 import { isMobile } from '@/utils';
+import { minifySongList } from '@/utils/persistedSong';
 
 const { t } = useI18n();
 const message = useMessage();
@@ -72,6 +144,67 @@ const playerStore = usePlayerStore();
 
 const internalVisible = ref(false);
 const closing = ref(false);
+const savedQueues = ref<SavedQueueRecord[]>([]);
+const showSaveQueueInput = ref(false);
+const newQueueName = ref('');
+
+async function refreshSavedQueues() {
+  try {
+    savedQueues.value = await listSavedQueues();
+  } catch {
+    savedQueues.value = [];
+  }
+}
+
+watch(
+  () => playerStore.playListDrawerVisible,
+  (val) => {
+    if (val) {
+      void refreshSavedQueues();
+    }
+  },
+  { immediate: true }
+);
+
+const lastClearedCount = computed(() => playerStore.lastClearedQueue?.list?.length || 0);
+
+async function handleSaveCurrentQueue() {
+  if (playList.value.length === 0) return;
+  const label = newQueueName.value.trim() || `Queue (${playList.value.length})`;
+  await saveNamedQueue({
+    name: label,
+    songs: minifySongList(playList.value),
+    currentIndex: playerStore.playListIndex
+  });
+  newQueueName.value = '';
+  showSaveQueueInput.value = false;
+  await refreshSavedQueues();
+  message.success(`Saved queue "${label}".`);
+}
+
+function loadSavedQueue(q: SavedQueueRecord) {
+  if (!Array.isArray(q.songs) || q.songs.length === 0) {
+    message.info('Saved queue is empty.');
+    return;
+  }
+  playerStore.setPlayList(q.songs as SongResult[], false, false, true);
+  const idx = Math.min(Math.max(0, q.currentIndex || 0), q.songs.length - 1);
+  if (q.songs[idx]) {
+    void playerStore.setPlayMusic(q.songs[idx] as SongResult);
+  }
+  message.success(`Loaded "${q.name}" (${q.songs.length} tracks).`);
+}
+
+async function removeSavedQueue(id: string) {
+  await deleteSavedQueue(id);
+  await refreshSavedQueues();
+}
+
+function handleUndoClear() {
+  if (playerStore.undoClearPlayAll()) {
+    message.success('Restored cleared queue.');
+  }
+}
 
 const show = computed({
   get: () => playerStore.playListDrawerVisible,
@@ -174,7 +307,7 @@ const handleDeleteSong = (song: SongResult) => {
 }
 
 .playlist-panel {
-  @apply fixed right-0 z-[9999999] rounded-l-xl overflow-hidden;
+  @apply fixed right-0 z-[9999999] rounded-l-xl overflow-hidden flex flex-col;
   width: 350px;
   height: 70vh;
   top: 15vh;
@@ -183,7 +316,7 @@ const handleDeleteSong = (song: SongResult) => {
   @apply bg-light dark:bg-dark shadow-2xl dark:border dark:border-gray-700;
 
   &-header {
-    @apply flex items-center justify-between px-4 py-2 border-b border-gray-100 dark:border-gray-900;
+    @apply flex items-center justify-between px-4 py-2 border-b border-gray-100 dark:border-gray-900 shrink-0;
     backdrop-filter: blur(10px);
     background-color: rgba(255, 255, 255, 0.7);
 
@@ -218,7 +351,7 @@ const handleDeleteSong = (song: SongResult) => {
   }
 
   &-content {
-    @apply h-[calc(70vh-60px)] overflow-hidden;
+    @apply flex-1 min-h-0 overflow-hidden;
   }
 }
 
@@ -278,8 +411,8 @@ const handleDeleteSong = (song: SongResult) => {
     }
 
     &-content {
-      height: calc(80vh - 60px);
-      @apply px-4;
+      height: auto;
+      @apply px-4 flex-1 min-h-0;
       .delete-btn {
         @apply visible;
       }

@@ -54,8 +54,14 @@ export const usePlayerStore = defineStore('player', () => {
     enableDynamicPalette
   } = storeToRefs(playerCore);
 
-  const { playList, playListIndex, playMode, originalPlayList, playListDrawerVisible } =
-    storeToRefs(playlist);
+  const {
+    playList,
+    playListIndex,
+    playMode,
+    originalPlayList,
+    playListDrawerVisible,
+    lastClearedQueue
+  } = storeToRefs(playlist);
 
   const { favoriteList, dislikeList } = storeToRefs(favorite);
 
@@ -140,6 +146,7 @@ export const usePlayerStore = defineStore('player', () => {
     playMode,
     originalPlayList,
     playListDrawerVisible,
+    lastClearedQueue,
 
     // Playlist - Computed
     currentPlayList,
@@ -149,8 +156,11 @@ export const usePlayerStore = defineStore('player', () => {
     setPlayList: playlist.setPlayList,
     prepareSongPlayback: playlist.prepareSongPlayback,
     addToNextPlay: playlist.addToNextPlay,
+    addToQueueEnd: playlist.addToQueueEnd,
+    reorderPlayList: playlist.reorderPlayList,
     removeFromPlayList: playlist.removeFromPlayList,
     clearPlayAll: playlist.clearPlayAll,
+    undoClearPlayAll: playlist.undoClearPlayAll,
     togglePlayMode: playlist.togglePlayMode,
     shufflePlayList: playlist.shufflePlayList,
     restoreOriginalOrder: playlist.restoreOriginalOrder,

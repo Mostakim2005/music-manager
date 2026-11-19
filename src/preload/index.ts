@@ -321,8 +321,8 @@ const api = {
   lxMusicHttpCancel: (requestId: string) => ipcRenderer.invoke('lx-music-http-cancel', requestId),
 
   scanLocalMusic: (folderPath: string) => ipcRenderer.invoke('scan-local-music', folderPath),
-  scanLocalMusicWithStats: (folderPath: string) =>
-    ipcRenderer.invoke('scan-local-music-with-stats', folderPath),
+  scanLocalMusicWithStats: (folderPath: string, excludedFolders?: string[]) =>
+    ipcRenderer.invoke('scan-local-music-with-stats', folderPath, excludedFolders),
   parseLocalMusicMetadata: (filePaths: string[]) =>
     ipcRenderer.invoke('parse-local-music-metadata', filePaths),
   fetchOnlineMetadata: (query: { title: string; artist?: string; album?: string }) =>

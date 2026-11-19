@@ -98,12 +98,15 @@
   * `src/renderer/hooks/useLocalTrackEditor.ts` -> `useLocalTrackEditor`
   * `src/renderer/components/common/LocalTrackEditorModal.vue` -> `handleSave`, `handleAutoFetchLyrics`
 
-### [FEATURE: Unified-Song-Library] | Aliases: variants, song identity, duplicates, fingerprint, one song
-> **1-Line Summary:** Audio copies and videos of the same recording live as one song record with a stable identity, with fingerprinting to merge duplicates.
-* **User Intention (Non-Negotiable):** Each song has one unique ID built from artist and title; audio and video files are matched to that ID; duplicates merge without losing variants.
-* **Visual / UI Behavior:** Files tab of the video source dialog lists every linked file with play/reveal/unlink/delete actions.
+### [FEATURE: Unified-Song-Library] | Aliases: variants, song identity, duplicates, fingerprint, one song, queues, smart playlists, folders, tags, rating, allowlist
+> **1-Line Summary:** Dexie v4 unifies audio/video/lyrics variants with multi-queue snapshots, rule-based smart playlists, folder browser, ratings/moods/tags, excluded subfolders, minimum duration filtering, and artist split exceptions.
+* **User Intention (Non-Negotiable):** Each song keeps one canonical identity across variants; queue clears are undoable and queues save across sessions; combined artist names (`Tyler, The Creator`, `Earth, Wind & Fire`, user allowlist) are never falsely split.
+* **Visual / UI Behavior:** Local Music page offers `All Tracks`, `Folders`, and `Smart Playlists` tabs, quick queue actions (`Play Next`, `Add to Queue`), Rating/Mood/Tag editor modal, Folder Manager controls (exclusions, min duration, artist allowlist), and PlayingListDrawer Saved Queues + Undo Clear banner.
 * **Code Anchors (Grep Targets):**
-  * `src/renderer/services/songLibrary.ts` -> `computeNormKey`, `ingestLocalTrack`, `linkVariant`, `getVariants`, `getSongKey`
+  * `src/renderer/services/songLibrary.ts` -> `computeNormKey`, `ingestLocalTrack`, `saveNamedQueue`, `saveSmartPlaylist`, `updateSongTagsAndRating`, `evaluateSmartPlaylist`
+  * `src/renderer/utils/localMusicUtils.ts` -> `DEFAULT_ARTIST_EXCEPTIONS`, `parseMultiArtists`, `parseMultiGenres`, `getArtistSplitExceptions`, `setArtistSplitExceptions`
+  * `src/renderer/views/local-music/index.vue` -> `folderGroups`, `smartMatchedTracks`, `openTagEditor`
+  * `src/renderer/components/player/PlayingListDrawer.vue` -> `handleSaveCurrentQueue`, `loadSavedQueue`, `handleUndoClear`
 
 ### [FEATURE: Player-Look-And-Feel] | Aliases: stacked player, themes, palette, waveform, fullscreen, ambient canvas, karaoke glow, smtc, media session, pitch black, lexend deca, pill slider, baked glow, frosted mini player, collage
 > **1-Line Summary:** A polished Namida-inspired player: `Lexend Deca` typography, dynamic artwork color engine with 5-level Pitch Black mode, Material 3 pill-thumb sliders, `20px` settings cards, 50/50 widescreen & stacked layouts, pre-baked 64x64 artwork glow, WebGL2 ambient shader canvas, frosted glass playbar, hover-reveal floating lyrics, 2x2 collage cards, 3-row track tiles, karaoke word fill, real Dexie-cached acoustic waveform seekbar with seek-poke pulse, and Windows SMTC media controls.

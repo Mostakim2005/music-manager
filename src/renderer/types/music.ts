@@ -73,6 +73,13 @@ export interface SongResult {
   mv?: number;
   mvid?: number;
   videoUrl?: string;
+  localPath?: string;
+  genre?: string;
+  bitrate?: number;
+  codec?: string;
+  rating?: number;
+  moods?: string[];
+  tags?: string[];
   isFirstPlay?: boolean;
   isPodcast?: boolean;
 }

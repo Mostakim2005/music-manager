@@ -34,6 +34,7 @@ export const usePlaylistStore = defineStore(
     const playMode = ref(0);
     const originalPlayList = shallowRef<SongResult[]>([]);
     const playListDrawerVisible = ref(false);
+    const lastClearedQueue = shallowRef<{ list: SongResult[]; index: number } | null>(null);
 
     const consecutiveFailCount = ref(0);
     const MAX_CONSECUTIVE_FAILS = 5;
@@ -333,6 +334,40 @@ export const usePlaylistStore = defineStore(
       setPlayList(list, true, false, true);
     };
 
+    const addToQueueEnd = (song: SongResult) => {
+      if (!song) return;
+      const list = [...playList.value];
+      if (list.length === 0) {
+        setPlayList([song], false, false, true);
+        return;
+      }
+      const currentIndex = playListIndex.value;
+      if (list[currentIndex]?.id === song.id) return;
+      const existingIndex = list.findIndex((item) => item.id === song.id);
+      if (existingIndex !== -1) {
+        list.splice(existingIndex, 1);
+      }
+      list.push(song);
+      setPlayList(list, true, false, true);
+    };
+
+    const reorderPlayList = (fromIndex: number, toIndex: number) => {
+      const len = playList.value.length;
+      if (
+        fromIndex === toIndex ||
+        fromIndex < 0 ||
+        toIndex < 0 ||
+        fromIndex >= len ||
+        toIndex >= len
+      ) {
+        return;
+      }
+      const list = [...playList.value];
+      const [moved] = list.splice(fromIndex, 1);
+      list.splice(toIndex, 0, moved);
+      setPlayList(list, true, false, true);
+    };
+
     /**
      */
     const prepareSongPlayback = (song: SongResult, context: SongResult[] = []): boolean => {
@@ -394,6 +429,12 @@ export const usePlaylistStore = defineStore(
     /**
      */
     const clearPlayAll = (): void => {
+      if (playList.value.length > 0) {
+        lastClearedQueue.value = {
+          list: [...playList.value],
+          index: playListIndex.value
+        };
+      }
       const playerCore = usePlayerCoreStore();
       playerCore.handlePause();
       audioService.stop();
@@ -409,6 +450,20 @@ export const usePlaylistStore = defineStore(
       } catch (error) {
         console.warn('Failed to clear playback progress:', error);
       }
+    };
+
+    const undoClearPlayAll = (): boolean => {
+      const snapshot = lastClearedQueue.value;
+      if (!snapshot || snapshot.list.length === 0) return false;
+      lastClearedQueue.value = null;
+      setPlayList(snapshot.list, false, false, true);
+      const targetIdx = Math.min(Math.max(0, snapshot.index), snapshot.list.length - 1);
+      playListIndex.value = targetIdx;
+      const track = snapshot.list[targetIdx];
+      if (track) {
+        void usePlayerCoreStore().setPlayMusic(track);
+      }
+      return true;
     };
 
     /**
@@ -660,6 +715,7 @@ export const usePlaylistStore = defineStore(
       playMode,
       originalPlayList,
       playListDrawerVisible,
+      lastClearedQueue,
 
       // Computed
       currentPlayList,
@@ -669,8 +725,11 @@ export const usePlaylistStore = defineStore(
       setPlayList,
       prepareSongPlayback,
       addToNextPlay,
+      addToQueueEnd,
+      reorderPlayList,
       removeFromPlayList,
       clearPlayAll,
+      undoClearPlayAll,
       togglePlayMode,
       shufflePlayList,
       restoreOriginalOrder,

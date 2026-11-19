@@ -59,7 +59,8 @@ export interface IElectronAPI {
   };
   scanLocalMusic: (_folderPath: string) => Promise<{ files: string[]; count: number }>;
   scanLocalMusicWithStats: (
-    _folderPath: string
+    _folderPath: string,
+    _excludedFolders?: string[]
   ) => Promise<{ files: { path: string; modifiedTime: number }[]; count: number }>;
   parseLocalMusicMetadata: (_filePaths: string[]) => Promise<LocalMusicMeta[]>;
   checkFileExists: (_filePath: string) => Promise<boolean>;

@@ -28,7 +28,7 @@
                   {{ t('localMusic.title') }}
                 </h1>
                 <p class="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
-                  {{ t('localMusic.songCount', { count: localMusicStore.musicList.length }) }}
+                  {{ t('localMusic.songCount', { count: localMusicStore.visibleMusicList.length }) }}
                 </p>
               </div>
             </div>
@@ -114,9 +114,8 @@
               </button>
 
               <button
-                v-if="localMusicStore.folderPaths.length > 0"
                 class="action-btn-icon w-10 h-10 rounded-full flex items-center justify-center bg-neutral-100 dark:bg-neutral-900 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-neutral-800 transition-all"
-                title="Manage Library Folders"
+                title="Manage Library Folders, Exclusions, Min Duration & Artist Allowlist"
                 @click="showFolderManager = true"
               >
                 <i class="ri-folder-settings-line text-lg" />
@@ -171,63 +170,438 @@
           </div>
         </section>
 
-        <section class="list-section page-padding-x mt-6">
-          <div
-            v-if="!localMusicStore.scanning && filteredList.length === 0"
-            class="empty-state py-20 text-center"
-          >
-            <i class="ri-folder-music-fill text-5xl mb-4 text-neutral-200 dark:text-neutral-800" />
-            <p class="text-neutral-400">{{ t('localMusic.emptyState') }}</p>
-            <button
-              class="mt-6 px-6 py-2 rounded-full bg-primary text-white text-sm font-medium hover:bg-primary/90 transition-all"
-              @click="handleAddFolder"
-            >
-              <i class="ri-folder-add-line mr-2" />
-              {{ t('localMusic.scanFolder') }}
-            </button>
+        <section class="list-section page-padding-x mt-5">
+          <!-- Library View Tabs -->
+          <div class="flex items-center justify-between gap-3 flex-wrap mb-4">
+            <div class="inline-flex items-center gap-1 p-1 rounded-full bg-neutral-100 dark:bg-neutral-900">
+              <button
+                type="button"
+                class="px-3.5 py-1.5 rounded-full text-xs font-medium transition-colors"
+                :class="
+                  activeTab === 'all'
+                    ? 'bg-primary text-white shadow-sm'
+                    : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
+                "
+                @click="activeTab = 'all'"
+              >
+                All Tracks ({{ filteredList.length }})
+              </button>
+              <button
+                type="button"
+                class="px-3.5 py-1.5 rounded-full text-xs font-medium transition-colors"
+                :class="
+                  activeTab === 'folders'
+                    ? 'bg-primary text-white shadow-sm'
+                    : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
+                "
+                @click="activeTab = 'folders'"
+              >
+                Folders ({{ folderGroups.length }})
+              </button>
+              <button
+                type="button"
+                class="px-3.5 py-1.5 rounded-full text-xs font-medium transition-colors"
+                :class="
+                  activeTab === 'smart'
+                    ? 'bg-primary text-white shadow-sm'
+                    : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
+                "
+                @click="activeTab = 'smart'"
+              >
+                Smart Playlists ({{ smartPlaylists.length }})
+              </button>
+            </div>
           </div>
 
-          <div v-else-if="filteredList.length > 0" class="song-list-container space-y-1">
-            <local-track-row
-              v-for="(item, index) in filteredSongResults"
-              :key="item.id"
-              :index="index"
-              :item="item"
-              :entry="filteredList[index]"
-              @play="handlePlaySong"
-              @edit="openTrackEditor"
-              @remove="handleRemoveSong(item.id)"
-            />
-          </div>
+          <!-- TAB: ALL TRACKS -->
+          <template v-if="activeTab === 'all'">
+            <div
+              v-if="!localMusicStore.scanning && filteredList.length === 0"
+              class="empty-state py-20 text-center"
+            >
+              <i class="ri-folder-music-fill text-5xl mb-4 text-neutral-200 dark:text-neutral-800" />
+              <p class="text-neutral-400">{{ t('localMusic.emptyState') }}</p>
+              <button
+                class="mt-6 px-6 py-2 rounded-full bg-primary text-white text-sm font-medium hover:bg-primary/90 transition-all"
+                @click="handleAddFolder"
+              >
+                <i class="ri-folder-add-line mr-2" />
+                {{ t('localMusic.scanFolder') }}
+              </button>
+            </div>
+
+            <div v-else-if="filteredList.length > 0" class="song-list-container space-y-1">
+              <local-track-row
+                v-for="(item, index) in filteredSongResults"
+                :key="item.id"
+                :index="index"
+                :item="item"
+                :entry="filteredList[index]"
+                :play-count="getTrackPlayCount(item)"
+                :rating="getEntryAnnotation(filteredList[index]).rating"
+                :moods="getEntryAnnotation(filteredList[index]).moods"
+                :tags="getEntryAnnotation(filteredList[index]).tags"
+                @play="handlePlaySong"
+                @play-next="handlePlayNext"
+                @queue-end="handleAddToQueueEnd"
+                @edit="openTrackEditor"
+                @edit-tags="openTagEditor"
+                @remove="handleRemoveSong(item.id)"
+              />
+            </div>
+          </template>
+
+          <!-- TAB: FOLDERS BROWSER -->
+          <template v-else-if="activeTab === 'folders'">
+            <div v-if="folderGroups.length === 0" class="py-16 text-center text-neutral-400 text-sm">
+              No scanned folders found yet.
+            </div>
+            <div v-else class="space-y-4">
+              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                <div
+                  v-for="group in folderGroups"
+                  :key="group.dir"
+                  class="p-3.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3"
+                  :class="
+                    activeFolderDir === group.dir
+                      ? 'bg-primary/10 border-primary/40'
+                      : 'bg-neutral-50 dark:bg-neutral-900 border-neutral-200/70 dark:border-neutral-800 hover:border-primary/30'
+                  "
+                  @click="activeFolderDir = activeFolderDir === group.dir ? '' : group.dir"
+                >
+                  <div class="min-w-0 flex-1">
+                    <div class="text-sm font-semibold text-neutral-900 dark:text-white truncate flex items-center gap-1.5">
+                      <i class="ri-folder-music-line text-primary" />
+                      {{ group.label }}
+                    </div>
+                    <div class="text-[11px] text-neutral-400 truncate mt-0.5" :title="group.dir">
+                      {{ group.dir }}
+                    </div>
+                    <div class="text-[11px] text-neutral-500 mt-1">
+                      {{ group.entries.length }} tracks
+                    </div>
+                  </div>
+                  <n-button
+                    size="tiny"
+                    type="primary"
+                    secondary
+                    @click.stop="playSongBatch(group.songResults)"
+                  >
+                    Play
+                  </n-button>
+                </div>
+              </div>
+
+              <div v-if="selectedFolderGroup" class="space-y-1 pt-2">
+                <div class="text-xs font-semibold text-neutral-500 mb-2">
+                  {{ selectedFolderGroup.dir }} ({{ selectedFolderGroup.entries.length }} tracks)
+                </div>
+                <local-track-row
+                  v-for="(item, index) in selectedFolderGroup.songResults"
+                  :key="`folder-${item.id}`"
+                  :index="index"
+                  :item="item"
+                  :entry="selectedFolderGroup.entries[index]"
+                  :play-count="getTrackPlayCount(item)"
+                  :rating="getEntryAnnotation(selectedFolderGroup.entries[index]).rating"
+                  :moods="getEntryAnnotation(selectedFolderGroup.entries[index]).moods"
+                  :tags="getEntryAnnotation(selectedFolderGroup.entries[index]).tags"
+                  @play="handlePlaySong($event, selectedFolderGroup.songResults)"
+                  @play-next="handlePlayNext"
+                  @queue-end="handleAddToQueueEnd"
+                  @edit="openTrackEditor"
+                  @edit-tags="openTagEditor"
+                  @remove="handleRemoveSong(item.id)"
+                />
+              </div>
+            </div>
+          </template>
+
+          <!-- TAB: SMART PLAYLISTS -->
+          <template v-else-if="activeTab === 'smart'">
+            <div class="space-y-4">
+              <div class="flex items-center justify-between flex-wrap gap-2">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <n-tag
+                    v-for="sp in smartPlaylists"
+                    :key="sp.id"
+                    :type="selectedSmartPlaylistId === sp.id ? 'success' : 'default'"
+                    round
+                    clickable
+                    @click="selectedSmartPlaylistId = sp.id"
+                  >
+                    {{ sp.name }}
+                  </n-tag>
+                  <span v-if="smartPlaylists.length === 0" class="text-xs text-neutral-400">
+                    No smart playlists saved yet.
+                  </span>
+                </div>
+                <n-button size="small" type="primary" secondary @click="startNewSmartPlaylist">
+                  {{ showSmartBuilder ? 'Close Builder' : '+ New Smart Playlist' }}
+                </n-button>
+              </div>
+
+              <!-- Smart Playlist Rule Builder -->
+              <div
+                v-if="showSmartBuilder"
+                class="p-4 rounded-2xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 space-y-3"
+              >
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <n-input v-model:value="smartDraftName" size="small" placeholder="Playlist Name" />
+                  <n-select
+                    v-model:value="smartDraftMatchMode"
+                    size="small"
+                    :options="[
+                      { label: 'Match ALL rules (AND)', value: 'all' },
+                      { label: 'Match ANY rule (OR)', value: 'any' }
+                    ]"
+                  />
+                  <n-select
+                    v-model:value="smartDraftSortBy"
+                    size="small"
+                    :options="[
+                      { label: 'Sort: Recently Updated', value: 'recent' },
+                      { label: 'Sort: Rating (High -> Low)', value: 'rating' },
+                      { label: 'Sort: Play Count', value: 'playCount' },
+                      { label: 'Sort: Title', value: 'title' },
+                      { label: 'Sort: Artist', value: 'artist' },
+                      { label: 'Sort: Duration', value: 'duration' }
+                    ]"
+                  />
+                </div>
+
+                <div class="space-y-2">
+                  <div
+                    v-for="(rule, rIdx) in smartDraftRules"
+                    :key="rIdx"
+                    class="flex items-center gap-2 flex-wrap"
+                  >
+                    <n-select
+                      v-model:value="rule.field"
+                      size="small"
+                      style="width: 160px"
+                      :options="smartRuleFieldOptions"
+                    />
+                    <n-select
+                      v-model:value="rule.operator"
+                      size="small"
+                      style="width: 130px"
+                      :options="smartRuleOpOptions"
+                    />
+                    <n-input
+                      v-model:value="rule.value as string"
+                      size="small"
+                      style="width: 180px"
+                      placeholder="Value (e.g. 4, Chill, FLAC)"
+                    />
+                    <n-button
+                      size="small"
+                      quaternary
+                      type="error"
+                      @click="smartDraftRules.splice(rIdx, 1)"
+                    >
+                      Remove
+                    </n-button>
+                  </div>
+                </div>
+
+                <div class="flex items-center justify-between pt-2">
+                  <n-button size="tiny" secondary @click="addSmartRuleRow">+ Add Rule</n-button>
+                  <div class="flex items-center gap-2">
+                    <n-input-number
+                      v-model:value="smartDraftLimit"
+                      size="tiny"
+                      :min="0"
+                      :max="500"
+                      placeholder="Limit (0=all)"
+                      style="width: 130px"
+                    />
+                    <n-button size="small" type="primary" @click="handleSaveSmartPlaylist">
+                      Save Playlist
+                    </n-button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Selected Smart Playlist Matches -->
+              <div v-if="activeSmartPlaylist" class="space-y-2">
+                <div
+                  class="flex items-center justify-between p-3 rounded-xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-200/70 dark:border-neutral-800"
+                >
+                  <div>
+                    <div class="text-sm font-semibold text-neutral-900 dark:text-white">
+                      {{ activeSmartPlaylist.name }}
+                    </div>
+                    <div class="text-xs text-neutral-500">
+                      {{ smartMatchedTracks.length }} matched track(s) ·
+                      {{ activeSmartPlaylist.rules.length }} rule(s) ({{ activeSmartPlaylist.matchMode.toUpperCase() }})
+                    </div>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <n-button
+                      v-if="smartMatchedSongResults.length > 0"
+                      size="tiny"
+                      type="primary"
+                      @click="playSongBatch(smartMatchedSongResults)"
+                    >
+                      Play All
+                    </n-button>
+                    <n-button
+                      size="tiny"
+                      type="error"
+                      secondary
+                      @click="handleDeleteSmartPlaylist(activeSmartPlaylist.id)"
+                    >
+                      Delete
+                    </n-button>
+                  </div>
+                </div>
+
+                <div v-if="smartMatchedTracks.length === 0" class="py-10 text-center text-xs text-neutral-400">
+                  No local tracks match this smart playlist's rules yet.
+                </div>
+                <local-track-row
+                  v-for="(item, index) in smartMatchedSongResults"
+                  :key="`smart-${item.id}`"
+                  :index="index"
+                  :item="item"
+                  :entry="smartMatchedTracks[index]"
+                  :play-count="getTrackPlayCount(item)"
+                  :rating="getEntryAnnotation(smartMatchedTracks[index]).rating"
+                  :moods="getEntryAnnotation(smartMatchedTracks[index]).moods"
+                  :tags="getEntryAnnotation(smartMatchedTracks[index]).tags"
+                  @play="handlePlaySong($event, smartMatchedSongResults)"
+                  @play-next="handlePlayNext"
+                  @queue-end="handleAddToQueueEnd"
+                  @edit="openTrackEditor"
+                  @edit-tags="openTagEditor"
+                  @remove="handleRemoveSong(item.id)"
+                />
+              </div>
+            </div>
+          </template>
         </section>
       </div>
     </n-scrollbar>
 
-    <n-drawer v-model:show="showFolderManager" :width="400" placement="right">
+    <n-drawer v-model:show="showFolderManager" :width="440" placement="right">
       <n-drawer-content :title="t('localMusic.removeFolder')" closable>
-        <div class="space-y-3 py-4">
-          <div
-            v-for="folder in localMusicStore.folderPaths"
-            :key="folder"
-            class="flex items-center justify-between p-3 rounded-xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-100 dark:border-neutral-800"
-          >
-            <div class="flex items-center gap-3 min-w-0 flex-1">
-              <i class="ri-folder-line text-lg text-primary flex-shrink-0" />
-              <span class="text-sm text-neutral-700 dark:text-neutral-300 truncate">{{
-                folder
-              }}</span>
+        <div class="space-y-6 py-4">
+          <!-- Library Folders -->
+          <div class="space-y-2">
+            <div class="text-xs font-semibold uppercase tracking-wider text-neutral-400">
+              Scanned Library Folders
             </div>
-            <button
-              class="w-8 h-8 rounded-full flex items-center justify-center text-neutral-400 hover:text-red-500 hover:bg-red-500/10 transition-all flex-shrink-0 ml-2"
-              @click="handleRemoveFolder(folder)"
+            <div
+              v-for="folder in localMusicStore.folderPaths"
+              :key="folder"
+              class="flex items-center justify-between p-3 rounded-xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-100 dark:border-neutral-800"
             >
-              <i class="ri-delete-bin-line" />
-            </button>
+              <div class="flex items-center gap-3 min-w-0 flex-1">
+                <i class="ri-folder-line text-lg text-primary flex-shrink-0" />
+                <span class="text-sm text-neutral-700 dark:text-neutral-300 truncate">{{
+                  folder
+                }}</span>
+              </div>
+              <button
+                class="w-8 h-8 rounded-full flex items-center justify-center text-neutral-400 hover:text-red-500 hover:bg-red-500/10 transition-all flex-shrink-0 ml-2"
+                @click="handleRemoveFolder(folder)"
+              >
+                <i class="ri-delete-bin-line" />
+              </button>
+            </div>
+            <div v-if="localMusicStore.folderPaths.length === 0" class="text-center py-4 text-xs text-neutral-400">
+              {{ t('localMusic.emptyState') }}
+            </div>
           </div>
 
-          <div v-if="localMusicStore.folderPaths.length === 0" class="text-center py-8">
-            <i class="ri-folder-line text-4xl text-neutral-200 dark:text-neutral-800" />
-            <p class="text-sm text-neutral-400 mt-2">{{ t('localMusic.emptyState') }}</p>
+          <!-- Excluded Subfolders -->
+          <div class="space-y-2 border-t border-neutral-100 dark:border-neutral-800 pt-4">
+            <div class="flex items-center justify-between">
+              <div class="text-xs font-semibold uppercase tracking-wider text-neutral-400">
+                Excluded Subfolders
+              </div>
+              <n-button size="tiny" secondary @click="handleAddExcludedFolder">
+                + Exclude Folder
+              </n-button>
+            </div>
+            <div
+              v-for="exc in localMusicStore.excludedFolders"
+              :key="exc"
+              class="flex items-center justify-between p-2.5 rounded-xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-100 dark:border-neutral-800 text-xs"
+            >
+              <span class="truncate text-neutral-600 dark:text-neutral-300">{{ exc }}</span>
+              <button
+                class="text-neutral-400 hover:text-red-500 ml-2"
+                @click="localMusicStore.removeExcludedFolder(exc)"
+              >
+                <i class="ri-close-line text-sm" />
+              </button>
+            </div>
+            <div v-if="localMusicStore.excludedFolders.length === 0" class="text-xs text-neutral-400">
+              None. Click "Exclude Folder" to skip ringtone/sample subfolders on scan.
+            </div>
+          </div>
+
+          <!-- Minimum Track Duration Filter -->
+          <div class="space-y-2 border-t border-neutral-100 dark:border-neutral-800 pt-4">
+            <div class="flex items-center justify-between gap-3">
+              <div>
+                <div class="text-xs font-semibold uppercase tracking-wider text-neutral-400">
+                  Minimum Duration (seconds)
+                </div>
+                <div class="text-[11px] text-neutral-500">
+                  Hides short SFX/notification clips (0 = show all).
+                </div>
+              </div>
+              <n-input-number
+                :value="localMusicStore.minDurationSec"
+                :min="0"
+                :max="600"
+                size="small"
+                style="width: 110px"
+                @update:value="(val) => localMusicStore.setMinDurationSec(val ?? 0)"
+              />
+            </div>
+          </div>
+
+          <!-- Artist Split Exception Allowlist -->
+          <div class="space-y-2 border-t border-neutral-100 dark:border-neutral-800 pt-4">
+            <div class="text-xs font-semibold uppercase tracking-wider text-neutral-400">
+              Artist Split Exceptions (Allowlist)
+            </div>
+            <div class="text-[11px] text-neutral-500">
+              Combined artist names kept intact instead of splitting on "," or "&amp;".
+            </div>
+            <div class="flex items-center gap-2">
+              <n-input
+                v-model:value="newArtistException"
+                size="small"
+                placeholder="e.g. Crosby & Stills"
+                @keydown.enter="handleAddArtistException"
+              />
+              <n-button size="small" secondary @click="handleAddArtistException">Add</n-button>
+            </div>
+            <div class="flex flex-wrap gap-1.5 pt-1">
+              <n-tag
+                v-for="exc in customArtistExceptions"
+                :key="exc"
+                size="small"
+                type="info"
+                closable
+                @close="handleRemoveArtistException(exc)"
+              >
+                {{ exc }}
+              </n-tag>
+              <n-tag
+                v-for="builtIn in defaultArtistExceptions"
+                :key="builtIn"
+                size="small"
+                :bordered="false"
+              >
+                {{ builtIn }}
+              </n-tag>
+            </div>
           </div>
         </div>
 
@@ -242,6 +616,31 @@
       </n-drawer-content>
     </n-drawer>
 
+    <!-- Track Rating, Mood & Tags Modal -->
+    <n-modal v-model:show="showTagModal" preset="card" title="Rate &amp; Tag Track" style="max-width: 440px">
+      <div v-if="taggingEntry" class="space-y-4">
+        <div class="text-sm font-medium text-neutral-800 dark:text-neutral-200 truncate">
+          {{ taggingEntry.title }} — {{ taggingEntry.artist }}
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="text-xs text-neutral-500">Rating (0–5)</span>
+          <n-rate v-model:value="tagDraftRating" clearable />
+        </div>
+        <div class="space-y-1">
+          <div class="text-xs text-neutral-500">Moods (comma separated)</div>
+          <n-input v-model:value="tagDraftMoods" size="small" placeholder="Chill, Late Night, Focus" />
+        </div>
+        <div class="space-y-1">
+          <div class="text-xs text-neutral-500">Custom Tags (comma separated)</div>
+          <n-input v-model:value="tagDraftTags" size="small" placeholder="Acoustic, Vinyl Rip" />
+        </div>
+        <div class="flex justify-end gap-2 pt-2">
+          <n-button size="small" @click="showTagModal = false">Cancel</n-button>
+          <n-button size="small" type="primary" @click="handleSaveTrackTags">Save</n-button>
+        </div>
+      </div>
+    </n-modal>
+
     <local-track-editor-modal
       v-model:show="showTrackEditor"
       :entry="editingEntry"
@@ -254,18 +653,42 @@
 
 <script setup lang="ts">
 import { createDiscreteApi, type DropdownOption, NButton } from 'naive-ui';
-import { computed, h, onMounted, ref } from 'vue';
+import { computed, h, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import LocalTrackEditorModal from '@/components/common/LocalTrackEditorModal.vue';
 import MultiArtworkCard from '@/components/namida/MultiArtworkCard.vue';
 import ListeningStatsModal from '@/components/player/ListeningStatsModal.vue';
-import { exportListeningStatsRaw, importListeningStatsRaw } from '@/services/listeningStatsService';
+import {
+  exportListeningStatsRaw,
+  getListeningStatsSummary,
+  importListeningStatsRaw
+} from '@/services/listeningStatsService';
+import {
+  deleteSmartPlaylist,
+  evaluateSmartPlaylist,
+  getSongAnnotationMap,
+  listSmartPlaylists,
+  saveSmartPlaylist,
+  type SmartPlaylistField,
+  type SmartPlaylistOperator,
+  type SmartPlaylistRecord,
+  type SmartPlaylistRule,
+  type SongAnnotationRecord,
+  updateSongTagsAndRating
+} from '@/services/songLibrary';
 import { useLocalMusicStore } from '@/store/modules/localMusic';
 import { usePlayerStore } from '@/store/modules/player';
 import type { LocalMusicEntry } from '@/types/localMusic';
 import type { SongResult } from '@/types/music';
-import { debounceIngestLocalTracks, filterByKeyword, toSongResult } from '@/utils/localMusicUtils';
+import {
+  debounceIngestLocalTracks,
+  DEFAULT_ARTIST_EXCEPTIONS,
+  filterByKeyword,
+  getArtistSplitExceptions,
+  setArtistSplitExceptions,
+  toSongResult
+} from '@/utils/localMusicUtils';
 
 import LocalTrackRow from './LocalTrackRow.vue';
 
@@ -277,10 +700,59 @@ const playerStore = usePlayerStore();
 
 // ==================== State ====================
 const searchKeyword = ref('');
+const activeTab = ref<'all' | 'folders' | 'smart'>('all');
+const activeFolderDir = ref('');
 const showFolderManager = ref(false);
 const showTrackEditor = ref(false);
 const editingEntry = ref<LocalMusicEntry | null>(null);
 const showListeningStats = ref(false);
+
+const trackAnnotations = ref<{
+  byPath: Record<string, SongAnnotationRecord>;
+  bySongId: Record<string, SongAnnotationRecord>;
+}>({ byPath: {}, bySongId: {} });
+const trackPlayCounts = ref<Record<string, number>>({});
+
+const showTagModal = ref(false);
+const taggingEntry = ref<LocalMusicEntry | null>(null);
+const tagDraftRating = ref(0);
+const tagDraftMoods = ref('');
+const tagDraftTags = ref('');
+
+const defaultArtistExceptions = DEFAULT_ARTIST_EXCEPTIONS;
+const customArtistExceptions = ref<string[]>(getArtistSplitExceptions());
+const newArtistException = ref('');
+
+const smartPlaylists = ref<SmartPlaylistRecord[]>([]);
+const selectedSmartPlaylistId = ref('');
+const showSmartBuilder = ref(false);
+const smartDraftName = ref('');
+const smartDraftMatchMode = ref<'all' | 'any'>('all');
+const smartDraftSortBy = ref<SmartPlaylistRecord['sortBy']>('recent');
+const smartDraftLimit = ref<number | null>(0);
+const smartDraftRules = ref<Array<{ field: SmartPlaylistField; operator: SmartPlaylistOperator; value: string }>>([
+  { field: 'rating', operator: 'gte', value: '4' }
+]);
+
+const smartRuleFieldOptions = [
+  { label: 'Rating (0-5)', value: 'rating' },
+  { label: 'Mood', value: 'mood' },
+  { label: 'Tag', value: 'tag' },
+  { label: 'Genre', value: 'genre' },
+  { label: 'Artist', value: 'artist' },
+  { label: 'Min Duration (sec)', value: 'minDurationSec' },
+  { label: 'Max Duration (sec)', value: 'maxDurationSec' },
+  { label: 'Has Linked Video', value: 'hasVideo' },
+  { label: 'Play Count', value: 'playCount' }
+];
+
+const smartRuleOpOptions = [
+  { label: 'Contains', value: 'contains' },
+  { label: 'Equals', value: 'eq' },
+  { label: '>= (at least)', value: 'gte' },
+  { label: '<= (at most)', value: 'lte' },
+  { label: 'Includes', value: 'includes' }
+];
 
 const acousticDropdownOptions: DropdownOption[] = [
   {
@@ -447,16 +919,227 @@ function openTrackEditor(entry: LocalMusicEntry) {
 
 async function handleTrackSaved(updatedEntry: LocalMusicEntry, oldId: string) {
   await localMusicStore.updateEntry(updatedEntry, oldId);
+  await loadAnnotations();
+}
+
+function getEntryAnnotation(entry: LocalMusicEntry): SongAnnotationRecord {
+  return (
+    trackAnnotations.value.byPath[entry.filePath] ||
+    trackAnnotations.value.bySongId[entry.id] || { rating: 0, moods: [], tags: [] }
+  );
+}
+
+function getTrackPlayCount(item: SongResult): number {
+  return (
+    trackPlayCounts.value[String(item.id)] ??
+    trackPlayCounts.value[item.name] ??
+    0
+  );
+}
+
+function refreshPlayCounts() {
+  try {
+    const summary = getListeningStatsSummary();
+    const map: Record<string, number> = {};
+    for (const track of summary.topTracks) {
+      map[String(track.id)] = track.plays;
+      if (track.name && map[track.name] === undefined) {
+        map[track.name] = track.plays;
+      }
+    }
+    trackPlayCounts.value = map;
+  } catch {
+    trackPlayCounts.value = {};
+  }
+}
+
+async function loadAnnotations() {
+  try {
+    trackAnnotations.value = await getSongAnnotationMap();
+  } catch {
+    trackAnnotations.value = { byPath: {}, bySongId: {} };
+  }
+}
+
+async function refreshSmartPlaylists() {
+  try {
+    smartPlaylists.value = await listSmartPlaylists();
+    if (!selectedSmartPlaylistId.value && smartPlaylists.value[0]) {
+      selectedSmartPlaylistId.value = smartPlaylists.value[0].id;
+    }
+  } catch {
+    smartPlaylists.value = [];
+  }
+}
+
+function openTagEditor(entry: LocalMusicEntry) {
+  const ann = getEntryAnnotation(entry);
+  taggingEntry.value = entry;
+  tagDraftRating.value = ann.rating;
+  tagDraftMoods.value = ann.moods.join(', ');
+  tagDraftTags.value = ann.tags.join(', ');
+  showTagModal.value = true;
+}
+
+async function handleSaveTrackTags() {
+  if (!taggingEntry.value) return;
+  const entry = taggingEntry.value;
+  await updateSongTagsAndRating({
+    filePath: entry.filePath,
+    title: entry.title,
+    artist: entry.artist,
+    album: entry.album,
+    durationSec: entry.duration ? Math.round(entry.duration / 1000) : 0,
+    rating: tagDraftRating.value,
+    moods: tagDraftMoods.value.split(',').map((s) => s.trim()).filter(Boolean),
+    tags: tagDraftTags.value.split(',').map((s) => s.trim()).filter(Boolean)
+  });
+  await loadAnnotations();
+  showTagModal.value = false;
+  message.success('Saved track rating, moods & tags.');
+}
+
+function handlePlayNext(song: SongResult) {
+  playerStore.addToNextPlay(song);
+  message.success(`Added "${song.name}" to Play Next.`);
+}
+
+function handleAddToQueueEnd(song: SongResult) {
+  playerStore.addToQueueEnd(song);
+  message.success(`Appended "${song.name}" to queue.`);
+}
+
+async function handleAddExcludedFolder() {
+  try {
+    const result = await window.api.selectDirectory();
+    if (result && !result.canceled && result.filePaths?.length > 0) {
+      localMusicStore.addExcludedFolder(result.filePaths[0]);
+      message.success(`Excluded ${result.filePaths[0]}.`);
+    }
+  } catch (error) {
+    message.error(String(error));
+  }
+}
+
+function handleAddArtistException() {
+  const raw = newArtistException.value.trim();
+  if (!raw) return;
+  customArtistExceptions.value = setArtistSplitExceptions([...customArtistExceptions.value, raw]);
+  newArtistException.value = '';
+}
+
+function handleRemoveArtistException(exc: string) {
+  customArtistExceptions.value = setArtistSplitExceptions(
+    customArtistExceptions.value.filter((item) => item !== exc)
+  );
+}
+
+function startNewSmartPlaylist() {
+  showSmartBuilder.value = !showSmartBuilder.value;
+}
+
+function addSmartRuleRow() {
+  smartDraftRules.value.push({ field: 'genre', operator: 'contains', value: '' });
+}
+
+async function handleSaveSmartPlaylist() {
+  const name = smartDraftName.value.trim();
+  if (!name) {
+    message.warning('Enter a smart playlist name.');
+    return;
+  }
+  const rules: SmartPlaylistRule[] = smartDraftRules.value
+    .filter((r) => String(r.value).trim() !== '')
+    .map((r) => ({
+      field: r.field,
+      operator: r.operator,
+      value:
+        r.field === 'rating' || r.field === 'minDurationSec' || r.field === 'maxDurationSec' || r.field === 'playCount'
+          ? Number(r.value)
+          : r.value
+    }));
+  const saved = await saveSmartPlaylist({
+    name,
+    matchMode: smartDraftMatchMode.value,
+    rules,
+    sortBy: smartDraftSortBy.value,
+    limit: smartDraftLimit.value && smartDraftLimit.value > 0 ? smartDraftLimit.value : undefined
+  });
+  await refreshSmartPlaylists();
+  selectedSmartPlaylistId.value = saved.id;
+  showSmartBuilder.value = false;
+  smartDraftName.value = '';
+  message.success(`Saved smart playlist "${saved.name}".`);
+}
+
+async function handleDeleteSmartPlaylist(id: string) {
+  await deleteSmartPlaylist(id);
+  if (selectedSmartPlaylistId.value === id) {
+    selectedSmartPlaylistId.value = '';
+  }
+  await refreshSmartPlaylists();
+  message.success('Deleted smart playlist.');
 }
 
 // ==================== Computed ====================
 const filteredList = computed(() => {
-  return filterByKeyword(localMusicStore.musicList, searchKeyword.value);
+  return filterByKeyword(localMusicStore.visibleMusicList, searchKeyword.value);
 });
 
 const filteredSongResults = computed(() => {
   return filteredList.value.map(toSongResult);
 });
+
+const annotatedFilteredList = computed(() =>
+  filteredList.value.map((entry) => {
+    const ann = getEntryAnnotation(entry);
+    return {
+      ...entry,
+      rating: ann.rating,
+      moods: ann.moods,
+      tags: ann.tags
+    };
+  })
+);
+
+function extractParentFolder(filePath: string): string {
+  const idx = Math.max(filePath.lastIndexOf('/'), filePath.lastIndexOf('\\'));
+  return idx > 0 ? filePath.slice(0, idx) : 'Library Root';
+}
+
+const folderGroups = computed(() => {
+  const map = new Map<string, LocalMusicEntry[]>();
+  for (const entry of filteredList.value) {
+    const dir = extractParentFolder(entry.filePath);
+    const list = map.get(dir) || [];
+    list.push(entry);
+    map.set(dir, list);
+  }
+  return Array.from(map.entries())
+    .map(([dir, entries]) => ({
+      dir,
+      label: dir.split(/[\\/]/).filter(Boolean).pop() || dir,
+      entries,
+      songResults: entries.map(toSongResult)
+    }))
+    .sort((a, b) => a.label.localeCompare(b.label));
+});
+
+const selectedFolderGroup = computed(() => {
+  if (!activeFolderDir.value) return folderGroups.value[0] || null;
+  return folderGroups.value.find((g) => g.dir === activeFolderDir.value) || folderGroups.value[0] || null;
+});
+
+const activeSmartPlaylist = computed(
+  () => smartPlaylists.value.find((sp) => sp.id === selectedSmartPlaylistId.value) || null
+);
+
+const smartMatchedTracks = computed(() => {
+  if (!activeSmartPlaylist.value) return [];
+  return evaluateSmartPlaylist(annotatedFilteredList.value, activeSmartPlaylist.value, trackPlayCounts.value);
+});
+
+const smartMatchedSongResults = computed(() => smartMatchedTracks.value.map(toSongResult));
 
 const libraryCollageCovers = computed(() => {
   return filteredSongResults.value
@@ -589,13 +1272,19 @@ async function handleScan(): Promise<void> {
 
 /**
  */
-async function handlePlaySong(song: SongResult): Promise<void> {
+async function handlePlaySong(song: SongResult, contextList?: SongResult[]): Promise<void> {
   try {
-    playerStore.prepareSongPlayback(song, filteredSongResults.value);
+    playerStore.prepareSongPlayback(song, contextList || filteredSongResults.value);
     await playerStore.setPlay(song);
   } catch (error) {
     console.error('Failed to play local music:', error);
   }
+}
+
+async function playSongBatch(songs: SongResult[]): Promise<void> {
+  if (!songs || songs.length === 0) return;
+  playerStore.setPlayList(songs);
+  await playerStore.setPlay(songs[0]);
 }
 
 /**
@@ -634,12 +1323,21 @@ async function handlePlayAll(): Promise<void> {
 
 // ==================== Lifecycle ====================
 onMounted(async () => {
+  refreshPlayCounts();
+  await Promise.all([loadAnnotations(), refreshSmartPlaylists()]);
   if (localMusicStore.scanning) {
     return;
   }
   await localMusicStore.loadFromCache();
   triggerIngest();
 });
+
+watch(
+  () => [playerStore.playMusic?.id, showListeningStats.value],
+  () => {
+    refreshPlayCounts();
+  }
+);
 </script>
 
 <style scoped>

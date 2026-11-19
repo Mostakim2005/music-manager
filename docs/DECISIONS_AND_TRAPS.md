@@ -223,3 +223,12 @@ flowchart LR
 * **Protected Code Anchors (Grep Targets):**
   * `src/renderer/services/audioDspGraph.ts` -> `elementSourceCache`, `elementContextCache`, `AudioDspGraph.attach`
   * `src/renderer/services/audioService.ts` -> `prepareGaplessNext`, `setupEQ`
+
+### [TRAP: Artist-Split-Allowlist-And-Memoized-Row-Counts] | Aliases: parseMultiArtists, localTrackRow, listeningStats, smart playlist
+> **1-Line Summary:** Mask allowlisted artist names before splitting featured artists, keep `&` splitting inside `parseMultiGenres` if expected by callers, and never read/parse full `listeningStats` inside per-row child computeds.
+* **Strict Rule:** Run `DEFAULT_ARTIST_EXCEPTIONS` + `getArtistSplitExceptions()` token masking in `parseMultiArtists()` prior to regex splitting, and compute track play counts once in the parent view (`trackPlayCounts`) passing `:play-count` as a prop to `LocalTrackRow`.
+* **Why This Trap Exists (Plain English):** Naive delimiter splitting turns artists like `Tyler, The Creator` or `Earth, Wind & Fire` into broken fragments, while calling `getListeningStatsSummary()` inside every `LocalTrackRow` repeats full `localStorage` JSON parsing across hundreds of rows on every render.
+* **Protected Code Anchors (Grep Targets):**
+  * `src/renderer/utils/localMusicUtils.ts` -> `DEFAULT_ARTIST_EXCEPTIONS`, `parseMultiArtists`
+  * `src/renderer/views/local-music/index.vue` -> `refreshPlayCounts`, `getTrackPlayCount`
+  * `src/renderer/views/local-music/LocalTrackRow.vue` -> `playCountValue`

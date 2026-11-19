@@ -1,6 +1,6 @@
 import { createDiscreteApi } from 'naive-ui';
 import { defineStore } from 'pinia';
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 
 import useIndexedDB from '@/hooks/IndexDBHook';
 import {
@@ -35,10 +35,10 @@ function generateId(filePath: string): string {
 /**
  */
 function isUnderFolder(filePath: string, folder: string): boolean {
-  if (!filePath.startsWith(folder)) return false;
-  if (folder.endsWith('/') || folder.endsWith('\\')) return true;
-  const next = filePath.charAt(folder.length);
-  return next === '/' || next === '\\';
+  const normFile = String(filePath || '').replace(/[\\/]+/g, '/').toLowerCase();
+  const normFolder = String(folder || '').replace(/[\\/]+/g, '/').toLowerCase().replace(/\/$/, '');
+  if (!normFile || !normFolder) return false;
+  return normFile === normFolder || normFile.startsWith(`${normFolder}/`);
 }
 
 /**
@@ -57,6 +57,8 @@ export const useLocalMusicStore = defineStore(
   'localMusic',
   () => {
     const folderPaths = ref<string[]>([]);
+    const excludedFolders = ref<string[]>([]);
+    const minDurationSec = ref<number>(0);
     const musicList = ref<LocalMusicEntry[]>([]);
     const scanning = ref(false);
     const scanProgress = ref(0);
@@ -68,6 +70,39 @@ export const useLocalMusicStore = defineStore(
     const autoTagging = ref(false);
     const autoTagProgress = ref(0);
     const autoTagTotal = ref(0);
+
+    const visibleMusicList = computed<LocalMusicEntry[]>(() => {
+      const thresholdMs = minDurationSec.value > 0 ? minDurationSec.value * 1000 : 0;
+      const excluded = excludedFolders.value.map((f) => f.trim()).filter(Boolean);
+      return musicList.value.filter((entry) => {
+        if (excluded.some((folder) => isUnderFolder(entry.filePath, folder))) {
+          return false;
+        }
+        // Only exclude tracks whose duration is known and shorter than the threshold
+        if (thresholdMs > 0 && entry.duration > 0 && entry.duration < thresholdMs) {
+          return false;
+        }
+        return true;
+      });
+    });
+
+    function addExcludedFolder(path: string): void {
+      const trimmed = String(path || '').trim();
+      if (!trimmed || excludedFolders.value.includes(trimmed)) return;
+      excludedFolders.value.push(trimmed);
+    }
+
+    function removeExcludedFolder(path: string): void {
+      excludedFolders.value = excludedFolders.value.filter((item) => item !== path);
+    }
+
+    function setMinDurationSec(seconds: number): void {
+      if (!Number.isFinite(seconds) || seconds < 0) {
+        minDurationSec.value = 0;
+        return;
+      }
+      minDurationSec.value = Math.round(seconds);
+    }
 
     let db: Awaited<ReturnType<typeof initLocalMusicDB>> | null = null;
 
@@ -160,7 +195,9 @@ export const useLocalMusicStore = defineStore(
         for (const folderPath of folderPaths.value) {
           let files: { path: string; modifiedTime: number }[];
           try {
-            const result = await window.api.scanLocalMusicWithStats(folderPath);
+            const result = await window.api.scanLocalMusicWithStats(folderPath, [
+              ...excludedFolders.value
+            ]);
 
             if ((result as any).error) {
               console.error(`Failed to scan folder: ${folderPath}`, (result as any).error);
@@ -481,7 +518,10 @@ export const useLocalMusicStore = defineStore(
 
     return {
       folderPaths,
+      excludedFolders,
+      minDurationSec,
       musicList,
+      visibleMusicList,
       scanning,
       scanProgress,
       buildingFingerprints,
@@ -493,6 +533,9 @@ export const useLocalMusicStore = defineStore(
 
       addFolder,
       removeFolder,
+      addExcludedFolder,
+      removeExcludedFolder,
+      setMinDurationSec,
       scanFolders,
       loadFromCache,
       removeEntry,
@@ -507,7 +550,7 @@ export const useLocalMusicStore = defineStore(
     persist: {
       key: 'local-music-store',
       storage: localStorage,
-      pick: ['folderPaths']
+      pick: ['folderPaths', 'excludedFolders', 'minDurationSec']
     }
   }
 );

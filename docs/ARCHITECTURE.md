@@ -108,11 +108,35 @@ sequenceDiagram
   * `src/renderer/utils/lyrics.ts` -> `formatLrcTimestampMs`, `parseLrcTimestamp`, `nudgeTimestamp`
   * `src/renderer/components/lyric/MusicFull.vue` -> `handleApplyEditedLrc`, `lineTimeLabel`
 
-### [SUBSYSTEM: Unified-Song-Library] | Aliases: variants, dexie, fingerprint, duplicates, song identity, waveform cache
-> **1-Line Summary:** One Dexie database links every audio/video/lyrics file to a single song record using artist|title identity plus fingerprint matching, and caches decoded acoustic waveform peaks per local file.
-* **How It Works (Plain English):** Ingestion matches by path, YouTube ID, fingerprint, normalized `artist|title` key with ±3s duration, then fuzzy token similarity. Variants record codec, height, bitrate and size so the Files tab can manage each one independently (unlink keeps the file, delete removes it). Dexie schema v3 adds the `waveforms` table (`&filePath, updatedAt`), caching normalized 140-bucket RMS/peak envelopes computed via bundled FFmpeg at 1000 Hz mono across the full track duration (`local-music:waveform-peaks`).
+### [SUBSYSTEM: Unified-Song-Library] | Aliases: variants, dexie, fingerprint, duplicates, song identity, waveform cache, smart playlists, multi-queues, ratings
+> **1-Line Summary:** Dexie v4 links every audio/video/lyrics file to a unified song record with waveform cache, multi-queues, smart playlists, ratings/moods/tags, excluded folders, and artist split exceptions.
+* **How It Works (Plain English):** Ingestion matches by path, YouTube ID, fingerprint, normalized `artist|title` key with ±3s duration, then fuzzy token similarity. Dexie v3 added `waveforms`; Dexie v4 extends `songs` with multi-entry indexes (`rating`, `*artistsSplit`, `*genresSplit`, `*moods`, `*tags`) and adds `queues` and `smartPlaylists` tables without modifying v2/v3 schemas. `localMusicScanner` forwards `excludedFolders` during disk traversal and extracts `genre`, `bitrate`, and `codec`. `localMusicUtils.parseMultiArtists()` masks built-in `DEFAULT_ARTIST_EXCEPTIONS` and persisted custom allowlist names before splitting featured credits, while `evaluateSmartPlaylist()` filters and sorts local tracks in memory using rules and memoized play counts.
+* **Data Flow Diagram:**
+```mermaid
+flowchart LR
+    classDef disk fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
+    classDef db fill:#ede9fe,stroke:#7c3aed,color:#4c1d95
+    classDef ui fill:#dcfce7,stroke:#16a34a,color:#14532d
+    classDef legend fill:#f3f4f6,stroke:#6b7280,color:#111827
+
+    SCAN["localMusicScanner + excludedFolders"]:::disk --> STORE["useLocalMusicStore (visibleMusicList + minDurationSec)"]:::ui
+    PARSE["parseMultiArtists (Allowlist) & parseMultiGenres"]:::ui --> STORE
+    STORE --> DEXIE["Dexie v4: songs / variants / queues / smartPlaylists / waveforms"]:::db
+    DEXIE -->|getSongAnnotationMap + evaluateSmartPlaylist| LIB["LocalMusic View (All Tracks / Folders / Smart Playlists)"]:::ui
+    DEXIE -->|saveNamedQueue / undoClearPlayAll| QUEUE["playlist store & PlayingListDrawer"]:::ui
+
+    subgraph Legend
+      D1["Blue: Disk & Metadata"]:::disk
+      D2["Purple: Dexie v4 Persistence"]:::db
+      D3["Green: Library & Queue UI"]:::ui
+    end
+```
 * **Code Anchors (Grep Targets):**
-  * `src/renderer/services/songLibrary.ts` -> `computeNormKey`, `ingestLocalTrack`, `linkVariant`, `getVariants`, `findSongByPath`, `getSongKey`, `getCurrentSongKey`, `getOrComputeWaveformPeaks`
+  * `src/renderer/services/songLibrary.ts` -> `MusicManagerLibraryDB`, `saveNamedQueue`, `saveSmartPlaylist`, `updateSongTagsAndRating`, `getSongAnnotationMap`, `evaluateSmartPlaylist`, `getOrComputeWaveformPeaks`
+  * `src/renderer/utils/localMusicUtils.ts` -> `DEFAULT_ARTIST_EXCEPTIONS`, `parseMultiArtists`, `parseMultiGenres`, `setArtistSplitExceptions`
+  * `src/main/modules/localMusicScanner.ts` -> `scanMusicFilesWithStats`, `parseMetadata`
+  * `src/renderer/store/modules/localMusic.ts` -> `visibleMusicList`, `excludedFolders`, `minDurationSec`
+  * `src/renderer/store/modules/playlist.ts` -> `addToQueueEnd`, `reorderPlayList`, `undoClearPlayAll`
   * `src/main/modules/audioFingerprint.ts` -> `computeAudioFingerprint`, `computeWaveformPeaks`, `computePeaksFromPcm`
 
 ### [SUBSYSTEM: Namida-Theme-Engine] | Aliases: dynamic theme, seed color, pitch black, lexend deca, naive ui overrides, sliders, baked glow, widescreen split

@@ -26,6 +26,9 @@ export type LocalMusicMeta = {
   lyrics: string | null;
   fileSize: number;
   modifiedTime: number;
+  genre?: string;
+  bitrate?: number;
+  codec?: string;
   /** Acoustic fingerprint (loudness envelope) used for cross-format matching. */
   fingerprint?: string;
   /** Duration covered by the fingerprint, in seconds. */
