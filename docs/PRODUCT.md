@@ -120,12 +120,11 @@
   * `src/renderer/utils/lyrics.ts` -> `getWordFillProgress`
 
 ### [FEATURE: Audio-Enhancements] | Aliases: crossfade, equalizer, skip silence, A-B loop, bookmarks
-> **1-Line Summary:** Equal-power crossfade, EQ, skip-silence, A-B loop repeat and per-track bookmarks round out playback.
+> **1-Line Summary:** Equal-power crossfade, skip-silence, A-B loop repeat and per-track bookmarks round out playback.
 * **User Intention (Non-Negotiable):** Smart transitions stay; heavy DSP extras stay out unless requested.
 * **Visual / UI Behavior:** Advanced controls popover and A-B pill on the PlayBar.
 * **Code Anchors (Grep Targets):**
   * `src/renderer/services/audioService.ts` -> `fadeInVolume`, `setAbLoopPointA`, `setAbLoopPointB`
-  * `src/renderer/services/eqService.ts` -> `eqService`
 
 ### [FEATURE: Library-Backup-And-Stats] | Aliases: m3u8 backup, json backup, listening stats, history
 > **1-Line Summary:** Export/restore M3U8 playlists and JSON library snapshots, plus personal listening statistics.

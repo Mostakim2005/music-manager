@@ -65,25 +65,6 @@ function getBridge() {
   if (typeof window !== 'undefined') {
     if ((window as any).youtube) return (window as any).youtube;
     if ((window as any).api?.youtube) return (window as any).api.youtube;
-    if ((window as any).ipcRenderer) {
-      // Fallback direct IPC invoker
-      const ipc = (window as any).ipcRenderer;
-      return {
-        search: (q: string, opt?: any) => ipc.invoke('yt:search', q, opt),
-        formats: (id: string) => ipc.invoke('yt:formats', id),
-        streamUrl: (id: string, opt?: any) => ipc.invoke('yt:streamUrl', id, opt),
-        download: (id: string, opt: any) => ipc.invoke('yt:download', id, opt),
-        cancelDownload: (jobId: string) => ipc.invoke('yt:cancelDownload', jobId),
-        readLink: (path: string) => ipc.invoke('yt:readLink', path),
-        writeLink: (path: string, url: string) => ipc.invoke('yt:writeLink', path, url),
-        resolveDownloadDir: (ctx?: string) => ipc.invoke('yt:resolveDownloadDir', ctx),
-        binaryStatus: () => ipc.invoke('yt:binaryStatus'),
-        updateBinary: () => ipc.invoke('yt:updateBinary'),
-        onDownloadProgress: (cb: (data: any) => void) => {
-          return ipc.on('yt:download-progress', cb);
-        }
-      };
-    }
   }
   throw new Error('YouTube bridge is not available in the current context');
 }

@@ -1,6 +1,6 @@
 import { addListeningSeconds, recordTrackPlay } from '@/services/listeningStatsService';
 import { mediaCoordinator, setAudioServiceInstance } from '@/services/mediaCoordinator';
-import { getSongKey, savePosition } from '@/services/songLibrary';
+import { getSongKey, registerCurrentTrackProvider, savePosition } from '@/services/songLibrary';
 import type { AudioOutputDevice } from '@/types/audio';
 import type { SongResult } from '@/types/music';
 import { getImgUrl, isElectron } from '@/utils';
@@ -1340,3 +1340,4 @@ class AudioService {
 }
 
 export const audioService = new AudioService();
+registerCurrentTrackProvider(() => audioService.getCurrentTrack());

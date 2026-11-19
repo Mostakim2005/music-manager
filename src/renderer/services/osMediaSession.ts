@@ -32,6 +32,7 @@ export function updateOsMediaMetadata(track: {
   coverUrl?: string;
   durationSec?: number;
   positionSec?: number;
+  playbackRate?: number;
   isPlaying?: boolean;
 }) {
   if (typeof navigator === 'undefined' || !('mediaSession' in navigator) || !navigator.mediaSession) {
@@ -60,9 +61,16 @@ export function updateOsMediaMetadata(track: {
       Number.isFinite(track.durationSec) &&
       typeof navigator.mediaSession.setPositionState === 'function'
     ) {
+      const rate =
+        typeof track.playbackRate === 'number' &&
+        Number.isFinite(track.playbackRate) &&
+        track.playbackRate > 0
+          ? track.playbackRate
+          : 1.0;
+
       navigator.mediaSession.setPositionState({
         duration: track.durationSec,
-        playbackRate: 1.0,
+        playbackRate: rate,
         position: Math.min(track.durationSec, Math.max(0, track.positionSec ?? 0))
       });
     }

@@ -4,9 +4,7 @@ import type { MessageApi } from 'naive-ui';
  */
 export const selectDirectory = async (message: MessageApi): Promise<string | undefined> => {
   try {
-    const result = window.api?.selectDirectory
-      ? await window.api.selectDirectory()
-      : await window.electron.ipcRenderer.invoke('select-directory');
+    const result = await window.api.selectDirectory();
     if (result.filePaths?.[0]) {
       return result.filePaths[0];
     }
@@ -21,11 +19,7 @@ export const selectDirectory = async (message: MessageApi): Promise<string | und
  */
 export const openDirectory = (path: string | undefined, message: MessageApi, showTip = true) => {
   if (path) {
-    if (window.api?.openDirectory) {
-      window.api.openDirectory(path);
-    } else {
-      window.electron.ipcRenderer.send('open-directory', path);
-    }
+    window.api.openDirectory(path);
   } else if (showTip) {
     message.info('Directory does not exist');
   }

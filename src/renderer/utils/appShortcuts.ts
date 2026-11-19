@@ -206,14 +206,14 @@ export function initAppShortcuts() {
 
   appShortcutsInitialized = true;
 
-  window.electron.ipcRenderer.on('global-shortcut', onGlobalShortcut);
-  window.electron.ipcRenderer.on('update-app-shortcuts', onUpdateAppShortcuts);
-  window.electron.ipcRenderer.on('mpris-seek', onMprisSeekOrSetPosition);
-  window.electron.ipcRenderer.on('mpris-set-position', onMprisSeekOrSetPosition);
-  window.electron.ipcRenderer.on('mpris-play', onMprisPlay);
-  window.electron.ipcRenderer.on('mpris-pause', onMprisPause);
+  window.api.onIpcEvent('global-shortcut', onGlobalShortcut);
+  window.api.onIpcEvent('update-app-shortcuts', onUpdateAppShortcuts);
+  window.api.onIpcEvent('mpris-seek', onMprisSeekOrSetPosition);
+  window.api.onIpcEvent('mpris-set-position', onMprisSeekOrSetPosition);
+  window.api.onIpcEvent('mpris-play', onMprisPlay);
+  window.api.onIpcEvent('mpris-pause', onMprisPause);
 
-  const storedShortcuts = window.electron.ipcRenderer.sendSync('get-store-value', 'shortcuts');
+  const storedShortcuts = window.api.getStoreValue('shortcuts');
   updateAppShortcuts(storedShortcuts);
 
   document.addEventListener('keydown', handleKeyDown);
@@ -228,12 +228,12 @@ export function cleanupAppShortcuts() {
 
   appShortcutsInitialized = false;
 
-  window.electron.ipcRenderer.removeListener('global-shortcut', onGlobalShortcut);
-  window.electron.ipcRenderer.removeListener('update-app-shortcuts', onUpdateAppShortcuts);
-  window.electron.ipcRenderer.removeListener('mpris-seek', onMprisSeekOrSetPosition);
-  window.electron.ipcRenderer.removeListener('mpris-set-position', onMprisSeekOrSetPosition);
-  window.electron.ipcRenderer.removeListener('mpris-play', onMprisPlay);
-  window.electron.ipcRenderer.removeListener('mpris-pause', onMprisPause);
+  window.api.removeIpcListener('global-shortcut', onGlobalShortcut);
+  window.api.removeIpcListener('update-app-shortcuts', onUpdateAppShortcuts);
+  window.api.removeIpcListener('mpris-seek', onMprisSeekOrSetPosition);
+  window.api.removeIpcListener('mpris-set-position', onMprisSeekOrSetPosition);
+  window.api.removeIpcListener('mpris-play', onMprisPlay);
+  window.api.removeIpcListener('mpris-pause', onMprisPause);
 
   document.removeEventListener('keydown', handleKeyDown);
 }

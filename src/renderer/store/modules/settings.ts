@@ -40,7 +40,7 @@ export const useSettingsStore = defineStore('settings', () => {
     };
 
     if (isElectron) {
-      window.electron.ipcRenderer.send('set-store-value', 'set', cloneDeep(mergedData));
+      window.api?.setStoreValue?.('set', cloneDeep(mergedData));
     } else {
       localStorage.setItem('appSettings', JSON.stringify(cloneDeep(mergedData)));
     }
@@ -49,7 +49,7 @@ export const useSettingsStore = defineStore('settings', () => {
 
   const getInitialSettings = () => {
     const savedSettings = isElectron
-      ? window.electron.ipcRenderer.sendSync('get-store-value', 'set')
+      ? window.api?.getStoreValue?.('set')
       : JSON.parse(localStorage.getItem('appSettings') || '{}');
 
     const customizer = (_objValue: any, srcValue: any) => {
@@ -163,7 +163,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const setLanguage = (language: string) => {
     setSetData({ language });
     if (isElectron) {
-      window.electron.ipcRenderer.send('change-language', language);
+      window.api?.changeLanguage?.(language);
     }
   };
 

@@ -1,8 +1,132 @@
-import { electronAPI } from '@electron-toolkit/preload';
 import type { IpcRendererEvent } from 'electron';
 import { contextBridge, ipcRenderer } from 'electron';
 
 import type { AppUpdateState } from '../shared/appUpdate';
+
+const VALID_INVOKE_CHANNELS = new Set<string>([
+  'check-file-exists',
+  'clear-disk-cache',
+  'get-content-zoom',
+  'get-disk-cache-config',
+  'get-disk-cache-stats',
+  'get-downloads-path',
+  'get-local-ip-addresses',
+  'get-remote-control-config',
+  'get-system-fonts',
+  'get-cached-lyric',
+  'cache-lyric',
+  'resolve-cached-music-url',
+  'set-disk-cache-config',
+  'shortcuts:get-config',
+  'shortcuts:save',
+  'switch-disk-cache-directory',
+  'scan-local-music',
+  'scan-local-music-with-stats',
+  'parse-local-music-metadata',
+  'error-reporter:get-reports',
+  'error-reporter:report',
+  'error-reporter:clear',
+  'error-reporter:export',
+  'error-reporter:test',
+  'metadata:fetch-online',
+  'lyrics:fetch-multi-source',
+  'local-music:fingerprint',
+  'local-music:waveform-peaks',
+  'local-music:update-tags-and-file',
+  'local-music:save-synced-lyrics',
+  'local-music:select-cover-file',
+  'library:delete-variant-file',
+  'library:export-m3u8',
+  'library:import-m3u8',
+  'library:export-backup-json',
+  'library:import-backup-json',
+  'select-directory',
+  'save-lyric-file',
+  'get-search-suggestions',
+  'lx-music-http-request',
+  'lx-music-http-cancel',
+  'import-custom-api-plugin',
+  'import-lx-music-script',
+  'import-music-source-plugin',
+  'fetch-music-source-plugin',
+  'app-update:get-state',
+  'app-update:check',
+  'app-update:download',
+  'app-update:quit-and-install',
+  'app-update:open-release-page',
+  'is-window-maximized',
+  'is-fullscreen',
+  'download:add',
+  'download:add-batch',
+  'download:pause',
+  'download:resume',
+  'download:cancel',
+  'download:cancel-all',
+  'download:get-queue',
+  'download:get-completed',
+  'download:delete-completed',
+  'download:clear-completed',
+  'download:get-embedded-lyrics',
+  'download:provide-url',
+  'yt:search',
+  'yt:formats',
+  'yt:streamUrl',
+  'yt:download',
+  'yt:cancelDownload',
+  'yt:readLink',
+  'yt:writeLink',
+  'yt:resolveDownloadDir',
+  'yt:binaryStatus',
+  'yt:updateBinary'
+]);
+
+const VALID_SEND_CHANNELS = new Set<string>([
+  'minimize-window',
+  'maximize-window',
+  'toggle-fullscreen',
+  'close-window',
+  'quit-app',
+  'mini-tray',
+  'mini-window',
+  'restore-window',
+  'restart',
+  'resize-window',
+  'resize-mini-window',
+  'open-lyric',
+  'close-lyric',
+  'send-lyric',
+  'lyric-ready',
+  'lyric-drag-start',
+  'lyric-drag-move',
+  'lyric-drag-end',
+  'set-ignore-mouse',
+  'set-lyric-lock-state',
+  'control-back',
+  'update-current-song',
+  'update-play-state',
+  'show-notification',
+  'set-content-zoom',
+  'update-remote-control-config',
+  'open-directory',
+  'download:set-concurrency',
+  'media-play',
+  'mpris-position-update',
+  'tray-lyric-update',
+  'disable-shortcuts',
+  'enable-shortcuts',
+  'set-store-value',
+  'change-language',
+  'update-discord-rpc-enabled',
+  'update-discord-client-id',
+  'update-gpu-acceleration',
+  'clear-audio-cache'
+]);
+
+const VALID_SYNC_CHANNELS = new Set<string>([
+  'local-media:base-url',
+  'get-platform',
+  'get-store-value'
+]);
 
 // Custom APIs for renderer
 const api = {
@@ -48,11 +172,87 @@ const api = {
   miniWindow: () => ipcRenderer.send('mini-window'),
   restore: () => ipcRenderer.send('restore-window'),
   restart: () => ipcRenderer.send('restart'),
-  resizeWindow: (width, height) => ipcRenderer.send('resize-window', width, height),
-  resizeMiniWindow: (showPlaylist) => ipcRenderer.send('resize-mini-window', showPlaylist),
+  resizeWindow: (width: number, height: number) =>
+    ipcRenderer.send('resize-window', width, height),
+  resizeMiniWindow: (showPlaylist: boolean) =>
+    ipcRenderer.send('resize-mini-window', showPlaylist),
   openLyric: () => ipcRenderer.send('open-lyric'),
-  sendLyric: (data) => ipcRenderer.send('send-lyric', data),
-  sendSong: (data) => ipcRenderer.send('update-current-song', data),
+  closeLyric: () => ipcRenderer.send('close-lyric'),
+  sendLyric: (data: any) => ipcRenderer.send('send-lyric', data),
+  sendSong: (data: any) => ipcRenderer.send('update-current-song', data),
+  updatePlayState: (playing: boolean) => ipcRenderer.send('update-play-state', playing),
+  mprisPositionUpdate: (currentTime: number) =>
+    ipcRenderer.send('mpris-position-update', currentTime),
+  trayLyricUpdate: (lrcObj: string) => ipcRenderer.send('tray-lyric-update', lrcObj),
+  disableShortcuts: () => ipcRenderer.send('disable-shortcuts'),
+  enableShortcuts: () => ipcRenderer.send('enable-shortcuts'),
+  getPlatform: () => ipcRenderer.sendSync('get-platform') as string,
+  getStoreValue: (key: string) => ipcRenderer.sendSync('get-store-value', key),
+  setStoreValue: (key: string, value: any) => ipcRenderer.send('set-store-value', key, value),
+  changeLanguage: (locale: string) => ipcRenderer.send('change-language', locale),
+  updateDiscordRpcEnabled: (enabled: boolean) =>
+    ipcRenderer.send('update-discord-rpc-enabled', enabled),
+  updateDiscordClientId: (clientId: string) =>
+    ipcRenderer.send('update-discord-client-id', clientId),
+  updateGpuAcceleration: (enabled: boolean) =>
+    ipcRenderer.send('update-gpu-acceleration', enabled),
+  clearAudioCache: () => ipcRenderer.send('clear-audio-cache'),
+  setIgnoreMouse: (ignore: boolean) => ipcRenderer.send('set-ignore-mouse', ignore),
+  setLyricLockState: (locked: boolean) => ipcRenderer.send('set-lyric-lock-state', locked),
+  lyricReady: () => ipcRenderer.send('lyric-ready'),
+  lyricDragStart: () => ipcRenderer.send('lyric-drag-start'),
+  lyricDragMove: (delta: { deltaX: number; deltaY: number }) =>
+    ipcRenderer.send('lyric-drag-move', delta),
+  lyricDragEnd: () => ipcRenderer.send('lyric-drag-end'),
+  lyricControlBack: (command: string) => ipcRenderer.send('control-back', command),
+  onReceiveLyric: (callback: (data: string) => void) => {
+    const listener = (_event: IpcRendererEvent, data: string) => callback(data);
+    ipcRenderer.on('receive-lyric', listener);
+    return () => ipcRenderer.removeListener('receive-lyric', listener);
+  },
+  onLyricMousePresence: (callback: (isInside: boolean) => void) => {
+    const listener = (_event: IpcRendererEvent, isInside: boolean) => callback(isInside);
+    ipcRenderer.on('lyric-mouse-presence', listener);
+    return () => ipcRenderer.removeListener('lyric-mouse-presence', listener);
+  },
+  onLyricControlBack: (callback: (command: string) => void) => {
+    const listener = (_event: IpcRendererEvent, command: string) => callback(command);
+    ipcRenderer.on('lyric-control-back', listener);
+    return () => ipcRenderer.removeListener('lyric-control-back', listener);
+  },
+  onMiniMode: (callback: (value: boolean) => void) => {
+    const listener = (_event: IpcRendererEvent, value: boolean) => callback(value);
+    ipcRenderer.on('mini-mode', listener);
+    return () => ipcRenderer.removeListener('mini-mode', listener);
+  },
+  onGpuAccelerationUpdated: (callback: (enabled: boolean) => void) => {
+    const listener = (_event: IpcRendererEvent, enabled: boolean) => callback(enabled);
+    ipcRenderer.on('gpu-acceleration-updated', listener);
+    return () => ipcRenderer.removeListener('gpu-acceleration-updated', listener);
+  },
+  onGpuAccelerationUpdateError: (callback: (errorMessage: string) => void) => {
+    const listener = (_event: IpcRendererEvent, errorMessage: string) => callback(errorMessage);
+    ipcRenderer.on('gpu-acceleration-update-error', listener);
+    return () => ipcRenderer.removeListener('gpu-acceleration-update-error', listener);
+  },
+  onErrorReportNew: (callback: (report: any) => void) => {
+    const listener = (_event: IpcRendererEvent, report: any) => callback(report);
+    ipcRenderer.on('error-report:new', listener);
+    return () => ipcRenderer.removeListener('error-report:new', listener);
+  },
+  onIpcEvent: (channel: string, listener: (_event: IpcRendererEvent, ...args: any[]) => void) => {
+    ipcRenderer.on(channel, listener);
+    return () => ipcRenderer.removeListener(channel, listener);
+  },
+  removeIpcListener: (
+    channel: string,
+    listener: (_event: IpcRendererEvent, ...args: any[]) => void
+  ) => {
+    ipcRenderer.removeListener(channel, listener);
+  },
+  removeAllIpcListeners: (channel: string) => {
+    ipcRenderer.removeAllListeners(channel);
+  },
   showNotification: (payload: { title: string; body: string }) =>
     ipcRenderer.send('show-notification', payload),
   importCustomApiPlugin: () => ipcRenderer.invoke('import-custom-api-plugin'),
@@ -84,48 +284,7 @@ const api = {
   },
   reportError: (entry: any) => ipcRenderer.invoke('error-reporter:report', entry),
   invoke: (channel: string, ...args: any[]) => {
-    const validChannels = [
-      'check-file-exists',
-      'clear-disk-cache',
-      'clear-lyrics-cache',
-      'get-content-zoom',
-      'get-disk-cache-config',
-      'get-disk-cache-stats',
-      'get-downloads-path',
-      'get-local-ip-addresses',
-      'get-remote-control-config',
-      'get-system-fonts',
-      'get-cached-lyric',
-      'cache-lyric',
-      'resolve-cached-music-url',
-      'set-disk-cache-config',
-      'shortcuts:get-config',
-      'shortcuts:save',
-      'switch-disk-cache-directory',
-      'scan-local-music',
-      'scan-local-music-with-stats',
-      'parse-local-music-metadata',
-      'error-reporter:get-reports',
-      'error-reporter:report',
-      'error-reporter:clear',
-      'error-reporter:export',
-      'error-reporter:test',
-      'metadata:fetch-online',
-      'lyrics:fetch-multi-source',
-      'local-music:fingerprint',
-      'local-music:waveform-peaks',
-      'local-music:update-tags-and-file',
-      'local-music:save-synced-lyrics',
-      'local-music:select-cover-file',
-      'library:delete-variant-file',
-      'library:export-m3u8',
-      'library:import-m3u8',
-      'library:export-backup-json',
-      'library:import-backup-json',
-      'select-directory',
-      'save-lyric-file'
-    ];
-    if (validChannels.includes(channel)) {
+    if (VALID_INVOKE_CHANNELS.has(channel)) {
       return ipcRenderer.invoke(channel, ...args);
     }
     return Promise.reject(new Error(`Unauthorized IPC channel: ${channel}`));
@@ -259,44 +418,56 @@ const youtube = {
 // @ts-ignore
 (api as any).youtube = youtube;
 
-const ipc = {
-  send: (channel: string, ...args: any[]) => {
-    ipcRenderer.send(channel, ...args);
-  },
-  invoke: (channel: string, ...args: any[]) => {
-    return api.invoke(channel, ...args);
-  },
-  on: (channel: string, listener: (...args: any[]) => void) => {
-    const wrappedListener = (_event: IpcRendererEvent, ...args: any[]) => listener(...args);
-    ipcRenderer.on(channel, wrappedListener);
-    return () => {
-      ipcRenderer.removeListener(channel, wrappedListener);
-    };
-  },
-  removeAllListeners: (channel: string) => {
-    ipcRenderer.removeAllListeners(channel);
+// Restricted allowlisted electron shim for legacy `isElectron` checks
+const restrictedElectron = {
+  ipcRenderer: {
+    send: (channel: string, ...args: any[]) => {
+      if (VALID_SEND_CHANNELS.has(channel)) {
+        ipcRenderer.send(channel, ...args);
+      } else {
+        throw new Error(`Unauthorized IPC send channel: ${channel}`);
+      }
+    },
+    sendSync: (channel: string, ...args: any[]) => {
+      if (VALID_SYNC_CHANNELS.has(channel)) {
+        return ipcRenderer.sendSync(channel, ...args);
+      }
+      throw new Error(`Unauthorized IPC sendSync channel: ${channel}`);
+    },
+    invoke: (channel: string, ...args: any[]) => {
+      return api.invoke(channel, ...args);
+    },
+    on: (channel: string, listener: (_event: IpcRendererEvent, ...args: any[]) => void) => {
+      ipcRenderer.on(channel, listener);
+      return () => {
+        ipcRenderer.removeListener(channel, listener);
+      };
+    },
+    removeListener: (
+      channel: string,
+      listener: (_event: IpcRendererEvent, ...args: any[]) => void
+    ) => {
+      ipcRenderer.removeListener(channel, listener);
+    },
+    removeAllListeners: (channel: string) => {
+      ipcRenderer.removeAllListeners(channel);
+    }
   }
 };
 
-// Use `contextBridge` APIs to expose Electron APIs to
-// renderer only if context isolation is enabled, otherwise
-// just add to the DOM global.
 if (process.contextIsolated) {
   try {
-    contextBridge.exposeInMainWorld('electron', electronAPI);
+    contextBridge.exposeInMainWorld('electron', restrictedElectron);
     contextBridge.exposeInMainWorld('api', api);
     contextBridge.exposeInMainWorld('youtube', youtube);
-    contextBridge.exposeInMainWorld('ipcRenderer', ipc);
   } catch (error) {
     console.error(error);
   }
 } else {
   // @ts-ignore (define in dts)
-  window.electron = electronAPI;
+  window.electron = restrictedElectron;
   // @ts-ignore (define in dts)
   window.api = api;
   // @ts-ignore (define in dts)
   window.youtube = youtube;
-  // @ts-ignore (define in dts)
-  window.ipcRenderer = ipc;
 }

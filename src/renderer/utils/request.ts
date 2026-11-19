@@ -11,7 +11,7 @@ interface CustomAxiosRequestConfig extends InternalAxiosRequestConfig {
   noRetry?: boolean;
 }
 
-const baseURL = window.electron
+const baseURL = isElectron
   ? `http://127.0.0.1:${setData?.musicApiPort}`
   : import.meta.env.VITE_API;
 
@@ -27,7 +27,7 @@ const RETRY_DELAY = 500;
 request.interceptors.request.use(
   (config: CustomAxiosRequestConfig) => {
     setData = getSetData();
-    config.baseURL = window.electron
+    config.baseURL = isElectron
       ? `http://127.0.0.1:${setData?.musicApiPort}`
       : import.meta.env.VITE_API;
     if (config.retryCount === undefined) {

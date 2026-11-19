@@ -486,9 +486,7 @@ watch(
 
 async function handleSelectLocalCover() {
   try {
-    const res = window.api?.selectCoverFile
-      ? await window.api.selectCoverFile()
-      : await window.electron.ipcRenderer.invoke('local-music:select-cover-file');
+    const res = await window.api.selectCoverFile();
     if (res && !res.canceled && (res.dataUrl || res.filePath)) {
       form.coverDataUrlOrPath = (res.dataUrl || res.filePath) ?? '';
       coverImageBroken.value = false;
@@ -514,9 +512,7 @@ async function handleAutoFetchMetadata() {
       artist: queryArtist,
       album: form.album.trim() || undefined
     };
-    const res = window.api?.fetchOnlineMetadata
-      ? await window.api.fetchOnlineMetadata(query)
-      : await window.electron.ipcRenderer.invoke('metadata:fetch-online', query);
+    const res = await window.api.fetchOnlineMetadata(query);
     const list = res?.results || [];
     if (list.length === 0) {
       message.info('No matching online metadata found.');
@@ -561,9 +557,7 @@ async function handleAutoFetchLyrics() {
       album: form.album.trim() || undefined,
       durationSec: props.entry?.duration ? Math.round(props.entry.duration / 1000) : undefined
     };
-    const res = window.api?.fetchMultiSourceLyrics
-      ? await window.api.fetchMultiSourceLyrics(query)
-      : await window.electron.ipcRenderer.invoke('lyrics:fetch-multi-source', query);
+    const res = await window.api.fetchMultiSourceLyrics(query);
     // Keep every candidate so the user can pick the version closest to their
     // file by length and offset, instead of trusting the auto-pick alone.
     lyricCandidates.value = Array.isArray(res?.candidates) ? res.candidates : [];
@@ -630,9 +624,7 @@ async function handleSave() {
       coverDataUrlOrPath: form.coverDataUrlOrPath || undefined,
       saveSidecarLrc: form.saveSidecarLrc
     };
-    const res = window.api?.updateLocalMusicTagsAndFile
-      ? await window.api.updateLocalMusicTagsAndFile(payload)
-      : await window.electron.ipcRenderer.invoke('local-music:update-tags-and-file', payload);
+    const res: any = await window.api.updateLocalMusicTagsAndFile(payload);
 
     if (res?.ok && res.updatedEntry) {
       message.success('Tags, artwork, and filename saved successfully!');

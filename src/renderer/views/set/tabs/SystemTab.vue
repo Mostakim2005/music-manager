@@ -222,11 +222,9 @@ const readDiskCacheConfigFromUI = (): DiskCacheConfig => {
 };
 
 const refreshDiskCacheStats = async (silent: boolean = true) => {
-  if (!window.electron && !window.api) return;
+  if (!window.api?.getDiskCacheStats) return;
   try {
-    const stats = (window.api?.getDiskCacheStats
-      ? await window.api.getDiskCacheStats()
-      : await window.electron.ipcRenderer.invoke('get-disk-cache-stats')) as DiskCacheStats;
+    const stats = (await window.api.getDiskCacheStats()) as DiskCacheStats;
     if (stats) {
       diskCacheStats.value = stats;
     }
@@ -239,12 +237,10 @@ const refreshDiskCacheStats = async (silent: boolean = true) => {
 };
 
 const loadDiskCacheConfig = async () => {
-  if (!window.electron && !window.api) return;
+  if (!window.api?.getDiskCacheConfig) return;
 
   try {
-    const config = (window.api?.getDiskCacheConfig
-      ? await window.api.getDiskCacheConfig()
-      : await window.electron.ipcRenderer.invoke('get-disk-cache-config')) as DiskCacheConfig;
+    const config = (await window.api.getDiskCacheConfig()) as DiskCacheConfig;
     if (config) {
       setData.value = {
         ...setData.value,
@@ -260,14 +256,12 @@ const loadDiskCacheConfig = async () => {
 };
 
 const applyDiskCacheConfig = async () => {
-  if ((!window.electron && !window.api) || applyingDiskCacheConfig.value) return;
+  if (!window.api?.setDiskCacheConfig || applyingDiskCacheConfig.value) return;
 
   applyingDiskCacheConfig.value = true;
   try {
     const config = readDiskCacheConfigFromUI();
-    const updated = (window.api?.setDiskCacheConfig
-      ? await window.api.setDiskCacheConfig(config)
-      : await window.electron.ipcRenderer.invoke('set-disk-cache-config', config)) as DiskCacheConfig;
+    const updated = (await window.api.setDiskCacheConfig(config)) as DiskCacheConfig;
 
     if (updated) {
       setData.value = {
@@ -298,7 +292,7 @@ watch(
     setData.value.diskCacheCleanupPolicy
   ],
   () => {
-    if (!window.electron || applyingDiskCacheConfig.value || switchingCacheDirectory.value) return;
+    if (!window.api || applyingDiskCacheConfig.value || switchingCacheDirectory.value) return;
     applyDiskCacheConfigDebounced();
   }
 );
@@ -346,7 +340,7 @@ const askCacheSwitchDestroy = (): Promise<boolean> => {
 };
 
 const selectCacheDirectory = async () => {
-  if (!window.electron) return;
+  if (!window.api) return;
 
   const selectedPath = await selectDirectory(message);
   if (!selectedPath) return;
@@ -370,12 +364,9 @@ const selectCacheDirectory = async () => {
   switchingCacheDirectory.value = true;
   try {
     const payload = { directory: selectedPath, action };
-    const result = (window.api?.switchDiskCacheDirectory
-      ? await window.api.switchDiskCacheDirectory(payload)
-      : await window.electron.ipcRenderer.invoke(
-          'switch-disk-cache-directory',
-          payload
-        )) as SwitchCacheDirectoryResult;
+    const result = (await window.api.switchDiskCacheDirectory(
+      payload
+    )) as SwitchCacheDirectoryResult;
 
     if (!result?.success) {
       message.error(t('settings.system.messages.switchDirectoryFailed'));
@@ -418,12 +409,10 @@ const openCacheDirectory = () => {
 };
 
 const clearDiskCacheByScope = async (scope: DiskCacheScope) => {
-  if (!window.electron && !window.api) return;
+  if (!window.api?.clearDiskCache) return;
 
   try {
-    const success = window.api?.clearDiskCache
-      ? await window.api.clearDiskCache(scope)
-      : await window.electron.ipcRenderer.invoke('clear-disk-cache', scope);
+    const success = await window.api.clearDiskCache(scope);
     if (success) {
       await refreshDiskCacheStats();
       message.success(t('settings.system.messages.diskCacheClearSuccess'));
@@ -449,9 +438,7 @@ const clearCache = async (selectedCacheTypes: string[]) => {
         userStore.handleLogout();
         break;
       case 'settings':
-        if (window.electron) {
-          window.electron.ipcRenderer.send('set-store-value', 'set', localData);
-        }
+        window.api?.setStoreValue?.('set', localData);
         localStorage.removeItem('appSettings');
         localStorage.removeItem('theme');
         localStorage.removeItem('lyricData');
@@ -463,13 +450,9 @@ const clearCache = async (selectedCacheTypes: string[]) => {
         }
         break;
       case 'resources':
-        if (window.electron) {
-          window.electron.ipcRenderer.send('clear-audio-cache');
-        }
+        window.api?.clearAudioCache?.();
         if (window.api?.clearDiskCache) {
           await window.api.clearDiskCache('music');
-        } else if (window.electron) {
-          await window.electron.ipcRenderer.invoke('clear-disk-cache', 'music');
         }
         localStorage.removeItem('lyricCache');
         localStorage.removeItem('musicUrlCache');
@@ -486,10 +469,7 @@ const clearCache = async (selectedCacheTypes: string[]) => {
       case 'lyrics':
         if (window.api?.clearDiskCache) {
           await window.api.clearDiskCache('lyrics');
-        } else if (window.electron) {
-          await window.electron.ipcRenderer.invoke('clear-disk-cache', 'lyrics');
         }
-        await window.api.invoke('clear-lyrics-cache');
         break;
     }
   });
@@ -499,7 +479,7 @@ const clearCache = async (selectedCacheTypes: string[]) => {
 };
 
 const restartApp = () => {
-  window.electron.ipcRenderer.send('restart');
+  window.api?.restart?.();
 };
 
 onMounted(async () => {

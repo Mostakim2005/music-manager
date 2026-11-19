@@ -1,10 +1,9 @@
 /**
- * Audio fingerprinting via FFmpeg.
+ * Audio fingerprinting and acoustic waveform extraction via FFmpeg.
  *
- * Decodes up to two minutes of mono PCM and derives a loudness-envelope
- * signature. No external fingerprint service is involved; the signature is
- * stored in the local song database and used to recognise the same recording
- * across formats, bitrates and file names.
+ * Decodes mono PCM and derives a loudness-envelope signature or full-track
+ * normalized waveform peaks. Uses the single bundled FFmpeg binary via
+ * `getFfmpegPath()`.
  */
 
 import { spawn } from 'child_process';
@@ -18,9 +17,16 @@ import {
 import { getFfmpegPath } from './youtube';
 
 const SAMPLE_RATE = 8000;
-const WAVEFORM_MAX_SECONDS = 900;
+const WAVEFORM_SAMPLE_RATE = 1000;
 
-function decodePcm(filePath: string, maxSeconds = FINGERPRINT_MAX_SECONDS): Promise<Int16Array> {
+function decodePcm(
+  filePath: string,
+  options?: { sampleRate?: number; maxSeconds?: number | null }
+): Promise<Int16Array> {
+  const sampleRate = options?.sampleRate ?? SAMPLE_RATE;
+  const maxSeconds =
+    options?.maxSeconds === undefined ? FINGERPRINT_MAX_SECONDS : options.maxSeconds;
+
   return new Promise((resolve, reject) => {
     const ffmpeg = getFfmpegPath();
     if (!ffmpeg) {
@@ -28,33 +34,23 @@ function decodePcm(filePath: string, maxSeconds = FINGERPRINT_MAX_SECONDS): Prom
       return;
     }
 
-    const args = [
-      '-v',
-      'error',
-      '-t',
-      String(maxSeconds),
-      '-i',
-      filePath,
-      '-ac',
-      '1',
-      '-ar',
-      String(SAMPLE_RATE),
-      '-f',
-      's16le',
-      '-'
-    ];
+    const args = ['-v', 'error'];
+    if (typeof maxSeconds === 'number' && maxSeconds > 0) {
+      args.push('-t', String(maxSeconds));
+    }
+    args.push('-i', filePath, '-ac', '1', '-ar', String(sampleRate), '-f', 's16le', '-');
 
     const chunks: Buffer[] = [];
     const proc = spawn(ffmpeg, args, { windowsHide: true });
 
     proc.stdout.on('data', (chunk: Buffer) => chunks.push(chunk));
     proc.stderr.on('data', () => {
-      // FFmpeg diagnostics are irrelevant for a fingerprint.
+      // FFmpeg diagnostics are irrelevant for a fingerprint or waveform.
     });
     proc.on('error', reject);
     proc.on('close', () => {
       const pcm = Buffer.concat(chunks);
-      if (pcm.length < SAMPLE_RATE) {
+      if (pcm.length < sampleRate) {
         reject(new Error('Not enough decoded audio'));
         return;
       }
@@ -72,7 +68,10 @@ function decodePcm(filePath: string, maxSeconds = FINGERPRINT_MAX_SECONDS): Prom
  */
 export async function computeAudioFingerprint(filePath: string): Promise<AudioFingerprint | null> {
   try {
-    const samples = await decodePcm(filePath);
+    const samples = await decodePcm(filePath, {
+      sampleRate: SAMPLE_RATE,
+      maxSeconds: FINGERPRINT_MAX_SECONDS
+    });
     const windowSize = Math.round(SAMPLE_RATE * FINGERPRINT_WINDOW_SECONDS);
     const windowCount = Math.floor(samples.length / windowSize);
     if (windowCount < 4) return null;
@@ -118,7 +117,10 @@ export function computePeaksFromPcm(samples: Int16Array, buckets = 140): number[
 
   for (let b = 0; b < safeBuckets; b += 1) {
     const start = b * samplesPerBucket;
-    const end = Math.min(samples.length, start + samplesPerBucket);
+    const end =
+      b === safeBuckets - 1
+        ? samples.length
+        : Math.min(samples.length, start + samplesPerBucket);
     if (start >= samples.length || end <= start) {
       rawBuckets.push(0.18);
       continue;
@@ -143,14 +145,18 @@ export function computePeaksFromPcm(samples: Int16Array, buckets = 140): number[
 }
 
 /**
- * Computes normalized acoustic waveform peaks (`0..1`) for a local media file via bundled FFmpeg.
+ * Computes normalized acoustic waveform peaks (`0..1`) for the full duration of a local
+ * media file at 1000 Hz mono (no 15-minute truncation cap, ~1.2 MB per 10 minutes).
  */
 export async function computeWaveformPeaks(
   filePath: string,
   buckets = 140
 ): Promise<number[] | null> {
   try {
-    const samples = await decodePcm(filePath, WAVEFORM_MAX_SECONDS);
+    const samples = await decodePcm(filePath, {
+      sampleRate: WAVEFORM_SAMPLE_RATE,
+      maxSeconds: null
+    });
     return computePeaksFromPcm(samples, buckets);
   } catch (error) {
     console.warn('[waveform] failed to decode PCM peaks:', filePath, error);

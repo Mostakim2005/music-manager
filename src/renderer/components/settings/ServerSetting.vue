@@ -146,10 +146,6 @@ const getLocalIpAddresses = () => {
     window.api.getLocalIpAddresses().then((ips: string[]) => {
       localIpAddresses.value = ips;
     });
-  } else if (window.electron) {
-    window.electron.ipcRenderer.invoke('get-local-ip-addresses').then((ips: string[]) => {
-      localIpAddresses.value = ips;
-    });
   }
 };
 
@@ -169,21 +165,12 @@ const saveConfig = () => {
   if (window.api?.updateRemoteControlConfig) {
     window.api.updateRemoteControlConfig(cloneDeep(remoteControlConfig.value));
     message.success(t('settings.remoteControl.saveSuccess'));
-  } else if (window.electron) {
-    window.electron.ipcRenderer.send(
-      'update-remote-control-config',
-      cloneDeep(remoteControlConfig.value)
-    );
-    message.success(t('settings.remoteControl.saveSuccess'));
   }
 };
 
 const resetConfig = () => {
-  const loader = window.api?.getRemoteControlConfig
-    ? window.api.getRemoteControlConfig()
-    : window.electron?.ipcRenderer.invoke('get-remote-control-config');
-  if (loader) {
-    loader.then((config: any) => {
+  if (window.api?.getRemoteControlConfig) {
+    window.api.getRemoteControlConfig().then((config: any) => {
       if (config) {
         remoteControlConfig.value = config;
       } else {
@@ -194,12 +181,9 @@ const resetConfig = () => {
 };
 
 onMounted(async () => {
-  const loader = window.api?.getRemoteControlConfig
-    ? window.api.getRemoteControlConfig()
-    : window.electron?.ipcRenderer.invoke('get-remote-control-config');
-  if (loader) {
+  if (window.api?.getRemoteControlConfig) {
     try {
-      const config = await loader;
+      const config = await window.api.getRemoteControlConfig();
       if (config) {
         remoteControlConfig.value = config;
       }

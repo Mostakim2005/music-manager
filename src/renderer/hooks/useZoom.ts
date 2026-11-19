@@ -11,9 +11,7 @@ export function useZoom() {
 
   const initZoomFactor = async () => {
     try {
-      const currentZoom = window.api?.getContentZoom
-        ? await window.api.getContentZoom()
-        : await window.ipcRenderer.invoke('get-content-zoom');
+      const currentZoom = await window.api.getContentZoom();
       zoomFactor.value = currentZoom;
     } catch (error) {
       console.error('Failed to read zoom ratio:', error);
@@ -57,11 +55,7 @@ export function useZoom() {
   };
 
   const setZoomFactor = (zoom: number) => {
-    if (window.api?.setContentZoom) {
-      window.api.setContentZoom(zoom);
-    } else {
-      window.ipcRenderer.send('set-content-zoom', zoom);
-    }
+    window.api?.setContentZoom?.(zoom);
     zoomFactor.value = zoom;
   };
 

@@ -8,6 +8,16 @@ import Dexie, { type Table } from 'dexie';
 import { compareFingerprints } from '../../shared/acousticFingerprint';
 import { type DuplicatePair, findFingerprintDuplicatePairs } from '../../shared/duplicateDetection';
 
+let currentTrackProvider: (() => any) | null = null;
+
+/**
+ * Registers a synchronous getter for the currently playing track (wired by audioService)
+ * so `getCurrentSongKey()` works in ESM without circular imports or Node-only `require()`.
+ */
+export function registerCurrentTrackProvider(getter: () => any): void {
+  currentTrackProvider = getter;
+}
+
 export interface Song {
   id: string; // uuid
   title: string;
@@ -722,10 +732,9 @@ export function getSongKey(track: any): string {
 /**
  * Helper to get the current song key from audioService
  */
-export function getCurrentSongKey(): string {
+export function getCurrentSongKey(trackOverride?: any): string {
   try {
-    const { audioService } = require('@/services/audioService');
-    const track = audioService?.getCurrentTrack();
+    const track = trackOverride !== undefined ? trackOverride : currentTrackProvider?.();
     return getSongKey(track);
   } catch {
     return '';

@@ -158,7 +158,7 @@ const createWin = () => {
     titleBarOverlay: false,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
-      sandbox: false,
+      sandbox: true,
       contextIsolation: true
     },
     backgroundColor: '#00000000'

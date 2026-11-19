@@ -15,8 +15,6 @@ import { savePlaybackProgress } from '@/utils/playerUtils';
 import { isEditableTarget } from '@/utils/shortcutKeyboard';
 import { parseLyrics } from '@/utils/yrcParser';
 
-const windowData = window as any;
-
 let playerStore: ReturnType<typeof usePlayerStore> | null = null;
 
 export const initMusicHook = (store: ReturnType<typeof usePlayerStore>): void => {
@@ -55,6 +53,7 @@ const syncOsMediaSession = () => {
       coverUrl: song.picUrl || song.al?.picUrl || '',
       durationSec: allTime.value,
       positionSec: nowTime.value,
+      playbackRate: audioService.getAudioElement()?.playbackRate || 1.0,
       isPlaying: Boolean(store.isPlay)
     });
   } catch {
@@ -84,7 +83,12 @@ const setupOsMediaSession = () => {
   });
 
   watch(
-    () => [getPlayerStore().playMusic?.id, getPlayerStore().isPlay, allTime.value],
+    () => [
+      getPlayerStore().playMusic?.id,
+      getPlayerStore().isPlay,
+      allTime.value,
+      (getPlayerStore() as any).playbackRate
+    ],
     () => {
       syncOsMediaSession();
     },
@@ -122,7 +126,7 @@ export let artistList: ComputedRef<Artist[]>;
 
 let lastIndex = -1;
 
-const cachedPlatform = isElectron ? window.electron.ipcRenderer.sendSync('get-platform') : 'web';
+const cachedPlatform = isElectron ? window.api?.getPlatform?.() || 'web' : 'web';
 
 export { musicDB };
 
@@ -431,7 +435,7 @@ const setupAudioListeners = () => {
           syncOsMediaSession();
           if (isElectron && !isVideoMode) {
             try {
-              window.electron.ipcRenderer.send('mpris-position-update', currentTime);
+              window.api.mprisPositionUpdate(currentTime);
             } catch {
               // Ignore MPRIS update failures
             }
@@ -496,7 +500,7 @@ const setupAudioListeners = () => {
           nowTime.value = currentTime;
 
           if (isElectron) {
-            window.electron.ipcRenderer.send('mpris-position-update', currentTime);
+            window.api.mprisPositionUpdate(currentTime);
           }
 
           const newIndex = getLrcIndex(nowTime.value);
@@ -833,7 +837,7 @@ const sendTrayLyric = (index: number) => {
       sender: 'MusicManager'
     });
 
-    window.electron.ipcRenderer.send('tray-lyric-update', lrcObj);
+    window.api.trayLyricUpdate(lrcObj);
   } catch (error) {
     console.error('[TrayLyric] Failed to send:', error);
   }
@@ -920,7 +924,7 @@ export const openLyric = async () => {
 export const closeLyric = () => {
   if (!isElectron) return;
   isLyricWindowOpen.value = false;
-  windowData.electron.ipcRenderer.send('close-lyric');
+  window.api.closeLyric();
 
   stopLyricSync();
 };
@@ -948,7 +952,7 @@ onUnmounted(() => {
 export { parseLyricsString };
 
 if (isElectron) {
-  windowData.electron.ipcRenderer.on('lyric-control-back', (_, command: string) => {
+  window.api?.onLyricControlBack?.((command: string) => {
     switch (command) {
       case 'playpause':
         if (getPlayerStore().playMusic?.id) {

@@ -141,7 +141,7 @@ const getPlatform = (): DesktopPlatform => {
     return 'web';
   }
 
-  const platform = window.electron.ipcRenderer.sendSync('get-platform');
+  const platform = window.api.getPlatform();
   return platform === 'darwin' || platform === 'win32' || platform === 'linux' ? platform : 'linux';
 };
 

@@ -179,7 +179,7 @@ const ALL_PLATFORMS: Platform[] = ['youtube'];
 const { t } = useI18n();
 const playerStore = usePlayerStore();
 const setData = inject(SETTINGS_DATA_KEY)!;
-const platform = window.electron ? window.electron.ipcRenderer.sendSync('get-platform') : 'web';
+const platform = window.api?.getPlatform ? window.api.getPlatform() : 'web';
 
 const showMusicSourcesModal = ref(false);
 

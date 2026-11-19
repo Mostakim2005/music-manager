@@ -93,7 +93,7 @@ handleSetLanguage(settingsStore.setData.language);
 
 if (isElectron) {
   window.api.onLanguageChanged(handleSetLanguage);
-  window.electron.ipcRenderer.on('mini-mode', (_, value) => {
+  window.api.onMiniMode((value) => {
     settingsStore.setMiniMode(value);
     playerStore.setMusicFull(false);
     if (value) {

@@ -261,8 +261,8 @@ const gpuAccelerationChanged = ref(false);
 
 const handleGpuAccelerationChange = (enabled: boolean) => {
   try {
-    if (window.electron) {
-      window.electron.ipcRenderer.send('update-gpu-acceleration', enabled);
+    if (window.api?.updateGpuAcceleration) {
+      window.api.updateGpuAcceleration(enabled);
       gpuAccelerationChanged.value = true;
       message.info(t('settings.basic.gpuAccelerationChangeSuccess'));
     }
@@ -312,13 +312,13 @@ watch(
 );
 
 onMounted(() => {
-  if (window.electron) {
-    window.electron.ipcRenderer.on('gpu-acceleration-updated', (_, enabled: boolean) => {
+  if (window.api?.onGpuAccelerationUpdated) {
+    window.api.onGpuAccelerationUpdated((enabled: boolean) => {
       console.log('GPU setting updated:', enabled);
       gpuAccelerationChanged.value = true;
     });
 
-    window.electron.ipcRenderer.on('gpu-acceleration-update-error', (_, errorMessage: string) => {
+    window.api.onGpuAccelerationUpdateError((errorMessage: string) => {
       console.error('GPU setting update error:', errorMessage);
       gpuAccelerationChanged.value = false;
     });
@@ -326,9 +326,9 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
-  if (window.electron) {
-    window.electron.ipcRenderer.removeAllListeners?.('gpu-acceleration-updated');
-    window.electron.ipcRenderer.removeAllListeners?.('gpu-acceleration-update-error');
+  if (window.api?.removeAllIpcListeners) {
+    window.api.removeAllIpcListeners('gpu-acceleration-updated');
+    window.api.removeAllIpcListeners('gpu-acceleration-update-error');
   }
 });
 </script>

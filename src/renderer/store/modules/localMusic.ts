@@ -289,9 +289,7 @@ export const useLocalMusicStore = defineStore(
         const existsMap: Record<string, boolean> = {};
         for (const entry of allEntries) {
           try {
-            const exists = window.api?.checkFileExists
-              ? await window.api.checkFileExists(entry.filePath)
-              : await window.electron.ipcRenderer.invoke('check-file-exists', entry.filePath);
+            const exists = await window.api.checkFileExists(entry.filePath);
             existsMap[entry.filePath] = exists !== false;
           } catch {
             existsMap[entry.filePath] = true;

@@ -21,8 +21,17 @@ const props = withDefaults(
 const canvasRef = ref<HTMLCanvasElement | null>(null);
 let gl: WebGLRenderingContext | null = null;
 let program: WebGLProgram | null = null;
+let vs: WebGLShader | null = null;
+let fs: WebGLShader | null = null;
+let buf: WebGLBuffer | null = null;
+let uTimeLoc: WebGLUniformLocation | null = null;
+let uBassLoc: WebGLUniformLocation | null = null;
+let uC0Loc: WebGLUniformLocation | null = null;
+let uC1Loc: WebGLUniformLocation | null = null;
+let uC2Loc: WebGLUniformLocation | null = null;
+let uC3Loc: WebGLUniformLocation | null = null;
 let rafId = 0;
-let startTime = performance.now();
+const startTime = performance.now();
 
 function hexToRgbNormalized(hex: string): [number, number, number] {
   const clean = hex.replace('#', '');
@@ -38,12 +47,41 @@ const currentColors = [
 ];
 const targetColors = [...currentColors.map((c) => [...c])];
 
+function drawSingleFrame(now: number, snapColors = false) {
+  if (!gl || !program) return;
+
+  for (let i = 0; i < 4; i++) {
+    for (let c = 0; c < 3; c++) {
+      if (snapColors) {
+        currentColors[i][c] = targetColors[i][c];
+      } else {
+        currentColors[i][c] += (targetColors[i][c] - currentColors[i][c]) * 0.04;
+      }
+    }
+  }
+
+  const elapsed = (now - startTime) * 0.001;
+  gl.useProgram(program);
+
+  gl.uniform1f(uTimeLoc, elapsed);
+  gl.uniform1f(uBassLoc, props.bassEnergy || 0);
+  gl.uniform3fv(uC0Loc, currentColors[0]);
+  gl.uniform3fv(uC1Loc, currentColors[1]);
+  gl.uniform3fv(uC2Loc, currentColors[2]);
+  gl.uniform3fv(uC3Loc, currentColors[3]);
+
+  gl.drawArrays(gl.TRIANGLES, 0, 6);
+}
+
 watch(
   () => props.palette,
   (newPal) => {
     if (!newPal || newPal.length === 0) return;
     for (let i = 0; i < 4; i++) {
       targetColors[i] = hexToRgbNormalized(newPal[i % newPal.length]);
+    }
+    if (!props.isPlaying && gl && program) {
+      drawSingleFrame(performance.now(), true);
     }
   },
   { immediate: true, deep: true }
@@ -103,25 +141,7 @@ function compileShader(ctx: WebGLRenderingContext, type: number, source: string)
 
 function renderLoop(now: number) {
   if (!gl || !program) return;
-
-  // Smoothly lerp palette colors (spring-like transition on track change)
-  for (let i = 0; i < 4; i++) {
-    for (let c = 0; c < 3; c++) {
-      currentColors[i][c] += (targetColors[i][c] - currentColors[i][c]) * 0.04;
-    }
-  }
-
-  const elapsed = (now - startTime) * 0.001;
-  gl.useProgram(program);
-
-  gl.uniform1f(gl.getUniformLocation(program, 'u_time'), elapsed);
-  gl.uniform1f(gl.getUniformLocation(program, 'u_bass'), props.bassEnergy || 0);
-  gl.uniform3fv(gl.getUniformLocation(program, 'u_c0'), currentColors[0]);
-  gl.uniform3fv(gl.getUniformLocation(program, 'u_c1'), currentColors[1]);
-  gl.uniform3fv(gl.getUniformLocation(program, 'u_c2'), currentColors[2]);
-  gl.uniform3fv(gl.getUniformLocation(program, 'u_c3'), currentColors[3]);
-
-  gl.drawArrays(gl.TRIANGLES, 0, 6);
+  drawSingleFrame(now, false);
   if (props.isPlaying) {
     rafId = requestAnimationFrame(renderLoop);
   } else {
@@ -156,14 +176,21 @@ onMounted(() => {
     canvas.getContext('webgl', { alpha: false, antialias: false, powerPreference: 'low-power' });
   if (!gl) return;
 
-  const vs = compileShader(gl, gl.VERTEX_SHADER, VERTEX_SHADER);
-  const fs = compileShader(gl, gl.FRAGMENT_SHADER, FRAGMENT_SHADER);
+  vs = compileShader(gl, gl.VERTEX_SHADER, VERTEX_SHADER);
+  fs = compileShader(gl, gl.FRAGMENT_SHADER, FRAGMENT_SHADER);
   program = gl.createProgram()!;
   gl.attachShader(program, vs);
   gl.attachShader(program, fs);
   gl.linkProgram(program);
 
-  const buf = gl.createBuffer();
+  uTimeLoc = gl.getUniformLocation(program, 'u_time');
+  uBassLoc = gl.getUniformLocation(program, 'u_bass');
+  uC0Loc = gl.getUniformLocation(program, 'u_c0');
+  uC1Loc = gl.getUniformLocation(program, 'u_c1');
+  uC2Loc = gl.getUniformLocation(program, 'u_c2');
+  uC3Loc = gl.getUniformLocation(program, 'u_c3');
+
+  buf = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, buf);
   gl.bufferData(
     gl.ARRAY_BUFFER,
@@ -176,13 +203,28 @@ onMounted(() => {
   gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
 
   gl.viewport(0, 0, 256, 256);
-  rafId = requestAnimationFrame(renderLoop);
+  drawSingleFrame(performance.now(), true);
+  if (props.isPlaying) {
+    rafId = requestAnimationFrame(renderLoop);
+  }
 });
 
 onBeforeUnmount(() => {
   if (rafId) {
     cancelAnimationFrame(rafId);
     rafId = 0;
+  }
+  if (gl) {
+    if (buf) gl.deleteBuffer(buf);
+    if (program) gl.deleteProgram(program);
+    if (vs) gl.deleteShader(vs);
+    if (fs) gl.deleteShader(fs);
+    gl.getExtension('WEBGL_lose_context')?.loseContext();
+    gl = null;
+    program = null;
+    vs = null;
+    fs = null;
+    buf = null;
   }
 });
 </script>

@@ -40,14 +40,8 @@ export async function reportRendererError(entry: {
   }
 
   try {
-    if (typeof window !== 'undefined') {
-      if (typeof (window as any).api?.reportError === 'function') {
-        await (window as any).api.reportError(entry);
-      } else if (typeof (window as any).ipcRenderer?.invoke === 'function') {
-        await (window as any).ipcRenderer.invoke('error-reporter:report', entry);
-      } else if (typeof (window as any).electron?.ipcRenderer?.invoke === 'function') {
-        await (window as any).electron.ipcRenderer.invoke('error-reporter:report', entry);
-      }
+    if (typeof window !== 'undefined' && typeof window.api?.reportError === 'function') {
+      await window.api.reportError(entry);
     }
   } catch (err) {
     console.error('[ErrorMonitor] Failed to send error report to main process:', err);
@@ -107,13 +101,8 @@ export function initRendererErrorMonitor(app?: any): void {
       }
     };
 
-    if (typeof (window as any).ipcRenderer?.on === 'function') {
-      (window as any).ipcRenderer.on('error-report:new', onNewReport);
-    } else if (typeof (window as any).electron?.ipcRenderer?.on === 'function') {
-      (window as any).electron.ipcRenderer.on(
-        'error-report:new',
-        (_event: any, data: ErrorReportEntry) => onNewReport(data)
-      );
+    if (typeof window.api?.onErrorReportNew === 'function') {
+      window.api.onErrorReportNew(onNewReport);
     }
   }
 
@@ -148,27 +137,11 @@ export async function getDiagnosticsData(): Promise<{
   reports: ErrorReportEntry[];
 }> {
   try {
-    if (typeof window !== 'undefined') {
-      if (typeof (window as any).api?.invoke === 'function') {
-        const res = await (window as any).api.invoke('error-reporter:get-reports');
-        if (res && Array.isArray(res.reports)) {
-          rendererErrorList.value = res.reports;
-          return res;
-        }
-      }
-      if (typeof (window as any).ipcRenderer?.invoke === 'function') {
-        const res = await (window as any).ipcRenderer.invoke('error-reporter:get-reports');
-        if (res && Array.isArray(res.reports)) {
-          rendererErrorList.value = res.reports;
-          return res;
-        }
-      }
-      if (typeof (window as any).electron?.ipcRenderer?.invoke === 'function') {
-        const res = await (window as any).electron.ipcRenderer.invoke('error-reporter:get-reports');
-        if (res && Array.isArray(res.reports)) {
-          rendererErrorList.value = res.reports;
-          return res;
-        }
+    if (typeof window !== 'undefined' && typeof window.api?.invoke === 'function') {
+      const res = await window.api.invoke('error-reporter:get-reports');
+      if (res && Array.isArray(res.reports)) {
+        rendererErrorList.value = res.reports;
+        return res;
       }
     }
   } catch (err) {
@@ -185,16 +158,8 @@ export async function getDiagnosticsData(): Promise<{
 export async function clearDiagnosticsData(): Promise<{ ok: boolean }> {
   rendererErrorList.value = [];
   try {
-    if (typeof window !== 'undefined') {
-      if (typeof (window as any).ipcRenderer?.invoke === 'function') {
-        return await (window as any).ipcRenderer.invoke('error-reporter:clear');
-      }
-      if (typeof (window as any).electron?.ipcRenderer?.invoke === 'function') {
-        return await (window as any).electron.ipcRenderer.invoke('error-reporter:clear');
-      }
-      if (typeof (window as any).api?.invoke === 'function') {
-        return await (window as any).api.invoke('error-reporter:clear');
-      }
+    if (typeof window !== 'undefined' && typeof window.api?.invoke === 'function') {
+      return await window.api.invoke('error-reporter:clear');
     }
   } catch (err) {
     console.error('[ErrorMonitor] Failed to clear diagnostics in main:', err);
@@ -204,19 +169,8 @@ export async function clearDiagnosticsData(): Promise<{ ok: boolean }> {
 
 export async function triggerTestDiagnosticError(customMessage?: string): Promise<any> {
   try {
-    if (typeof window !== 'undefined') {
-      if (typeof (window as any).ipcRenderer?.invoke === 'function') {
-        return await (window as any).ipcRenderer.invoke('error-reporter:test', customMessage);
-      }
-      if (typeof (window as any).electron?.ipcRenderer?.invoke === 'function') {
-        return await (window as any).electron.ipcRenderer.invoke(
-          'error-reporter:test',
-          customMessage
-        );
-      }
-      if (typeof (window as any).api?.invoke === 'function') {
-        return await (window as any).api.invoke('error-reporter:test', customMessage);
-      }
+    if (typeof window !== 'undefined' && typeof window.api?.invoke === 'function') {
+      return await window.api.invoke('error-reporter:test', customMessage);
     }
   } catch (err) {
     console.error('[ErrorMonitor] Failed to trigger test error in main:', err);
@@ -232,16 +186,8 @@ export async function triggerTestDiagnosticError(customMessage?: string): Promis
 
 export async function exportDiagnosticsReport(): Promise<{ ok: boolean; filePath?: string }> {
   try {
-    if (typeof window !== 'undefined') {
-      if (typeof (window as any).ipcRenderer?.invoke === 'function') {
-        return await (window as any).ipcRenderer.invoke('error-reporter:export');
-      }
-      if (typeof (window as any).electron?.ipcRenderer?.invoke === 'function') {
-        return await (window as any).electron.ipcRenderer.invoke('error-reporter:export');
-      }
-      if (typeof (window as any).api?.invoke === 'function') {
-        return await (window as any).api.invoke('error-reporter:export');
-      }
+    if (typeof window !== 'undefined' && typeof window.api?.invoke === 'function') {
+      return await window.api.invoke('error-reporter:export');
     }
   } catch (err) {
     console.error('[ErrorMonitor] Failed to export diagnostics report from main:', err);

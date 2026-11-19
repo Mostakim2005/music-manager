@@ -73,21 +73,13 @@ const resolveCachedPlaybackUrl = async (
   }
 
   try {
-    const result = (window.api?.resolveCachedMusicUrl
-      ? await window.api.resolveCachedMusicUrl({
-          songId: Number(songData.id),
-          source: songData.source,
-          url,
-          title: songData.name,
-          artist: getSongArtistText(songData)
-        })
-      : await window.electron.ipcRenderer.invoke('resolve-cached-music-url', {
-          songId: Number(songData.id),
-          source: songData.source,
-          url,
-          title: songData.name,
-          artist: getSongArtistText(songData)
-        })) as DiskCacheResolveResult;
+    const result = (await window.api.resolveCachedMusicUrl({
+      songId: Number(songData.id),
+      source: songData.source,
+      url,
+      title: songData.name,
+      artist: getSongArtistText(songData)
+    })) as DiskCacheResolveResult;
 
     if (result?.url) {
       return result.url;
@@ -224,9 +216,7 @@ export const loadLrc = async (id: string | number, song?: SongResult): Promise<I
 
     if (isElectron) {
       try {
-        lyricData = window.api?.getCachedLyric
-          ? await window.api.getCachedLyric(cacheKey)
-          : await window.electron.ipcRenderer.invoke('get-cached-lyric', cacheKey);
+        lyricData = await window.api.getCachedLyric(cacheKey);
       } catch (error) {
         console.warn('Failed to read disk lyric cache:', error);
       }
@@ -245,12 +235,9 @@ export const loadLrc = async (id: string | number, song?: SongResult): Promise<I
       }
 
       if (isElectron && lyricData) {
-        const writeTask = window.api?.cacheLyric
-          ? window.api.cacheLyric(cacheKey, lyricData)
-          : window.electron.ipcRenderer.invoke('cache-lyric', cacheKey, lyricData);
-        void writeTask.catch((error: unknown) =>
-          console.warn('Failed to write disk lyric cache:', error)
-        );
+        void window.api
+          .cacheLyric(cacheKey, lyricData)
+          .catch((error: unknown) => console.warn('Failed to write disk lyric cache:', error));
       }
     }
 

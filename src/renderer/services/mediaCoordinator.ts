@@ -70,17 +70,9 @@ class MediaCoordinator {
   private initIPC() {
     if (typeof window !== 'undefined') {
       try {
-        const electron = (window as any).electron;
         const api = (window as any).api;
-
         if (api?.onMediaPauseAll) {
           api.onMediaPauseAll((data: any) => {
-            if (data?.ownerId) {
-              this.handleRemotePlay(data.ownerId);
-            }
-          });
-        } else if (electron?.ipcRenderer) {
-          electron.ipcRenderer.on('media-pause-all', (_event: any, data: any) => {
             if (data?.ownerId) {
               this.handleRemotePlay(data.ownerId);
             }
@@ -234,12 +226,9 @@ class MediaCoordinator {
       // 3. Broadcast via Electron IPC to other windows
       try {
         if (typeof window !== 'undefined') {
-          const electron = (window as any).electron;
           const api = (window as any).api;
           if (api?.sendMediaPlay) {
             api.sendMediaPlay({ ownerId, timestamp: Date.now() });
-          } else if (electron?.ipcRenderer) {
-            electron.ipcRenderer.send('media-play', { ownerId, timestamp: Date.now() });
           }
         }
       } catch {

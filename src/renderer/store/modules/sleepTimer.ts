@@ -167,11 +167,7 @@ export const useSleepTimerStore = defineStore('sleepTimer', () => {
       title: i18n.global.t('player.sleepTimer.timerEnded'),
       body: i18n.global.t('player.sleepTimer.playbackStopped')
     };
-    if (window.api?.showNotification) {
-      window.api.showNotification(notificationPayload);
-    } else if (window.electron?.ipcRenderer) {
-      window.electron.ipcRenderer.send('show-notification', notificationPayload);
-    }
+    window.api?.showNotification?.(notificationPayload);
   };
 
   /**

@@ -268,7 +268,7 @@ const handleKeydown = (e: KeyboardEvent) => {
 
 const restartApp = () => {
   if (isElectron) {
-    window.electron.ipcRenderer.send('restart');
+    window.api.restart();
   }
 };
 

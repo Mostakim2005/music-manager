@@ -467,4 +467,53 @@ describe('YesPlayMusic Ported Features & Namida Enhancements', () => {
       ).toBe(true);
     });
   });
+
+  describe('9. Post-Implementation Audit Fixes (F-01 through F-09)', () => {
+    it('F-03: computePeaksFromPcm handles long full-track PCM arrays with exact bucket count', async () => {
+      const { computePeaksFromPcm } = await import('../src/main/modules/audioFingerprint');
+      // Simulate a 30-minute track decoded at 1000 Hz (1,800,000 samples)
+      const longPcm = new Int16Array(1800000);
+      for (let i = 0; i < longPcm.length; i += 1) {
+        const amp = i < 900000 ? 6000 : 24000;
+        longPcm[i] = Math.round(Math.sin(i * 0.05) * amp);
+      }
+
+      const peaks = computePeaksFromPcm(longPcm, 140);
+      expect(peaks).toHaveLength(140);
+      expect(Math.max(...peaks)).toBe(1);
+      expect(peaks[10]).toBeLessThan(peaks[130]);
+    });
+
+    it('F-04: updateOsMediaMetadata forwards non-1.0 playbackRate to setPositionState', async () => {
+      const setPositionStateSpy = vi.fn();
+      (globalThis.navigator as any).mediaSession = {
+        metadata: null,
+        playbackState: 'none',
+        setActionHandler: vi.fn(),
+        setPositionState: setPositionStateSpy
+      };
+
+      const { updateOsMediaMetadata } = await import('../src/renderer/services/osMediaSession');
+      updateOsMediaMetadata({
+        title: 'Speed Test',
+        artist: 'Artist',
+        durationSec: 200,
+        positionSec: 50,
+        playbackRate: 1.5,
+        isPlaying: true
+      });
+
+      expect(setPositionStateSpy).toHaveBeenCalledWith({
+        duration: 200,
+        playbackRate: 1.5,
+        position: 50
+      });
+    });
+
+    it('F-05: getCurrentSongKey resolves cleanly via ESM without CommonJS require()', async () => {
+      const { getCurrentSongKey } = await import('../src/renderer/services/songLibrary');
+      const key = getCurrentSongKey();
+      expect(typeof key).toBe('string');
+    });
+  });
 });

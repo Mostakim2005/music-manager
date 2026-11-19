@@ -353,7 +353,7 @@ export function createMainWindow(icon: Electron.NativeImage): BrowserWindow {
   options.icon = icon;
   options.webPreferences = {
     preload: join(__dirname, '../preload/index.js'),
-    sandbox: false,
+    sandbox: true,
     contextIsolation: true,
     webSecurity: true,
     backgroundThrottling: false

@@ -331,24 +331,17 @@ async function handleBackupAction(key: string) {
         artist: item.artist,
         durationSec: item.duration ? Math.round(item.duration / 1000) : -1
       }));
-      const res: any = window.api?.exportM3u8
-        ? await window.api.exportM3u8({
-            defaultName: 'MusicManager-LocalLibrary',
-            tracks
-          })
-        : await window.electron.ipcRenderer.invoke('library:export-m3u8', {
-            playlistName: 'MusicManager-LocalLibrary',
-            tracks
-          });
+      const res: any = await window.api.exportM3u8({
+        defaultName: 'MusicManager-LocalLibrary',
+        tracks
+      });
       if (res?.ok) {
         message.success(`Exported ${res.count ?? tracks.length} tracks to ${res.filePath}`);
       } else if (res && !res.canceled && res.error) {
         message.error(res.error);
       }
     } else if (key === 'import-m3u8') {
-      const res: any = window.api?.importM3u8
-        ? await window.api.importM3u8()
-        : await window.electron.ipcRenderer.invoke('library:import-m3u8');
+      const res: any = await window.api.importM3u8();
       if (res?.ok && Array.isArray(res.filePaths) && res.filePaths.length > 0) {
         const parsed = await window.api.parseLocalMusicMetadata(res.filePaths);
         for (const meta of parsed) {
@@ -364,20 +357,14 @@ async function handleBackupAction(key: string) {
         musicList: localMusicStore.musicList,
         listeningStats: exportListeningStatsRaw()
       };
-      const res: any = window.api?.exportBackupJson
-        ? await window.api.exportBackupJson({ payload })
-        : await window.electron.ipcRenderer.invoke('library:export-backup-json', {
-            payload
-          });
+      const res: any = await window.api.exportBackupJson({ payload });
       if (res?.ok) {
         message.success(`Saved library & stats backup to ${res.filePath}`);
       } else if (res && !res.canceled && res.error) {
         message.error(res.error);
       }
     } else if (key === 'import-json') {
-      const res: any = window.api?.importBackupJson
-        ? await window.api.importBackupJson()
-        : await window.electron.ipcRenderer.invoke('library:import-backup-json');
+      const res: any = await window.api.importBackupJson();
       if (res?.ok && res.payload) {
         const { folderPaths, musicList, listeningStats } = res.payload;
         if (Array.isArray(folderPaths)) {
@@ -493,9 +480,7 @@ const maintenanceDetail = computed(() => {
  */
 async function handleAddFolder(): Promise<void> {
   try {
-    const result = window.api?.selectDirectory
-      ? await window.api.selectDirectory()
-      : await window.electron.ipcRenderer.invoke('select-directory');
+    const result = await window.api.selectDirectory();
     if (result && !result.canceled && result.filePaths?.length > 0) {
       localMusicStore.addFolder(result.filePaths[0]);
       await localMusicStore.scanFolders();
@@ -626,9 +611,7 @@ async function handlePlayAll(): Promise<void> {
     const firstSong = filteredSongResults.value[0];
     const entry = filteredList.value[0];
 
-    const exists = window.api?.checkFileExists
-      ? await window.api.checkFileExists(entry.filePath)
-      : await window.electron.ipcRenderer.invoke('check-file-exists', entry.filePath);
+    const exists = await window.api.checkFileExists(entry.filePath);
     if (!exists) {
       message.error(t('localMusic.fileNotFound'));
       return;

@@ -402,8 +402,6 @@ const browseFolder = async () => {
     let result: any = null;
     if (window.api?.selectDirectory) {
       result = await window.api.selectDirectory();
-    } else if (window.ipcRenderer) {
-      result = await window.ipcRenderer.invoke('select-directory');
     }
 
     if (result && !result.canceled && result.filePaths?.[0]) {
@@ -578,12 +576,6 @@ const saveLyrics = async () => {
 
     if (window.api?.saveLyricFile) {
       result = await window.api.saveLyricFile({
-        filename,
-        lrcContent: props.lrcString,
-        targetDir: destinationFolder.value
-      });
-    } else if (window.ipcRenderer) {
-      result = await window.ipcRenderer.invoke('save-lyric-file', {
         filename,
         lrcContent: props.lrcString,
         targetDir: destinationFolder.value

@@ -213,15 +213,11 @@ const handleShortcutsChange = (shortcuts: any) => {
 };
 
 const handleDiscordRpcChange = (enabled: boolean) => {
-  if (window.electron?.ipcRenderer) {
-    window.electron.ipcRenderer.send('update-discord-rpc-enabled', enabled);
-  }
+  window.api?.updateDiscordRpcEnabled?.(enabled);
 };
 
 const handleDiscordClientIdChange = () => {
-  if (window.electron?.ipcRenderer) {
-    window.electron.ipcRenderer.send('update-discord-client-id', setData.value.discordClientId || '');
-  }
+  window.api?.updateDiscordClientId?.(setData.value.discordClientId || '');
 };
 
 // ==================== Downloads & YouTube Engine ====================

@@ -265,7 +265,6 @@ import {
 defineOptions({
   name: 'Lyric'
 });
-const windowData = window as any;
 const containerRef = ref<HTMLElement | null>(null);
 const containerHeight = ref(0);
 const lineHeight = ref(60);
@@ -396,7 +395,7 @@ const scheduleLockedControlsHide = () => {
     hideControlsTimer = null;
     if (lyricSetting.value.isLock && !showThemeColorPanel.value) {
       isHovering.value = false;
-      windowData.electron.ipcRenderer.send('set-ignore-mouse', true);
+      window.api.setIgnoreMouse(true);
     }
   }, LOCKED_CONTROLS_HIDE_DELAY);
 };
@@ -411,7 +410,7 @@ const showLockedControls = () => {
   if (!lyricSetting.value.isLock) return;
   if (!isHovering.value) {
     isHovering.value = true;
-    windowData.electron.ipcRenderer.send('set-ignore-mouse', false);
+    window.api.setIgnoreMouse(false);
   }
   scheduleLockedControlsHide();
 };
@@ -437,10 +436,10 @@ const handleMouseEnter = () => {
   updateControlBarPosition();
   if (lyricSetting.value.isLock) {
     isHovering.value = true;
-    windowData.electron.ipcRenderer.send('set-ignore-mouse', true);
+    window.api.setIgnoreMouse(true);
     scheduleLockedControlsHide();
   } else {
-    windowData.electron.ipcRenderer.send('set-ignore-mouse', false);
+    window.api.setIgnoreMouse(false);
   }
 };
 
@@ -449,7 +448,7 @@ const handleMouseLeave = () => {
   clearHideTimer();
   isHovering.value = false;
   showThemeColorPanel.value = false;
-  windowData.electron.ipcRenderer.send('set-ignore-mouse', false);
+  window.api.setIgnoreMouse(false);
 
   const lyricWindow = document.querySelector('.lyric-window') as HTMLElement;
   if (lyricWindow) {
@@ -468,7 +467,7 @@ watch(
       isHovering.value = false;
       showThemeColorPanel.value = false;
     }
-    windowData.electron.ipcRenderer.send('set-lyric-lock-state', newLock);
+    window.api.setLyricLockState(newLock);
   }
 );
 
@@ -799,7 +798,7 @@ onMounted(() => {
   updateContainerHeight();
   window.addEventListener('resize', updateContainerHeight);
 
-  const disposeReceiveLyric = windowData.electron.ipcRenderer.on('receive-lyric', (_, data) => {
+  const disposeReceiveLyric = window.api.onReceiveLyric((data) => {
     try {
       const parsedData = JSON.parse(data);
       handleDataUpdate(parsedData);
@@ -811,27 +810,24 @@ onMounted(() => {
     removeReceiveLyricListener = disposeReceiveLyric;
   }
 
-  windowData.electron.ipcRenderer.send('lyric-ready');
+  window.api.lyricReady();
 
-  removeMousePresenceListener = window.ipcRenderer.on(
-    'lyric-mouse-presence',
-    (isInside: boolean) => {
-      if (lyricSetting.value.isLock) {
-        if (isInside) {
-          showLockedControls();
-        } else {
-          clearHideTimer();
-          isHovering.value = false;
-          showThemeColorPanel.value = false;
-          windowData.electron.ipcRenderer.send('set-ignore-mouse', true);
-        }
+  removeMousePresenceListener = window.api.onLyricMousePresence((isInside: boolean) => {
+    if (lyricSetting.value.isLock) {
+      if (isInside) {
+        showLockedControls();
       } else {
-        isHovering.value = isInside;
+        clearHideTimer();
+        isHovering.value = false;
+        showThemeColorPanel.value = false;
+        window.api.setIgnoreMouse(true);
       }
+    } else {
+      isHovering.value = isInside;
     }
-  );
+  });
 
-  windowData.electron.ipcRenderer.send('set-lyric-lock-state', lyricSetting.value.isLock);
+  window.api.setLyricLockState(lyricSetting.value.isLock);
 });
 
 onUnmounted(() => {
@@ -859,7 +855,7 @@ const toggleThemeColorPanel = () => {
   if (showThemeColorPanel.value) {
     clearHideTimer();
     if (lyricSetting.value.isLock) {
-      windowData.electron.ipcRenderer.send('set-ignore-mouse', false);
+      window.api.setIgnoreMouse(false);
     }
   } else {
     resumeLockedControlsHide();
@@ -982,18 +978,13 @@ const initializeThemeColor = () => {
   }
 };
 
-// const handleTop = () => {
-//   lyricSetting.value.isTop = !lyricSetting.value.isTop;
-//   windowData.electron.ipcRenderer.send('top-lyric', lyricSetting.value.isTop);
-// };
-
 const handleLock = () => {
   lyricSetting.value.isLock = !lyricSetting.value.isLock;
-  windowData.electron.ipcRenderer.send('set-ignore-mouse', lyricSetting.value.isLock);
+  window.api.setIgnoreMouse(lyricSetting.value.isLock);
 };
 
 const handleClose = () => {
-  windowData.electron.ipcRenderer.send('close-lyric');
+  window.api.closeLyric();
 };
 
 const cycleDisplayMode = () => {
@@ -1062,7 +1053,7 @@ const handleMouseDown = (e: MouseEvent) => {
   startPosition.value = { x: e.screenX, y: e.screenY };
   lastMoveTime.value = performance.now();
 
-  windowData.electron.ipcRenderer.send('lyric-drag-start');
+  window.api.lyricDragStart();
 
   const handleMouseMove = (e: MouseEvent) => {
     if (!isDragging.value) return;
@@ -1075,7 +1066,7 @@ const handleMouseDown = (e: MouseEvent) => {
     const deltaY = e.screenY - startPosition.value.y;
 
     if (Math.abs(deltaX) > 0 || Math.abs(deltaY) > 0) {
-      windowData.electron.ipcRenderer.send('lyric-drag-move', { deltaX, deltaY });
+      window.api.lyricDragMove({ deltaX, deltaY });
       startPosition.value = { x: e.screenX, y: e.screenY };
       updateControlBarPosition();
     }
@@ -1085,7 +1076,7 @@ const handleMouseDown = (e: MouseEvent) => {
     if (!isDragging.value) return;
     isDragging.value = false;
 
-    windowData.electron.ipcRenderer.send('lyric-drag-end');
+    window.api.lyricDragEnd();
     updateControlBarPosition();
 
     document.removeEventListener('mousemove', handleMouseMove);
@@ -1109,12 +1100,12 @@ onMounted(() => {
   if (lyricLock) {
     lyricLock.onmouseenter = () => {
       if (lyricSetting.value.isLock) {
-        windowData.electron.ipcRenderer.send('set-ignore-mouse', false);
+        window.api.setIgnoreMouse(false);
       }
     };
     lyricLock.onmouseleave = () => {
       if (lyricSetting.value.isLock && !showThemeColorPanel.value) {
-        windowData.electron.ipcRenderer.send('set-ignore-mouse', true);
+        window.api.setIgnoreMouse(true);
       }
     };
   }
@@ -1123,7 +1114,7 @@ onMounted(() => {
   if (themeColorButton) {
     themeColorButton.onmouseenter = () => {
       if (lyricSetting.value.isLock) {
-        windowData.electron.ipcRenderer.send('set-ignore-mouse', false);
+        window.api.setIgnoreMouse(false);
       }
     };
   }
@@ -1134,15 +1125,15 @@ onMounted(() => {
 });
 
 const handlePlayPause = () => {
-  windowData.electron.ipcRenderer.send('control-back', 'playpause');
+  window.api.lyricControlBack('playpause');
 };
 
 const handlePrev = () => {
-  windowData.electron.ipcRenderer.send('control-back', 'prev');
+  window.api.lyricControlBack('prev');
 };
 
 const handleNext = () => {
-  windowData.electron.ipcRenderer.send('control-back', 'next');
+  window.api.lyricControlBack('next');
 };
 </script>
 
