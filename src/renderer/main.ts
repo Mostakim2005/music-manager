@@ -1,4 +1,5 @@
 import './index.css';
+import './styles/namida.css';
 import '@/assets/css/mobile.css';
 import 'animate.css';
 import 'remixicon/fonts/remixicon.css';

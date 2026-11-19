@@ -120,6 +120,14 @@ flowchart LR
   * `src/renderer/services/mediaCoordinator.ts` -> `initGlobalDOMListener`, `toggleActiveNonAudioPlayback`
   * `src/renderer/components/lyric/MusicFull.vue` -> `syncVideoSlaveState`
 
+### [TRAP: Single-Clock-Audio-Master-Invariance] | Aliases: video muted, audio master, playbackRate sync
+> **1-Line Summary:** NEVER allow the linked video element to unmute, claim playback exclusivity, or act as the master clock.
+* **Strict Rule:** `<video>` in `MusicFull.vue` must remain permanently muted with `volume = 0` and slaved to `<audio>`.
+* **Why This Trap Exists (Plain English):** Unmuting video or allowing it to pause/resume audio causes double audio, acoustic echo, and broken crossfade volume transitions. Micro-adjustments to `video.playbackRate` (`0.97x`–`1.03x`) smoothly eliminate drift without frame stutter.
+* **Protected Code Anchors (Grep Targets):**
+  * `src/renderer/composables/useLinkedMediaSync.ts` -> `enforceSyncTick`
+  * `src/renderer/components/lyric/MusicFull.vue` -> `syncVideoSlaveState`
+
 ### [TRAP: Cancel-Fade-Pauses-On-Resume] | Aliases: play then instant pause, button desync, 200ms ghost pause
 > **1-Line Summary:** NEVER resume audio without cancelling the pending fade-out pause, or it fires 200ms later and silently stops the sound.
 * **Strict Rule:** **NEVER** remove the `cancelFadeTimer()` call from the resume path of `play()`.

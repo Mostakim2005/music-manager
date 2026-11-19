@@ -17,6 +17,8 @@ export interface Song {
   normKey: string;
   youtubeId?: string;
   coverPath?: string;
+  primaryColor?: string;
+  backgroundColor?: string;
   /** Acoustic fingerprint (loudness envelope) used to recognise the recording. */
   fingerprint?: string;
   fingerprintDurationSec?: number;

@@ -1299,6 +1299,10 @@ class AudioService {
     return this.currentSinkId;
   }
 
+  public getAudioElement(): HTMLAudioElement {
+    return this.audio;
+  }
+
   private async restoreSavedAudioDevice(): Promise<void> {
     const savedDeviceId = localStorage.getItem('audioOutputDeviceId');
     if (savedDeviceId && savedDeviceId !== 'default') {

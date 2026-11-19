@@ -52,9 +52,9 @@ flowchart TB
 
 ## 3. Core Subsystems & Engineering Tricks
 
-### [SUBSYSTEM: Linked-AV-Playback-Engine] | Aliases: video mode, muted video, shared clock, audio master
-> **1-Line Summary:** The audio element is always the master clock and only sound source; the video is muted and follows it, so the two can never drift apart audibly.
-* **How It Works (Plain English):** Entering video mode keeps audio playing. When the video's metadata is ready it is seeked to the audio's current time and plays muted. A slave watcher plays/pauses the video with the shared play state, and any drift beyond 0.75s is corrected on each video tick. Streams and downloads are video-only, so no duplicated audio exists anywhere.
+### [SUBSYSTEM: Linked-AV-Playback-Engine] | Aliases: video mode, muted video, shared clock, audio master, rate locked sync
+> **1-Line Summary:** The audio element is always the master clock and only sound source; the video is muted and follows it via proportional `playbackRate` micro-adjustments, so the two can never drift apart audibly or visually.
+* **How It Works (Plain English):** Entering video mode keeps audio playing. When the video's metadata is ready it is seeked to the audio's current time and plays muted. `useLinkedMediaSync` enforces `video.muted = true` and `video.volume = 0` every 120ms, applies proportional `playbackRate` micro-corrections (`±0.035`) for drift between `35ms` and `450ms`, and hard-seeks only when drift exceeds `450ms`. Streams and downloads are video-only, so no duplicated audio exists anywhere.
 * **Data Flow Diagram:**
 ```mermaid
 sequenceDiagram
@@ -67,10 +67,12 @@ sequenceDiagram
     MF->>V: load video-only stream
     MF->>V: seek to audio time, play muted
     AS-->>MF: timeupdate (nowTime)
-    MF->>V: correct drift if > 0.75s
+    MF->>V: proportional playbackRate sync (35-450ms) or seek (>450ms)
 ```
 * **Code Anchors (Grep Targets):**
   * `src/renderer/components/lyric/MusicFull.vue` -> `enterVideoMode`, `syncVideoSlaveState`, `onVideoTimeUpdate`
+  * `src/renderer/composables/useLinkedMediaSync.ts` -> `useLinkedMediaSync`, `enforceSyncTick`
+  * `src/renderer/services/audioService.ts` -> `getAudioElement`
   * `src/renderer/store/modules/playerCore.ts` -> `setPlaybackMode`
 
 ### [SUBSYSTEM: Single-Play-State-Arbitration] | Aliases: play button state, pause everything, isPlay

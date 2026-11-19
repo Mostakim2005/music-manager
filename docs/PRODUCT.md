@@ -13,6 +13,7 @@
 * **Visual / UI Behavior:** Bottom-left pill in the fullscreen player shows `Video • 360p` or `Audio • 128 kb/s` and toggles mode instantly with no gap.
 * **Code Anchors (Grep Targets):**
   * `src/renderer/components/lyric/MusicFull.vue` -> `enterVideoMode`, `syncVideoSlaveState`, `videoPillBadge`
+  * `src/renderer/composables/useLinkedMediaSync.ts` -> `useLinkedMediaSync`, `enforceSyncTick`
   * `src/renderer/store/modules/playerCore.ts` -> `setPlaybackMode`
 
 ### [FEATURE: One-Play-State-For-Every-Button] | Aliases: play button, pause desync, play/pause sync, big button
@@ -104,13 +105,15 @@
 * **Code Anchors (Grep Targets):**
   * `src/renderer/services/songLibrary.ts` -> `computeNormKey`, `ingestLocalTrack`, `linkVariant`, `getVariants`, `getSongKey`
 
-### [FEATURE: Player-Look-And-Feel] | Aliases: stacked player, themes, palette, waveform, fullscreen
-> **1-Line Summary:** A polished player: Namida stacked layout, dynamic album-art palette, waveform seekbar, light/dark themes.
+### [FEATURE: Player-Look-And-Feel] | Aliases: stacked player, themes, palette, waveform, fullscreen, ambient canvas, karaoke glow
+> **1-Line Summary:** A polished player: Namida stacked layout, WebGL2 ambient shader canvas, glassmorphism panels, karaoke word fill, dynamic album-art palette, waveform seekbar, light/dark themes.
 * **User Intention (Non-Negotiable):** Clean visual hierarchy, proportional spacing, strong contrast in both themes, no broken layouts at any window size.
-* **Visual / UI Behavior:** Side-by-side or stacked fullscreen layouts; gradient background from album art.
+* **Visual / UI Behavior:** Side-by-side or stacked fullscreen layouts; WebGL2 ambient background shader and gradient background from album art.
 * **Code Anchors (Grep Targets):**
+  * `src/renderer/components/namida/NamidaAmbientCanvas.vue` -> `renderLoop`, `hexToRgbNormalized`
   * `src/renderer/components/player/NamidaStackedPlayer.vue` -> `currentLyricSub`
   * `src/renderer/utils/linearColor.ts` -> `extractVibrantPalette`, `applyDynamicPaletteToRoot`
+  * `src/renderer/utils/lyrics.ts` -> `getWordFillProgress`
 
 ### [FEATURE: Audio-Enhancements] | Aliases: crossfade, equalizer, skip silence, A-B loop, bookmarks
 > **1-Line Summary:** Equal-power crossfade, EQ, skip-silence, A-B loop repeat and per-track bookmarks round out playback.
