@@ -112,6 +112,9 @@ export const usePlaylistStore = defineStore(
             preloadService.load(nextSong).catch((err) => {
               console.warn('Failed to preload next track:', err);
             });
+            if (audioService.isGaplessEnabled?.()) {
+              audioService.prepareGaplessNext?.(nextSong.playMusicUrl, nextSong);
+            }
           }
           if (nextSong.picUrl) {
             preloadCoverImage(nextSong.picUrl, getImgUrl);

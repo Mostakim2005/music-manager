@@ -84,6 +84,10 @@
             @update:value="selectSpeed"
           />
         </div>
+        <div class="flex items-center justify-between pt-2 text-xs text-gray-500 dark:text-gray-300">
+          <span>Preserve pitch</span>
+          <n-switch size="small" v-model:value="preservesPitchEnabled" />
+        </div>
       </div>
     </div>
   </n-modal>
@@ -262,6 +266,14 @@ watch(showSpeedModal, (newValue) => {
 });
 
 const playbackRate = computed(() => playerStore.playbackRate);
+const preservesPitchRef = ref(audioService.getPreservesPitch());
+const preservesPitchEnabled = computed({
+  get: () => preservesPitchRef.value,
+  set: (val: boolean) => {
+    preservesPitchRef.value = val;
+    audioService.setPreservesPitch(val);
+  }
+});
 
 const playbackRateOptions = [
   { label: '0.5x', key: 0.5 },
@@ -344,6 +356,7 @@ const handleSelect = (key: string) => {
       playerStore.showSleepTimer = true;
       break;
     case 'speed':
+      preservesPitchRef.value = audioService.getPreservesPitch();
       showSpeedModal.value = true;
       break;
     case 'transitions':

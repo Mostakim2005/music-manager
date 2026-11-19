@@ -141,6 +141,42 @@ flowchart LR
   * `src/renderer/views/set/SettingSection.vue` -> `.namida-settings-card`
   * `src/renderer/styles/namida.css` -> `:root`, `.n-slider`, `.namida-range`
 
+### [SUBSYSTEM: Web-Audio-DSP-And-Gapless-Pipeline] | Aliases: dsp graph, eq, autoeq, parametric, preamp, mono, preservespitch, gapless
+> **1-Line Summary:** Routes audio through a single WeakMap-guarded `AudioDspGraph` (`Preamp -> 10-band or AutoEQ parametric BiquadFilters -> Mono/Stereo channel mode -> Master Gain -> Analyser -> Destination`) alongside detached standby gapless pre-buffering.
+* **How It Works (Plain English):** `audioService.ts` attaches its primary `HTMLAudioElement` to `audioDspGraph`, which caches `(AudioContext, MediaElementAudioSourceNode)` in `WeakMap`s so `createMediaElementSource` is never called twice. Importing an EqualizerAPO/AutoEQ `.txt` profile parses `Preamp` and `PK`/`LSC`/`HSC` filters and dynamically rebuilds the `BiquadFilterNode` chain. Mono downmix toggles `channelCount = 1` (`explicit`), while `preservesPitch` updates all vendor pitch flags on the media element. Separately, `playlist.ts` triggers `prepareGaplessNext()` to warm the next URL in an isolated, muted `standbyAudio` element that never registers with `mediaCoordinator` or Web Audio.
+* **Data Flow Diagram:**
+```mermaid
+flowchart LR
+    classDef src fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
+    classDef dsp fill:#ede9fe,stroke:#7c3aed,color:#4c1d95
+    classDef out fill:#dcfce7,stroke:#16a34a,color:#14532d
+    classDef warm fill:#fef3c7,stroke:#d97706,color:#78350f
+    classDef legend fill:#f3f4f6,stroke:#6b7280,color:#111827
+
+    EL["Primary HTMLAudioElement (preservesPitch)"]:::src -->|WeakMap MediaElementSource| PRE["Preamp GainNode (-24..+24 dB)"]:::dsp
+    PRE -->|eqEnabled = true| EQ["BiquadFilterNode Chain (10-Band or AutoEQ PK/LSC/HSC)"]:::dsp
+    PRE -->|eqEnabled = false| CHAN["Channel Mode Gain (Stereo max / Mono explicit 1ch)"]:::dsp
+    EQ --> CHAN
+    CHAN --> MASTER["Master Gain + Crossfade + ReplayGain"]:::dsp
+    MASTER --> ANA["AnalyserNode (FFT 128)"]:::out
+    ANA --> DEST["AudioContext.destination (setSinkId)"]:::out
+
+    NEXT["Playlist Next Track"]:::warm -->|Detached Muted Preload| STANDBY["standbyAudio (No Coordinator / No DSP)"]:::warm
+
+    subgraph Legend
+      L1["Blue: Source"]:::src
+      L2["Purple: DSP Graph"]:::dsp
+      L3["Green: Output"]:::out
+      L4["Amber: Gapless Warm Cache"]:::warm
+    end
+```
+* **Code Anchors (Grep Targets):**
+  * `src/renderer/services/audioDspGraph.ts` -> `AudioDspGraph`, `parseAutoEqProfile`, `createDefaultEqBands`, `audioDspGraph`
+  * `src/renderer/services/audioService.ts` -> `setupEQ`, `prepareGaplessNext`, `getSignalPathInfo`, `setPreservesPitch`, `setMono`, `setPreampDb`, `applyAutoEqText`
+  * `src/renderer/store/modules/playlist.ts` -> `fetchSongs`
+  * `src/renderer/components/EQControl.vue` -> `syncFromDsp`, `applyAutoEqString`
+  * `src/renderer/views/set/tabs/PlaybackTab.vue` -> `preservesPitchEnabled`, `monoAudioEnabled`, `gaplessEnabled`
+
 ### [SUBSYSTEM: Tag-Metadata-And-Lyric-IO] | Aliases: tags, artwork, rename, lrclib, metadata fetch
 > **1-Line Summary:** The main process writes native tags and sidecar lyrics per format and fetches metadata/lyrics from iTunes, MusicBrainz and LRCLIB.
 * **How It Works (Plain English):** `node-id3` handles MP3, `flac-tagger` FLAC, and ffmpeg the iTunes atoms for m4a/mp4/opus/ogg/wav. Lyric search returns candidates with duration and offset metadata so the picker can prefer the closest version.

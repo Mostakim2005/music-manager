@@ -60,5 +60,8 @@
   "enableReplayGain": true,
   "showAbLoopOnBar": true,
   "showStatsOnBar": true,
-  "showDiagnosticsOnBar": true
+  "showDiagnosticsOnBar": true,
+  "enablePreservesPitch": true,
+  "enableMonoAudio": false,
+  "enableGaplessPlayback": true
 }

@@ -1,3 +1,4 @@
+import { audioDspGraph, type AudioDspState, type AudioSignalPathInfo } from '@/services/audioDspGraph';
 import { addListeningSeconds, recordTrackPlay } from '@/services/listeningStatsService';
 import { mediaCoordinator, setAudioServiceInstance } from '@/services/mediaCoordinator';
 import { getSongKey, registerCurrentTrackProvider, savePosition } from '@/services/songLibrary';
@@ -11,14 +12,15 @@ export const PLAY_PAUSE_FADE_DURATION = 200;
 
 class AudioService {
   private audio: HTMLAudioElement;
+  private standbyAudio: HTMLAudioElement | null = null;
+  private standbyTrackId: string | null = null;
+  private standbyUrl: string | null = null;
+  private lastGaplessWarmKey: string | null = null;
   private currentTrack: SongResult | null = null;
 
   private context: AudioContext | null = null;
-  private sourceNode: MediaElementAudioSourceNode | null = null;
-  private filters: BiquadFilterNode[] = [];
   private gainNode: GainNode | null = null;
   private analyserNode: AnalyserNode | null = null;
-  private bypass = false;
 
   private playbackRate = 1.0;
   private volume = 1;
@@ -33,6 +35,7 @@ class AudioService {
   private crossfadeDuration = 3; // seconds (1-10s)
   private skipSilenceEnabled = false;
   private replayGainEnabled = true;
+  private gaplessEnabled = true;
   private crossfadeActive = false;
   private abLoop: { enabled: boolean; pointA: number | null; pointB: number | null } = {
     enabled: false,
@@ -45,21 +48,6 @@ class AudioService {
   private operationLockTimer: ReturnType<typeof setTimeout> | null = null;
 
   private pendingLoadCleanup: (() => void) | null = null;
-
-  private readonly frequencies = [31, 62, 125, 250, 500, 1000, 2000, 4000, 8000, 16000];
-
-  private defaultEQSettings: { [key: string]: number } = {
-    '31': 0,
-    '62': 0,
-    '125': 0,
-    '250': 0,
-    '500': 0,
-    '1000': 0,
-    '2000': 0,
-    '4000': 0,
-    '8000': 0,
-    '16000': 0
-  };
 
   // Event system
   private callbacks: { [key: string]: Function[] } = {};
@@ -86,12 +74,10 @@ class AudioService {
       this.initMediaSession();
     }
 
-    // Restore EQ bypass state
-    try {
-      this.bypass = JSON.parse(localStorage.getItem('eqBypass') || 'false') === true;
-    } catch {
-      this.bypass = false;
-    }
+    // Apply saved preservesPitch immediately on primary element
+    audioDspGraph.attach(this.audio, false);
+    this.currentSinkId = audioDspGraph.getState().outputDeviceId;
+
     const volume = Number(localStorage.getItem('volume') ?? 1);
     this.volume = Number.isFinite(volume) ? Math.max(0, Math.min(1, volume)) : 1;
 
@@ -106,6 +92,8 @@ class AudioService {
       if (skipSil !== null) this.skipSilenceEnabled = JSON.parse(skipSil) === true;
       const rgEnabled = localStorage.getItem('replayGainEnabled');
       if (rgEnabled !== null) this.replayGainEnabled = JSON.parse(rgEnabled) === true;
+      const gpEnabled = localStorage.getItem('gaplessPlaybackEnabled');
+      if (gpEnabled !== null) this.gaplessEnabled = JSON.parse(gpEnabled) === true;
     } catch {
       // ignore storage errors in test/restricted environments
     }
@@ -311,152 +299,41 @@ class AudioService {
     this.callbacks = {};
   }
 
-  // ==================== EQ ====================
+  // ==================== EQ & DSP ====================
 
   private setupEQ() {
-    if (this.sourceNode) return; // Already initialized
+    if (this.context && this.gainNode) return;
 
-    if (!isElectron) {
-      console.log('Skipping EQ setup on web to avoid CORS issues');
-      this.bypass = true;
-      return;
-    }
+    const ctx = audioDspGraph.attach(this.audio, isElectron);
+    if (!ctx) return;
 
-    try {
-      this.context = new AudioContext();
-      this.sourceNode = this.context.createMediaElementSource(this.audio);
-      this.gainNode = this.context.createGain();
-      this.analyserNode = this.context.createAnalyser();
-      this.analyserNode.fftSize = 128;
-      this.analyserNode.smoothingTimeConstant = 0.8;
+    this.context = ctx;
+    this.gainNode = audioDspGraph.getMasterGainNode();
+    this.analyserNode = audioDspGraph.getAnalyserNode();
 
-      // Create 10-band filter chain
-      const savedSettings = this.loadEQSettings();
-      this.filters = this.frequencies.map((freq) => {
-        const filter = this.context!.createBiquadFilter();
-        filter.type = 'peaking';
-        filter.frequency.value = freq;
-        filter.Q.value = 1;
-        filter.gain.value = savedSettings[freq.toString()] || 0;
-        return filter;
-      });
-
-      // Wire up the graph
-      this.applyBypassState();
-
-      // Apply saved volume
-      this.applyVolume(this.volume);
-
-      // Monitor context state
-      this.setupContextStateMonitoring();
-
-      // Restore saved audio device
-      this.restoreSavedAudioDevice();
-
-      console.log('EQ initialization successful');
-    } catch (error) {
-      console.error('EQ initialization failed:', error);
-      // Fallback: connect audio directly (no EQ)
-      this.sourceNode = null;
-      this.context = null;
-    }
-  }
-
-  private applyBypassState() {
-    if (!this.sourceNode || !this.gainNode || !this.context) return;
-
-    try {
-      // Disconnect all
-      try {
-        this.sourceNode.disconnect();
-      } catch {
-        /* already disconnected */
-      }
-      this.filters.forEach((filter) => {
-        try {
-          filter.disconnect();
-        } catch {
-          /* already disconnected */
-        }
-      });
-      try {
-        this.gainNode.disconnect();
-      } catch {
-        /* already disconnected */
-      }
-      try {
-        this.analyserNode?.disconnect();
-      } catch {
-        /* already disconnected */
-      }
-
-      const connectGainToDestination = () => {
-        if (this.analyserNode && this.context) {
-          this.gainNode!.connect(this.analyserNode);
-          this.analyserNode.connect(this.context.destination);
-        } else if (this.context) {
-          this.gainNode!.connect(this.context.destination);
-        }
-      };
-
-      if (this.bypass) {
-        // EQ disabled: source -> gain -> analyser -> destination
-        this.sourceNode.connect(this.gainNode);
-        connectGainToDestination();
-      } else {
-        // EQ enabled: source -> filters[0] -> ... -> filters[9] -> gain -> analyser -> destination
-        this.sourceNode.connect(this.filters[0]);
-        this.filters.forEach((filter, index) => {
-          if (index < this.filters.length - 1) {
-            filter.connect(this.filters[index + 1]);
-          }
-        });
-        this.filters[this.filters.length - 1].connect(this.gainNode);
-        connectGainToDestination();
-      }
-    } catch (error) {
-      console.error('Error applying EQ state, attempting fallback:', error);
-      try {
-        if (this.sourceNode && this.context) {
-          this.sourceNode.connect(this.context.destination);
-        }
-      } catch (fallbackError) {
-        console.error('Fallback connection also failed:', fallbackError);
-        this.emit('audio_error', { type: 'graph_disconnected', error: fallbackError });
-      }
-    }
+    this.applyVolume(this.volume);
+    this.setupContextStateMonitoring();
+    void this.restoreSavedAudioDevice();
   }
 
   public isEQEnabled(): boolean {
-    return !this.bypass;
+    return audioDspGraph.getState().eqEnabled;
   }
 
   public setEQEnabled(enabled: boolean) {
-    this.bypass = !enabled;
-    localStorage.setItem('eqBypass', JSON.stringify(this.bypass));
-
-    if (this.sourceNode && this.gainNode && this.context) {
-      this.applyBypassState();
-    }
+    audioDspGraph.setEqEnabled(enabled);
   }
 
   public setEQFrequencyGain(frequency: string, gain: number) {
-    const filterIndex = this.frequencies.findIndex((f) => f.toString() === frequency);
-    if (filterIndex !== -1 && this.filters[filterIndex]) {
-      this.filters[filterIndex].gain.setValueAtTime(gain, this.context?.currentTime || 0);
-      this.saveEQSettings(frequency, gain);
-    }
+    audioDspGraph.setBandGain(frequency, gain);
   }
 
   public resetEQ() {
-    this.filters.forEach((filter) => {
-      filter.gain.setValueAtTime(0, this.context?.currentTime || 0);
-    });
-    localStorage.removeItem('eqSettings');
+    audioDspGraph.resetToFlat();
   }
 
   public getAllEQSettings(): { [key: string]: number } {
-    return this.loadEQSettings();
+    return audioDspGraph.getLegacyEqMap();
   }
 
   public getCurrentPreset(): string | null {
@@ -467,21 +344,135 @@ class AudioService {
     localStorage.setItem('currentPreset', preset);
   }
 
-  private saveEQSettings(frequency: string, gain: number) {
-    const settings = this.loadEQSettings();
-    settings[frequency] = gain;
-    localStorage.setItem('eqSettings', JSON.stringify(settings));
+  public setPreservesPitch(enabled: boolean): AudioDspState {
+    return audioDspGraph.setPreservesPitch(enabled);
   }
 
-  private loadEQSettings(): { [key: string]: number } {
-    try {
-      return {
-        ...this.defaultEQSettings,
-        ...JSON.parse(localStorage.getItem('eqSettings') || '{}')
-      };
-    } catch {
-      return { ...this.defaultEQSettings };
+  public getPreservesPitch(): boolean {
+    return audioDspGraph.getState().preservesPitch;
+  }
+
+  public setMono(enabled: boolean): AudioDspState {
+    return audioDspGraph.setMono(enabled);
+  }
+
+  public isMonoEnabled(): boolean {
+    return audioDspGraph.getState().mono;
+  }
+
+  public setPreampDb(db: number): AudioDspState {
+    return audioDspGraph.setPreampDb(db);
+  }
+
+  public getPreampDb(): number {
+    return audioDspGraph.getState().preampDb;
+  }
+
+  public applyAutoEqText(text: string) {
+    return audioDspGraph.applyAutoEqText(text);
+  }
+
+  public getDspState(): AudioDspState {
+    return audioDspGraph.getState();
+  }
+
+  public setGaplessEnabled(enabled: boolean): void {
+    this.gaplessEnabled = Boolean(enabled);
+    if (!this.gaplessEnabled && this.standbyAudio) {
+      try {
+        this.standbyAudio.pause();
+        this.standbyAudio.removeAttribute('src');
+        this.standbyAudio.load();
+      } catch {
+        // ignore standby teardown errors
+      }
+      this.standbyTrackId = null;
+      this.standbyUrl = null;
     }
+    try {
+      localStorage.setItem('gaplessPlaybackEnabled', JSON.stringify(this.gaplessEnabled));
+    } catch {
+      // ignore storage errors
+    }
+  }
+
+  public isGaplessEnabled(): boolean {
+    return this.gaplessEnabled;
+  }
+
+  /**
+   * Warm the next track in a silent standby audio element (without creating a second
+   * MediaElementSource or claiming mediaCoordinator focus) so track transitions start seamlessly.
+   */
+  public prepareGaplessNext(nextUrl?: string, nextTrack?: SongResult): void {
+    if (!this.gaplessEnabled || !nextUrl || !nextTrack || typeof Audio === 'undefined') {
+      return;
+    }
+    const playable = toPlayableMediaUrl(nextUrl);
+    if (!playable) return;
+    const nextId = String(nextTrack.id ?? (nextTrack as any).localPath ?? playable);
+    if (this.standbyUrl === playable && this.standbyTrackId === nextId && this.standbyAudio) {
+      return;
+    }
+
+    try {
+      if (!this.standbyAudio) {
+        this.standbyAudio = new Audio();
+        this.standbyAudio.crossOrigin = 'anonymous';
+        this.standbyAudio.preload = 'auto';
+        this.standbyAudio.volume = 0;
+        this.standbyAudio.muted = true;
+      }
+      this.standbyAudio.src = playable;
+      this.standbyAudio.load();
+      this.standbyUrl = playable;
+      this.standbyTrackId = nextId;
+      this.lastGaplessWarmKey = null;
+    } catch {
+      // ignore standby pre-buffer failure on restricted platforms
+    }
+  }
+
+  public getSignalPathInfo(): AudioSignalPathInfo {
+    const track = this.currentTrack as any;
+    const url = this.audio?.currentSrc || this.audio?.src || track?.playMusicUrl || '';
+    const isLocal =
+      Boolean(track?.localPath) ||
+      String(track?.playMusicUrl || '').startsWith('local://') ||
+      String(url).includes('/local-media');
+    const isYouTube =
+      String(track?.source || '').toLowerCase() === 'youtube' ||
+      String(url).includes('googlevideo.com');
+    const sourceKind = isLocal
+      ? 'Local File'
+      : isYouTube
+        ? 'YouTube Stream'
+        : track
+          ? 'Cloud Stream'
+          : 'Idle';
+
+    const codecRaw = track?.codec || track?.meta?.codec || '';
+    const bitrateRaw = track?.bitrate || track?.meta?.bitrate;
+    const extMatch = String(track?.localPath || url).match(/\.([a-z0-9]{2,5})(?:[?#]|$)/i);
+    const extLabel = extMatch ? extMatch[1].toUpperCase() : '';
+    const codecParts: string[] = [];
+    if (codecRaw) {
+      codecParts.push(String(codecRaw).toUpperCase());
+    } else if (extLabel) {
+      codecParts.push(extLabel);
+    }
+    if (Number.isFinite(Number(bitrateRaw)) && Number(bitrateRaw) > 0) {
+      codecParts.push(`${Math.round(Number(bitrateRaw))} kbps`);
+    }
+    const codecLabel = codecParts.join(' | ') || (isYouTube ? 'OPUS / AAC' : 'PCM / Stream');
+
+    return audioDspGraph.getSignalPathInfo({
+      playbackRate: this.playbackRate,
+      replayGainEnabled: this.replayGainEnabled,
+      gaplessEnabled: this.gaplessEnabled,
+      sourceKind,
+      codecLabel
+    });
   }
 
   // ==================== Operation Lock ====================
@@ -920,8 +911,7 @@ class AudioService {
     const effectiveVolume = this.getEffectiveVolume(normalizedVolume);
 
     if (this.gainNode && this.context) {
-      this.gainNode.gain.cancelScheduledValues(this.context.currentTime);
-      this.gainNode.gain.setValueAtTime(effectiveVolume, this.context.currentTime);
+      audioDspGraph.applyMasterVolume(effectiveVolume);
     } else {
       // Fallback: direct volume (no Web Audio context)
       this.audio.volume = effectiveVolume;
@@ -991,6 +981,24 @@ class AudioService {
           this.seek(Math.min(duration - 1, currentTime + 0.5));
         } else if (duration > 15 && remaining < 5.0 && remaining > 0.4) {
           this.seek(duration - 0.1);
+        }
+      }
+    }
+
+    // 3. Gapless warm check in final 5s
+    if (
+      this.gaplessEnabled &&
+      remaining <= 5 &&
+      this.standbyAudio &&
+      this.standbyUrl &&
+      this.lastGaplessWarmKey !== this.standbyUrl
+    ) {
+      this.lastGaplessWarmKey = this.standbyUrl;
+      if (this.standbyAudio.readyState < 2) {
+        try {
+          this.standbyAudio.load();
+        } catch {
+          // ignore warm retry failures
         }
       }
     }
@@ -1278,25 +1286,16 @@ class AudioService {
   }
 
   public async setAudioOutputDevice(deviceId: string): Promise<boolean> {
-    try {
-      if (this.context && typeof (this.context as any).setSinkId === 'function') {
-        await (this.context as any).setSinkId(deviceId);
-        this.currentSinkId = deviceId;
-        localStorage.setItem('audioOutputDeviceId', deviceId);
-        console.log('Audio output device switched:', deviceId);
-        return true;
-      } else {
-        console.warn('AudioContext.setSinkId is not available');
-        return false;
-      }
-    } catch (error) {
-      console.error('Failed to set audio output device:', error);
-      return false;
+    const ok = await audioDspGraph.setOutputDevice(deviceId);
+    if (ok) {
+      this.currentSinkId = audioDspGraph.getState().outputDeviceId;
+      console.log('Audio output device switched:', this.currentSinkId);
     }
+    return ok;
   }
 
   public getCurrentSinkId(): string {
-    return this.currentSinkId;
+    return audioDspGraph.getState().outputDeviceId || this.currentSinkId;
   }
 
   public getAudioElement(): HTMLAudioElement {

@@ -215,3 +215,11 @@ flowchart LR
   * `src/main/modules/window.ts` -> `createMainWindow`
   * `src/main/lyric.ts` -> `createLyricWindow`
   * `src/preload/index.ts` -> `VALID_INVOKE_CHANNELS`, `VALID_SEND_CHANNELS`, `VALID_SYNC_CHANNELS`
+
+### [TRAP: Single-MediaElementSource-DSP-Graph] | Aliases: createMediaElementSource, weakmap, gapless standby, muted audio
+> **1-Line Summary:** NEVER call `AudioContext.createMediaElementSource()` twice on the same `HTMLAudioElement` or attach the gapless standby `Audio` element to `mediaCoordinator` or Web Audio.
+* **Strict Rule:** Always route DSP attachment through `audioDspGraph.attach()` (`WeakMap`-backed cache) and keep `audioService.standbyAudio` muted and detached from `mediaCoordinator` and `AudioContext`.
+* **Why This Trap Exists (Plain English):** Chromium throws `InvalidStateError` if `createMediaElementSource()` runs a second time on an already-captured `HTMLAudioElement`, and registering `standbyAudio` with `mediaCoordinator` would falsely steal playback exclusivity from the active song.
+* **Protected Code Anchors (Grep Targets):**
+  * `src/renderer/services/audioDspGraph.ts` -> `elementSourceCache`, `elementContextCache`, `AudioDspGraph.attach`
+  * `src/renderer/services/audioService.ts` -> `prepareGaplessNext`, `setupEQ`

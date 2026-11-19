@@ -129,12 +129,14 @@
   * `src/renderer/utils/linearColor.ts` -> `extractVibrantPalette`, `applyDynamicPaletteToRoot`
   * `src/renderer/utils/lyrics.ts` -> `getWordFillProgress`
 
-### [FEATURE: Audio-Enhancements] | Aliases: crossfade, equalizer, skip silence, A-B loop, bookmarks
-> **1-Line Summary:** Equal-power crossfade, skip-silence, A-B loop repeat and per-track bookmarks round out playback.
-* **User Intention (Non-Negotiable):** Smart transitions stay; heavy DSP extras stay out unless requested.
-* **Visual / UI Behavior:** Advanced controls popover and A-B pill on the PlayBar.
+### [FEATURE: Audio-Enhancements] | Aliases: crossfade, equalizer, autoeq, parametric eq, preamp, mono, preservespitch, gapless, skip silence, A-B loop, bookmarks
+> **1-Line Summary:** 10-band graphic EQ + AutoEQ parametric filters, Preamp gain, Mono downmix, pitch-preserving playback rate, gapless next-track pre-buffering, equal-power crossfade, skip-silence, A-B loop repeat, and per-track bookmarks.
+* **User Intention (Non-Negotiable):** Audiophile DSP controls (AutoEQ `.txt` import, Preamp, Mono, `preservesPitch`, gapless warm standby) live cleanly inside `AudioDspGraph` without duplicating `MediaElementAudioSourceNode` or breaking play/pause responsiveness.
+* **Visual / UI Behavior:** Advanced controls popover, upgraded EQ modal (Preamp slider, Mono/Preserve-Pitch switches, AutoEQ `.txt` upload/paste drawer, active parametric filter readout), Playback settings toggles, and A-B pill on the PlayBar.
 * **Code Anchors (Grep Targets):**
-  * `src/renderer/services/audioService.ts` -> `fadeInVolume`, `setAbLoopPointA`, `setAbLoopPointB`
+  * `src/renderer/services/audioDspGraph.ts` -> `AudioDspGraph`, `parseAutoEqProfile`, `audioDspGraph`
+  * `src/renderer/services/audioService.ts` -> `fadeInVolume`, `prepareGaplessNext`, `getSignalPathInfo`, `setAbLoopPointA`, `setAbLoopPointB`
+  * `src/renderer/components/EQControl.vue` -> `applyPastedAutoEq`, `handleAutoEqFileUpload`, `resetParametricToGraphic`
 
 ### [FEATURE: Library-Backup-And-Stats] | Aliases: m3u8 backup, json backup, listening stats, history
 > **1-Line Summary:** Export/restore M3U8 playlists and JSON library snapshots, plus personal listening statistics.

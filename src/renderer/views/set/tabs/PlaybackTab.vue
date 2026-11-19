@@ -140,6 +140,36 @@
       </setting-item>
 
       <setting-item
+        title="Preserve pitch when changing speed"
+        description="Maintains musical key when playing faster or slower than 1.0x"
+      >
+        <n-switch v-model:value="preservesPitchEnabled">
+          <template #checked>{{ t('common.on') }}</template>
+          <template #unchecked>{{ t('common.off') }}</template>
+        </n-switch>
+      </setting-item>
+
+      <setting-item
+        title="Mono audio downmix"
+        description="Mixes left and right channels into mono across the DSP pipeline"
+      >
+        <n-switch v-model:value="monoAudioEnabled">
+          <template #checked>{{ t('common.on') }}</template>
+          <template #unchecked>{{ t('common.off') }}</template>
+        </n-switch>
+      </setting-item>
+
+      <setting-item
+        title="Gapless next-track pre-buffering"
+        description="Pre-warms the next queued track in the background for seamless transitions"
+      >
+        <n-switch v-model:value="gaplessEnabled">
+          <template #checked>{{ t('common.on') }}</template>
+          <template #unchecked>{{ t('common.off') }}</template>
+        </n-switch>
+      </setting-item>
+
+      <setting-item
         v-if="isElectron"
         :title="t('settings.playback.audioDevice')"
         :description="t('settings.playback.audioDeviceDesc')"
@@ -198,6 +228,30 @@ const handleCrossfadeChange = (enabled: boolean) => {
 const handleSkipSilenceChange = (enabled: boolean) => {
   audioService.setSkipSilence(enabled);
 };
+
+const preservesPitchEnabled = computed({
+  get: () => setData.value?.enablePreservesPitch ?? audioService.getPreservesPitch(),
+  set: (val: boolean) => {
+    setData.value = { ...setData.value, enablePreservesPitch: val };
+    audioService.setPreservesPitch(val);
+  }
+});
+
+const monoAudioEnabled = computed({
+  get: () => setData.value?.enableMonoAudio ?? audioService.isMonoEnabled(),
+  set: (val: boolean) => {
+    setData.value = { ...setData.value, enableMonoAudio: val };
+    audioService.setMono(val);
+  }
+});
+
+const gaplessEnabled = computed({
+  get: () => setData.value?.enableGaplessPlayback ?? audioService.isGaplessEnabled(),
+  set: (val: boolean) => {
+    setData.value = { ...setData.value, enableGaplessPlayback: val };
+    audioService.setGaplessEnabled(val);
+  }
+});
 
 const pureModeEnabled = ref(readLyricConfig().pureModeEnabled);
 
