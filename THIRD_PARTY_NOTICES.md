@@ -124,8 +124,7 @@ SOFTWARE.
 | axios | MIT | [MIT](https://opensource.org/licenses/MIT) |
 | lodash | MIT | [MIT](https://opensource.org/licenses/MIT) |
 | marked | MIT | [MIT](https://opensource.org/licenses/MIT) |
-| howler | MIT | [MIT](https://opensource.org/licenses/MIT) |
-| tunajs | MIT | [MIT](https://opensource.org/licenses/MIT) |
+| @fontsource/lexend-deca | OFL-1.1 / MIT | [OFL-1.1](https://scripts.sil.org/OFL) |
 | tinycolor2 | MIT | [MIT](https://opensource.org/licenses/MIT) |
 | animate.css | MIT | [MIT](https://opensource.org/licenses/MIT) |
 | remixicon | Apache-2.0 | [Apache-2.0](https://opensource.org/licenses/Apache-2.0) |
@@ -138,7 +137,7 @@ SOFTWARE.
 | @electron-toolkit/eslint-config, @electron-toolkit/eslint-config-ts, @electron-toolkit/tsconfig | MIT | [MIT](https://opensource.org/licenses/MIT) |
 | @eslint/js | MIT | [MIT](https://opensource.org/licenses/MIT) |
 | @rushstack/eslint-patch | MIT | [MIT](https://opensource.org/licenses/MIT) |
-| @types/howler, @types/node, @types/node-fetch, @types/tinycolor2 | MIT | [MIT](https://opensource.org/licenses/MIT) |
+| @types/node, @types/node-fetch, @types/tinycolor2 | MIT | [MIT](https://opensource.org/licenses/MIT) |
 | @typescript-eslint/eslint-plugin, @typescript-eslint/parser | MIT | [MIT](https://opensource.org/licenses/MIT) |
 | @vitejs/plugin-vue | MIT | [MIT](https://opensource.org/licenses/MIT) |
 | @vue/compiler-sfc | MIT | [MIT](https://opensource.org/licenses/MIT) |

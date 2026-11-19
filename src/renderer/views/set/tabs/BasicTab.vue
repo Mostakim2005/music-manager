@@ -43,6 +43,38 @@
     </setting-item>
 
     <setting-item
+      title="Pitch Black Level (Dark Mode)"
+      description="Gradually deepen dark surfaces from Material dark (0) to pure AMOLED #000 (5)."
+    >
+      <template #action>
+        <div class="flex items-center gap-3">
+          <span class="text-xs font-mono tabular-nums text-gray-500 dark:text-gray-300 w-24 text-right">
+            {{ pitchBlackLabel }}
+          </span>
+          <div class="w-40 max-md:w-32">
+            <n-slider v-model:value="namidaPitchLevel" :min="0" :max="5" :step="1" />
+          </div>
+        </div>
+      </template>
+    </setting-item>
+
+    <setting-item
+      title="Corner Radius Scale"
+      description="Scale card, artwork, and settings corner roundness from sharp (0.5x) to pill (1.5x)."
+    >
+      <template #action>
+        <div class="flex items-center gap-3">
+          <span class="text-xs font-mono tabular-nums text-gray-500 dark:text-gray-300 w-16 text-right">
+            {{ namidaRadiusMult.toFixed(1) }}x
+          </span>
+          <div class="w-40 max-md:w-32">
+            <n-slider v-model:value="namidaRadiusMult" :min="0.5" :max="1.5" :step="0.1" />
+          </div>
+        </div>
+      </template>
+    </setting-item>
+
+    <setting-item
       :title="t('settings.basic.language')"
       :description="t('settings.basic.languageDesc')"
     >
@@ -236,6 +268,27 @@ const handleDynamicPaletteChange = (enabled: boolean) => {
     // ignore
   }
 };
+
+const namidaPitchLevel = computed({
+  get: () => Number(setData.value?.namidaPitchLevel ?? 0),
+  set: (val: number) => {
+    setData.value = { ...setData.value, namidaPitchLevel: val };
+  }
+});
+
+const pitchBlackLabel = computed(() => {
+  const lvl = Math.max(0, Math.min(5, Math.round(namidaPitchLevel.value)));
+  if (lvl === 0) return '0 (Material)';
+  if (lvl === 5) return '5 (AMOLED)';
+  return `Level ${lvl}`;
+});
+
+const namidaRadiusMult = computed({
+  get: () => Number(setData.value?.namidaRadiusMult ?? 1),
+  set: (val: number) => {
+    setData.value = { ...setData.value, namidaRadiusMult: val };
+  }
+});
 
 const handleRomanizationChange = (enabled: boolean) => {
   try {

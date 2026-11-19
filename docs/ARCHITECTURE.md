@@ -115,6 +115,26 @@ sequenceDiagram
   * `src/renderer/services/songLibrary.ts` -> `computeNormKey`, `ingestLocalTrack`, `linkVariant`, `getVariants`, `findSongByPath`, `getSongKey`, `getCurrentSongKey`, `getOrComputeWaveformPeaks`
   * `src/main/modules/audioFingerprint.ts` -> `computeAudioFingerprint`, `computeWaveformPeaks`, `computePeaksFromPcm`
 
+### [SUBSYSTEM: Namida-Theme-Engine] | Aliases: dynamic theme, seed color, pitch black, lexend deca, naive ui overrides, sliders
+> **1-Line Summary:** Extracts an artwork seed color without oversaturating monochrome covers and drives `:root` `in srgb` CSS tokens, 5-level Pitch Black blending, scaled corner radii, and Naive UI `GlobalThemeOverrides`.
+* **How It Works (Plain English):** `useNamidaTheme` watches the active track artwork, dark/light mode, `namidaPitchLevel` (0–5), and `namidaRadiusMult` (0.5–1.5). Pixel sampling checks weighted saturation (< 0.12 keeps neutral grayscale) and falls back to Vibrant if CORS-tainted. `computeNamidaCssVars` blends surfaces with `color-mix(in srgb, ...)` (avoiding `in oklch` pink-tint artifacts) and updates `:root` tokens + Naive UI `themeOverrides` in `App.vue`, while `namida.css` applies `Lexend Deca`, softened ink opacities, 47%-tinted nav icons, `20px` settings cards, and Material 3 pill-thumb sliders.
+* **Data Flow Diagram:**
+```mermaid
+flowchart LR
+    ART[Active Track Cover] --> EXT[extractSeedRgbFromUrl]
+    EXT --> ENG[namidaThemeEngine]
+    SET[Pitch Level 0..5 & Radius 0.5..1.5] --> ENG
+    ENG --> ROOT[:root CSS Vars & color-scheme]
+    ENG --> NUI[Naive UI GlobalThemeOverrides]
+    ROOT --> SHELL[AppLayout / AppMenu / SettingSection / Sliders]
+```
+* **Code Anchors (Grep Targets):**
+  * `src/renderer/utils/namidaThemeEngine.ts` -> `extractSeedRgbFromImageData`, `computeNamidaCssVars`, `buildNaiveThemeOverrides`
+  * `src/renderer/composables/useNamidaTheme.ts` -> `useNamidaTheme`, `extractSeedRgbFromUrl`, `applyNamidaThemeToDocument`
+  * `src/renderer/App.vue` -> `useNamidaTheme`
+  * `src/renderer/views/set/SettingSection.vue` -> `.namida-settings-card`
+  * `src/renderer/styles/namida.css` -> `:root`, `.n-slider`, `.namida-range`
+
 ### [SUBSYSTEM: Tag-Metadata-And-Lyric-IO] | Aliases: tags, artwork, rename, lrclib, metadata fetch
 > **1-Line Summary:** The main process writes native tags and sidecar lyrics per format and fetches metadata/lyrics from iTunes, MusicBrainz and LRCLIB.
 * **How It Works (Plain English):** `node-id3` handles MP3, `flac-tagger` FLAC, and ffmpeg the iTunes atoms for m4a/mp4/opus/ogg/wav. Lyric search returns candidates with duration and offset metadata so the picker can prefer the closest version.

@@ -1,9 +1,229 @@
 /* src/renderer/styles/namida.css */
 :root {
+  color-scheme: light dark;
+  --font-sans: 'Lexend Deca', sans-serif, Roboto;
+
+  --namida-seed: 139, 92, 246;
+  --namida-pitch-level: 0;
+  --namida-radius-mult: 1;
+
+  --namida-card-base: 35, 35, 35;
+  --namida-tint-mult: 0.8;
+
+  --namida-bg-scaffold: #0e0e11;
+  --namida-surface-topbar: color-mix(
+    in srgb,
+    rgb(var(--namida-seed)) calc(10% * var(--namida-tint-mult)),
+    rgb(var(--namida-card-base))
+  );
+  --namida-surface-card: color-mix(
+    in srgb,
+    rgb(var(--namida-seed)) calc(14% * var(--namida-tint-mult)),
+    rgb(var(--namida-card-base))
+  );
+  --namida-surface-elevated: color-mix(
+    in srgb,
+    rgb(var(--namida-seed)) calc(18% * var(--namida-tint-mult)),
+    rgb(var(--namida-card-base))
+  );
+
+  --namida-icon-default: color-mix(in srgb, rgb(var(--namida-seed)) 47%, rgba(255, 255, 255, 0.85));
+  --namida-nav-indicator: color-mix(in srgb, rgb(var(--namida-seed)) 47%, #000000);
+
+  --namida-radius-card: calc(14px * var(--namida-radius-mult));
+  --namida-radius-settings: calc(20px * var(--namida-radius-mult));
+  --namida-radius-art: calc(12px * var(--namida-radius-mult));
+
   --namida-glass-bg: rgba(18, 18, 26, 0.62);
   --namida-glass-border: rgba(255, 255, 255, 0.09);
   --namida-glass-highlight: rgba(255, 255, 255, 0.16);
   --namida-spring: cubic-bezier(0.22, 1, 0.36, 1);
+  --namida-theme-transition:
+    background-color 420ms var(--namida-spring),
+    color 320ms ease,
+    border-color 320ms ease;
+
+  /* Softened ink roles (Dark defaults) */
+  --namida-ink-title-lg: rgba(255, 255, 255, 0.92);
+  --namida-ink-display-lg: rgba(255, 255, 255, 0.82);
+  --namida-ink-display-md: rgba(255, 255, 255, 0.71);
+  --namida-ink-body-md: rgba(255, 255, 255, 0.78);
+  --namida-ink-display-sm: rgba(255, 255, 255, 0.67);
+}
+
+:root:not(.dark) {
+  --namida-card-base: 255, 255, 255;
+  --namida-tint-mult: 1;
+  --namida-bg-scaffold: color-mix(in srgb, rgb(var(--namida-seed)) 24%, #ffffff);
+  --namida-surface-topbar: color-mix(in srgb, rgb(var(--namida-seed)) 10%, #ffffff);
+  --namida-surface-card: color-mix(in srgb, rgb(var(--namida-seed)) 14%, #ffffff);
+  --namida-surface-elevated: color-mix(in srgb, rgb(var(--namida-seed)) 18%, #ffffff);
+  --namida-icon-default: color-mix(in srgb, rgb(var(--namida-seed)) 47%, rgba(0, 0, 0, 0.78));
+  --namida-nav-indicator: color-mix(in srgb, rgb(var(--namida-seed)) 28%, #ffffff);
+
+  --namida-ink-title-lg: rgba(0, 0, 0, 0.85);
+  --namida-ink-display-lg: rgba(0, 0, 0, 0.63);
+  --namida-ink-display-md: rgba(0, 0, 0, 0.59);
+  --namida-ink-body-md: rgba(0, 0, 0, 0.72);
+  --namida-ink-display-sm: rgba(0, 0, 0, 0.47);
+}
+
+body {
+  font-family: var(--font-sans);
+}
+
+.tabular-nums,
+time,
+.namida-timer {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Namida typography roles */
+.namida-title-lg {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--namida-ink-title-lg);
+}
+
+.namida-display-lg {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--namida-ink-display-lg);
+}
+
+.namida-display-md {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--namida-ink-display-md);
+}
+
+.namida-body-md {
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--namida-ink-body-md);
+}
+
+.namida-display-sm {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--namida-ink-display-sm);
+}
+
+/* Material 3 Pill-Thumb Sliders (Naive UI) */
+.n-slider {
+  --n-rail-height: 6px !important;
+  --n-rail-width-vertical: 6px !important;
+  --n-rail-color: rgba(var(--namida-seed), 0.24) !important;
+  --n-rail-color-hover: rgba(var(--namida-seed), 0.4) !important;
+  --n-fill-color: rgba(var(--namida-seed), 0.85) !important;
+  --n-fill-color-hover: rgb(var(--namida-seed)) !important;
+  --n-handle-color: rgb(var(--namida-seed)) !important;
+}
+
+.n-slider:not(.n-slider--vertical) .n-slider-rail {
+  height: 6px;
+  border-radius: 999px;
+}
+
+.n-slider:not(.n-slider--vertical) .n-slider-rail__fill {
+  border-radius: 999px;
+  background-color: rgba(var(--namida-seed), 0.85);
+}
+
+.n-slider:not(.n-slider--vertical) .n-slider-handle {
+  width: 5px !important;
+  height: 24px !important;
+  border-radius: 999px !important;
+  border: none !important;
+  background: rgb(var(--namida-seed)) !important;
+  box-shadow: 0 0 0 4px var(--namida-bg-scaffold) !important;
+  transition:
+    transform 180ms var(--namida-spring),
+    box-shadow 180ms ease;
+}
+
+.n-slider:not(.n-slider--vertical) .n-slider-handle:hover,
+.n-slider:not(.n-slider--vertical) .n-slider-handle:focus-visible {
+  transform: scaleY(1.1);
+}
+
+.n-slider.n-slider--vertical .n-slider-rail {
+  width: 6px;
+  border-radius: 999px;
+}
+
+.n-slider.n-slider--vertical .n-slider-handle {
+  width: 24px !important;
+  height: 5px !important;
+  border-radius: 999px !important;
+  border: none !important;
+  background: rgb(var(--namida-seed)) !important;
+  box-shadow: 0 0 0 4px var(--namida-bg-scaffold) !important;
+}
+
+.n-slider .n-slider-handle:focus-visible {
+  outline: 2px solid rgb(var(--namida-seed));
+  outline-offset: 4px;
+}
+
+/* Native range slider styling with separate vendor blocks */
+input[type='range'].namida-range {
+  --slider-track-size: 6px;
+  --slider-thumb-w: 5px;
+  --slider-thumb-h: 24px;
+  --slider-track-color: rgba(var(--namida-seed), 0.28);
+  --slider-fill-color: rgba(var(--namida-seed), 0.85);
+  appearance: none;
+  inline-size: 100%;
+  block-size: 2rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+input[type='range'].namida-range::-webkit-slider-runnable-track {
+  block-size: var(--slider-track-size);
+  border-radius: 999px;
+  background: var(--slider-track-color);
+}
+
+input[type='range'].namida-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  inline-size: var(--slider-thumb-w);
+  block-size: var(--slider-thumb-h);
+  margin-block-start: calc((var(--slider-track-size) - var(--slider-thumb-h)) / 2);
+  border-radius: 999px;
+  border: 0;
+  background: rgb(var(--namida-seed));
+  box-shadow: 0 0 0 4px var(--namida-bg-scaffold);
+}
+
+input[type='range'].namida-range::-moz-range-track {
+  block-size: var(--slider-track-size);
+  border-radius: 999px;
+  background: var(--slider-track-color);
+}
+
+input[type='range'].namida-range::-moz-range-progress {
+  block-size: var(--slider-track-size);
+  border-radius: 999px;
+  background: var(--slider-fill-color);
+}
+
+input[type='range'].namida-range::-moz-range-thumb {
+  inline-size: var(--slider-thumb-w);
+  block-size: var(--slider-thumb-h);
+  border-radius: 999px;
+  border: 0;
+  background: rgb(var(--namida-seed));
+}
+
+input[type='range'].namida-range:focus-visible {
+  outline: 2px solid rgb(var(--namida-seed));
+  outline-offset: 4px;
 }
 
 .namida-frosted-panel {
@@ -11,13 +231,20 @@
   backdrop-filter: blur(28px) saturate(185%);
   -webkit-backdrop-filter: blur(28px) saturate(185%);
   border: 1px solid var(--namida-glass-border);
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45), inset 0 1px 0 var(--namida-glass-highlight);
-  transition: transform 420ms var(--namida-spring), opacity 320ms ease;
+  box-shadow:
+    0 20px 50px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 var(--namida-glass-highlight);
+  transition:
+    transform 420ms var(--namida-spring),
+    opacity 320ms ease;
 }
 
 /* Word-by-word karaoke fill sweep */
 .namida-lyric-line {
-  transition: transform 380ms var(--namida-spring), filter 320ms ease, opacity 320ms ease;
+  transition:
+    transform 380ms var(--namida-spring),
+    filter 320ms ease,
+    opacity 320ms ease;
   opacity: 0.42;
   filter: blur(0.6px);
   transform: scale(0.95);
@@ -46,4 +273,34 @@
 .namida-karaoke-word.is-sung {
   transform: translateY(-1.5px);
   filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.35));
+}
+
+@media (forced-colors: active) {
+  :root,
+  :root:not(.dark) {
+    --namida-bg-scaffold: Canvas;
+    --namida-surface-card: Canvas;
+    --namida-surface-elevated: Canvas;
+    --namida-surface-topbar: Canvas;
+    --namida-icon-default: CanvasText;
+    --namida-nav-indicator: Highlight;
+    --namida-glass-border: ButtonBorder;
+  }
+
+  .namida-frosted-panel {
+    border: 1px solid ButtonBorder;
+    box-shadow: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --namida-theme-transition: none;
+  }
+
+  .namida-frosted-panel,
+  .namida-lyric-line,
+  .namida-karaoke-word {
+    transition: none;
+  }
 }

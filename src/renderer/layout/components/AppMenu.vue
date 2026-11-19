@@ -15,7 +15,11 @@
             placement="bottom"
           >
             <template #trigger>
-              <router-link class="app-menu-item-link" :to="item.path">
+              <router-link
+                class="app-menu-item-link"
+                :class="{ 'is-active': isChecked(index) }"
+                :to="item.path"
+              >
                 <i
                   class="iconfont app-menu-item-icon"
                   :style="iconStyle(index)"
@@ -24,7 +28,7 @@
                 <span
                   v-if="settingsStore.setData.isMenuExpanded"
                   class="app-menu-item-text ml-3"
-                  :class="isChecked(index) ? 'text-green-500' : ''"
+                  :style="isChecked(index) ? { color: 'rgb(var(--namida-seed))', fontWeight: 600 } : undefined"
                   >{{ t(item.meta.title) }}</span
                 >
               </router-link>
@@ -82,11 +86,11 @@ const isChecked = (index: number) => {
 };
 
 const iconStyle = (index: number) => {
-  const style = {
+  const active = isChecked(index);
+  return {
     fontSize: props.size,
-    color: isChecked(index) ? props.selectColor : props.color
+    color: active ? 'rgb(var(--namida-seed))' : 'var(--namida-icon-default)'
   };
-  return style;
 };
 
 const toggleMenu = () => {
@@ -145,24 +149,28 @@ const toggleMenu = () => {
   }
 }
 
-.app-menu-item-link,
 .app-menu-header {
-  @apply flex items-center w-[200px] overflow-hidden ml-2 px-5;
-}
-
-.app-menu-header {
-  @apply ml-1;
+  @apply flex items-center w-[200px] overflow-hidden ml-1 px-5;
 }
 
 .app-menu-item-link {
-  @apply mb-6 mt-6;
+  @apply flex items-center overflow-hidden mb-3 mt-3 mx-2 px-4 py-2;
+  width: calc(100% - 16px);
+  border-radius: var(--namida-radius-card, 14px);
+  transition: var(--namida-theme-transition);
+
+  &.is-active {
+    background: var(--namida-nav-indicator);
+  }
 }
 
 .app-menu-item-icon {
-  @apply transition-all duration-200 text-gray-500 dark:text-gray-400;
+  @apply transition-all duration-200;
+  color: var(--namida-icon-default);
 
   &:hover {
-    @apply text-green-500 scale-105 !important;
+    color: rgb(var(--namida-seed)) !important;
+    transform: scale(1.05);
   }
 }
 

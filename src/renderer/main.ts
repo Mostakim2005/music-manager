@@ -1,3 +1,7 @@
+import '@fontsource/lexend-deca/400.css';
+import '@fontsource/lexend-deca/500.css';
+import '@fontsource/lexend-deca/600.css';
+import '@fontsource/lexend-deca/700.css';
 import './index.css';
 import './styles/namida.css';
 import '@/assets/css/mobile.css';

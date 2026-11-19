@@ -105,11 +105,15 @@
 * **Code Anchors (Grep Targets):**
   * `src/renderer/services/songLibrary.ts` -> `computeNormKey`, `ingestLocalTrack`, `linkVariant`, `getVariants`, `getSongKey`
 
-### [FEATURE: Player-Look-And-Feel] | Aliases: stacked player, themes, palette, waveform, fullscreen, ambient canvas, karaoke glow, smtc, media session
-> **1-Line Summary:** A polished player: Namida stacked layout, WebGL2 ambient shader canvas, glassmorphism panels, karaoke word fill, real Dexie-cached acoustic waveform seekbar, Windows SMTC media controls, dynamic album-art palette, light/dark themes.
-* **User Intention (Non-Negotiable):** Clean visual hierarchy, proportional spacing, strong contrast in both themes, no broken layouts at any window size, real acoustic waveform bars for local files, and native Windows hardware media key / lock-screen controls.
-* **Visual / UI Behavior:** Side-by-side or stacked fullscreen layouts; WebGL2 ambient background shader and gradient background from album art; interactive 140-bar waveform seekbar in the stacked player.
+### [FEATURE: Player-Look-And-Feel] | Aliases: stacked player, themes, palette, waveform, fullscreen, ambient canvas, karaoke glow, smtc, media session, pitch black, lexend deca, pill slider
+> **1-Line Summary:** A polished Namida-inspired player: `Lexend Deca` typography, dynamic artwork color engine with 5-level Pitch Black mode, Material 3 pill-thumb sliders, `20px` settings cards, stacked layout, WebGL2 ambient shader canvas, glassmorphism panels, karaoke word fill, real Dexie-cached acoustic waveform seekbar, and Windows SMTC media controls.
+* **User Intention (Non-Negotiable):** Clean visual hierarchy, proportional spacing, strong contrast in both themes (preserving monochrome covers without false oversaturation), 5-level Pitch Black scaling up to pure AMOLED `#000`, real acoustic waveform bars for local files, and native Windows hardware media key / lock-screen controls.
+* **Visual / UI Behavior:** Side-by-side or stacked fullscreen layouts; dynamic theme tokens (`--namida-seed`, `--namida-pitch-level`, `--namida-radius-mult`) driving Naive UI overrides, 47%-tinted icons, and `20px` settings cards; WebGL2 ambient background shader; interactive 140-bar waveform seekbar in the stacked player.
 * **Code Anchors (Grep Targets):**
+  * `src/renderer/composables/useNamidaTheme.ts` -> `useNamidaTheme`, `extractSeedRgbFromUrl`, `applyNamidaThemeToDocument`
+  * `src/renderer/utils/namidaThemeEngine.ts` -> `extractSeedRgbFromImageData`, `computeNamidaCssVars`, `buildNaiveThemeOverrides`
+  * `src/renderer/styles/namida.css` -> `:root`, `.n-slider`
+  * `src/renderer/views/set/SettingSection.vue` -> `.namida-settings-card`
   * `src/renderer/components/namida/NamidaAmbientCanvas.vue` -> `renderLoop`, `hexToRgbNormalized`
   * `src/renderer/components/namida/NamidaWaveformSeekbar.vue` -> `onPointerDown`, `onPointerUp`, `normalizedPeaks`
   * `src/renderer/components/player/NamidaStackedPlayer.vue` -> `currentLyricSub`

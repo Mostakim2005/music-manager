@@ -47,6 +47,8 @@
   "showPlayBarVideoSwitcher": true,
   "showWaveformSeekbar": true,
   "enableDynamicPalette": true,
+  "namidaPitchLevel": 0,
+  "namidaRadiusMult": 1,
   "enablePlayPauseFade": true,
   "enableDiscordRpc": true,
   "discordClientId": "",

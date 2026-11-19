@@ -1,6 +1,9 @@
 <template>
   <div class="app-container h-full w-full" :class="{ mobile: isMobile, noElectron: !isElectron }">
-    <n-config-provider :theme="theme === 'dark' ? darkTheme : lightTheme">
+    <n-config-provider
+      :theme="theme === 'dark' ? darkTheme : lightTheme"
+      :theme-overrides="themeOverrides"
+    >
       <n-dialog-provider>
         <n-message-provider>
           <router-view></router-view>
@@ -15,12 +18,13 @@
 <script setup lang="ts">
 import { cloneDeep } from 'lodash';
 import { darkTheme, lightTheme } from 'naive-ui';
-import { computed, nextTick, onMounted, watch } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
 
 import DisclaimerModal from '@/components/common/DisclaimerModal.vue';
 import TrafficWarningDrawer from '@/components/TrafficWarningDrawer.vue';
+import { useNamidaTheme } from '@/composables/useNamidaTheme';
 import { usePlayerStore } from '@/store/modules/player';
 import { usePlayerCoreStore } from '@/store/modules/playerCore';
 import { useSettingsStore } from '@/store/modules/settings';
@@ -54,16 +58,19 @@ const theme = computed(() => {
   return settingsStore.theme;
 });
 
+const { themeOverrides } = useNamidaTheme();
+
 watch(
   () => [settingsStore.setData.fontFamily, settingsStore.setData.fontScope],
   ([newFont, fontScope]) => {
     const appElement = document.body;
-    if (newFont && fontScope === 'global') {
+    if (newFont && newFont !== 'system-ui' && fontScope === 'global') {
       appElement.style.fontFamily = newFont;
     } else {
       appElement.style.fontFamily = '';
     }
-  }
+  },
+  { immediate: true }
 );
 
 const handleSetLanguage = (value: string) => {

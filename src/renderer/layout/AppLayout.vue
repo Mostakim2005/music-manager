@@ -132,7 +132,9 @@ provide('openPlaylistDrawer', openPlaylistDrawer);
 
 <style lang="scss" scoped>
 .layout-page {
-  @apply w-screen h-screen overflow-hidden bg-light dark:bg-black;
+  @apply w-screen h-screen overflow-hidden;
+  background: var(--namida-bg-scaffold);
+  transition: var(--namida-theme-transition);
 }
 
 .layout-main {
@@ -144,7 +146,9 @@ provide('openPlaylistDrawer', openPlaylistDrawer);
 }
 
 .menu {
-  @apply h-full bg-light dark:bg-black;
+  @apply h-full;
+  background: var(--namida-bg-scaffold);
+  transition: var(--namida-theme-transition);
 }
 
 .main {
