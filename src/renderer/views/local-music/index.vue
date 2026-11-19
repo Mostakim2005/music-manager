@@ -15,11 +15,11 @@
 
           <div class="hero-content relative z-10 page-padding-x pt-6 pb-4">
             <div class="flex items-center gap-5">
-              <div
-                class="cover-container relative w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center shadow-lg ring-2 ring-white/50 dark:ring-neutral-800/50 shrink-0"
-              >
-                <i class="ri-folder-music-fill text-4xl text-primary opacity-80" />
-              </div>
+              <MultiArtworkCard
+                :covers="libraryCollageCovers"
+                size="80px"
+                fallback-icon="ri-folder-music-fill"
+              />
 
               <div class="info-content min-w-0">
                 <h1
@@ -258,6 +258,7 @@ import { computed, h, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import LocalTrackEditorModal from '@/components/common/LocalTrackEditorModal.vue';
+import MultiArtworkCard from '@/components/namida/MultiArtworkCard.vue';
 import ListeningStatsModal from '@/components/player/ListeningStatsModal.vue';
 import { exportListeningStatsRaw, importListeningStatsRaw } from '@/services/listeningStatsService';
 import { useLocalMusicStore } from '@/store/modules/localMusic';
@@ -455,6 +456,13 @@ const filteredList = computed(() => {
 
 const filteredSongResults = computed(() => {
   return filteredList.value.map(toSongResult);
+});
+
+const libraryCollageCovers = computed(() => {
+  return filteredSongResults.value
+    .map((s) => s.picUrl)
+    .filter((u): u is string => Boolean(u))
+    .slice(0, 12);
 });
 
 /** Label shown in the maintenance banner while a long task is running. */

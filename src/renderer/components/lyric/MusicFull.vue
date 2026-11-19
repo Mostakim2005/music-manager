@@ -19,12 +19,17 @@
       :palette="ambientPalette"
       :is-playing="playerStore.isPlay"
     />
+    <div
+      v-if="!config.useCustomBackground || config.backgroundMode !== 'solid'"
+      class="namida-ambient-scrim"
+      aria-hidden="true"
+    ></div>
     <div id="drawer-target" :class="[config.theme]" class="relative z-10">
       <div
-        class="control-left absolute top-8 left-8 z-[9999] flex items-center gap-2"
+        class="control-left absolute top-6 left-6 z-[9999] flex items-center gap-2"
         :class="{ 'pure-mode': config.pureModeEnabled }"
       >
-        <div class="control-btn" @click="closeMusicFull">
+        <div class="control-btn control-btn--collapse" title="Collapse" @click="closeMusicFull">
           <i class="ri-arrow-down-s-line"></i>
         </div>
         <template v-if="isElectron && !isMobile">
@@ -207,7 +212,7 @@
         />
       </div>
 
-      <!-- Side-by-side Layout (Default, tightened) -->
+      <!-- Side-by-side Widescreen 50/50 Layout -->
       <div
         v-else
         class="content-wrapper"
@@ -217,9 +222,34 @@
         <div
           v-if="!config.hideCover"
           class="left-side"
-          :class="{ 'only-cover': config.hideLyrics }"
+          :class="{ 'only-cover': config.hideLyrics && rightPaneTab === 'lyrics' }"
         >
-          <!-- Video Element (when video mode is active) -->
+          <!-- Centered Track Info Header Above Artwork -->
+          <div class="music-info music-info--header mb-3">
+            <div class="music-content-name" v-html="playMusic.name"></div>
+            <div class="music-content-singer">
+              <n-ellipsis
+                class="text-ellipsis"
+                line-clamp="1"
+                :tooltip="{
+                  contentStyle: { maxWidth: '600px' },
+                  zIndex: 99999
+                }"
+              >
+                <span
+                  v-for="(item, index) in artistList"
+                  :key="index"
+                  class="cursor-pointer hover:text-green-500 transition-colors"
+                  @click="handleArtistClick(item.id)"
+                >
+                  {{ item.name }}
+                  {{ index < artistList.length - 1 ? ' / ' : '' }}
+                </span>
+              </n-ellipsis>
+            </div>
+          </div>
+
+          <!-- Video Element (strictly muted slave in video mode) -->
           <div
             v-if="playerStore.playbackMode === 'video'"
             class="video-container relative w-full aspect-video rounded-2xl overflow-hidden bg-black shadow-2xl ring-1 ring-white/10 flex items-center justify-center mb-3"
@@ -237,22 +267,31 @@
               @pause="onVideoPause"
             ></video>
           </div>
-          <!-- 3D Cover (when in audio mode) -->
+          <!-- Artwork with Pre-Baked 64x64 Canvas Glow & Play/Pause Scale -->
           <div v-else class="img-container">
-            <cover3-d
-              ref="PicImgRef"
-              :src="getImgUrl(playMusic?.picUrl, '500y500')"
-              :loading="playMusic?.playLoading"
-              :max-tilt="12"
-              :scale="1.03"
-              :shine-intensity="0.25"
+            <img
+              v-if="bakedGlowUrl"
+              :src="bakedGlowUrl"
+              class="baked-artwork-glow"
+              alt=""
+              aria-hidden="true"
             />
+            <div class="artwork-scale-wrapper" :class="{ 'is-playing': playerStore.isPlay }">
+              <cover3-d
+                ref="PicImgRef"
+                :src="getImgUrl(playMusic?.picUrl, '500y500')"
+                :loading="playMusic?.playLoading"
+                :max-tilt="12"
+                :scale="1.03"
+                :shine-intensity="0.25"
+              />
+            </div>
           </div>
 
           <!-- Mini lyric lines under the artwork/video: scrollable, click to seek -->
           <div
             v-if="showUnderArtworkLyrics"
-            class="single-lyric-under-art my-3 w-full text-center px-4 select-none"
+            class="single-lyric-under-art my-2.5 w-full text-center px-4 select-none"
             @wheel.prevent="handleUnderArtWheel"
           >
             <div
@@ -287,34 +326,61 @@
             </button>
           </div>
 
-          <div class="music-info">
-            <div class="music-content-name" v-html="playMusic.name"></div>
-            <div class="music-content-singer">
-              <n-ellipsis
-                class="text-ellipsis"
-                line-clamp="2"
-                :tooltip="{
-                  contentStyle: { maxWidth: '600px' },
-                  zIndex: 99999
-                }"
-              >
-                <span
-                  v-for="(item, index) in artistList"
-                  :key="index"
-                  class="cursor-pointer hover:text-green-500"
-                  @click="handleArtistClick(item.id)"
-                >
-                  {{ item.name }}
-                  {{ index < artistList.length - 1 ? ' / ' : '' }}
-                </span>
-              </n-ellipsis>
-            </div>
-            <simple-play-bar
-              v-if="!config.hideMiniPlayBar"
-              class="mt-4"
-              :pure-mode-enabled="config.pureModeEnabled"
-              :isDark="textColors.theme === 'dark'"
+          <!-- Namida Waveform Seekbar & Transport Controls -->
+          <div v-if="!config.hideMiniPlayBar" class="namida-left-transport w-full max-w-[440px] mt-3">
+            <NamidaWaveformSeekbar
+              :file-path="(playMusic as any)?.localPath || (playMusic as any)?.path || playMusic?.playMusicUrl || ''"
+              :current-time="nowTime"
+              :duration="allTime"
+              @seek="handleSeekTime"
             />
+            <div class="flex items-center justify-between text-xs font-mono tabular-nums text-white/60 mt-1 px-0.5">
+              <span>{{ secondToMinute(nowTime) }}</span>
+              <span>{{ secondToMinute(allTime) }}</span>
+            </div>
+            <div class="flex items-center justify-center gap-5 mt-2">
+              <button
+                type="button"
+                class="namida-transport-icon-btn"
+                :title="playModeText"
+                @click="togglePlayMode"
+              >
+                <i class="iconfont" :class="playModeIcon"></i>
+              </button>
+              <button
+                type="button"
+                class="namida-transport-icon-btn text-xl"
+                title="Previous"
+                @click="handlePrev"
+              >
+                <i class="ri-skip-back-fill"></i>
+              </button>
+              <button
+                type="button"
+                class="namida-squircle-play-btn"
+                :title="playerStore.isPlay ? 'Pause' : 'Play'"
+                @click="playMusicEvent"
+              >
+                <i class="text-2xl" :class="playerStore.isPlay ? 'ri-pause-fill' : 'ri-play-fill pl-0.5'"></i>
+              </button>
+              <button
+                type="button"
+                class="namida-transport-icon-btn text-xl"
+                title="Next"
+                @click="handleNext"
+              >
+                <i class="ri-skip-forward-fill"></i>
+              </button>
+              <button
+                type="button"
+                class="namida-transport-icon-btn"
+                :class="{ 'text-rose-400': isFavorite }"
+                title="Favorite"
+                @click="toggleFavorite"
+              >
+                <i :class="isFavorite ? 'ri-heart-3-fill' : 'ri-heart-3-line'"></i>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -323,13 +389,38 @@
           class="right-side"
           :class="{
             center: config.centerLyrics,
-            hide: config.hideLyrics,
+            hide: config.hideLyrics && rightPaneTab === 'lyrics',
             'full-width': config.hideCover
           }"
         >
+          <!-- Segmented Pill Switcher: Lyrics | Up Next -->
+          <div class="flex items-center justify-center mb-3 pt-2 shrink-0">
+            <div class="namida-frosted-panel inline-flex items-center p-1 rounded-full gap-1">
+              <button
+                type="button"
+                class="namida-pane-tab-btn"
+                :class="{ 'is-active': rightPaneTab === 'lyrics' }"
+                @click="rightPaneTab = 'lyrics'"
+              >
+                <i class="ri-file-text-line mr-1"></i>
+                Lyrics
+              </button>
+              <button
+                type="button"
+                class="namida-pane-tab-btn"
+                :class="{ 'is-active': rightPaneTab === 'queue' }"
+                @click="rightPaneTab = 'queue'"
+              >
+                <i class="ri-play-list-2-line mr-1"></i>
+                Up Next ({{ playerStore.playList.length }})
+              </button>
+            </div>
+          </div>
+
           <n-layout
+            v-show="rightPaneTab === 'lyrics'"
             ref="lrcSider"
-            class="music-lrc"
+            class="music-lrc flex-1 min-h-0"
             :native-scrollbar="false"
             @mouseover="mouseOverLayout"
             @mouseleave="mouseLeaveLayout"
@@ -360,10 +451,10 @@
                 v-for="(item, index) in lrcArray"
                 :id="`music-lrc-text-${index}`"
                 :key="index"
-                class="music-lrc-text"
+                class="music-lrc-text namida-lyric-line"
                 :style="getFocusStyle(index)"
                 :class="{
-                  'now-text': index === nowIndex,
+                  'now-text is-active': index === nowIndex,
                   'hover-text': item.text && item.startTime !== -1
                 }"
                 @click="item.startTime !== -1 ? setAudioTime(index) : null"
@@ -379,7 +470,14 @@
                   class="word-by-word-lyric"
                 >
                   <template v-for="(word, wordIndex) in item.words" :key="wordIndex">
-                    <span class="lyric-word" :style="getWordStyle(index, wordIndex, word)">
+                    <span
+                      class="lyric-word namida-karaoke-word"
+                      :class="{ 'is-sung': getKaraokeWordProgress(index, word) >= 1 }"
+                      :style="{
+                        ...getWordStyle(index, wordIndex, word),
+                        '--word-progress': getKaraokeWordProgress(index, word)
+                      }"
+                    >
                       {{ word.text }} </span
                     ><span class="lyric-word" v-if="word.space">&nbsp;</span></template
                   >
@@ -413,6 +511,87 @@
               </div>
             </div>
           </n-layout>
+
+          <!-- Up Next Queue Tab -->
+          <div
+            v-if="rightPaneTab === 'queue'"
+            ref="queueContainerRef"
+            class="namida-queue-pane flex-1 min-h-0 flex flex-col overflow-hidden px-2"
+          >
+            <div class="flex items-center justify-between mb-2 px-2">
+              <span class="text-xs font-medium text-white/60">
+                Drag rows to reorder queue
+              </span>
+              <button
+                type="button"
+                class="text-xs px-2.5 py-1 rounded-full bg-white/10 hover:bg-white/20 text-white/90 transition cursor-pointer"
+                @click="jumpToPlayingInQueue"
+              >
+                Jump to Playing
+              </button>
+            </div>
+            <div class="flex-1 overflow-y-auto space-y-1.5 pr-1 pb-12">
+              <div
+                v-if="playerStore.playList.length === 0"
+                class="py-12 text-center text-sm text-white/50"
+              >
+                Queue is empty.
+              </div>
+              <div
+                v-for="(qSong, qIdx) in playerStore.playList"
+                :key="`${qSong.id}-${qIdx}`"
+                draggable="true"
+                :data-queue-active="qIdx === playerStore.playListIndex ? 'true' : 'false'"
+                class="namida-queue-row flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition"
+                :class="{
+                  'is-current': qIdx === playerStore.playListIndex,
+                  'is-drag-over': dragOverQueueIndex === qIdx
+                }"
+                @dragstart="onQueueDragStart(qIdx)"
+                @dragover.prevent="dragOverQueueIndex = qIdx"
+                @dragleave="dragOverQueueIndex = null"
+                @drop.prevent="onQueueDrop(qIdx)"
+                @click="playerStore.setPlay(qSong)"
+              >
+                <i class="ri-draggable text-white/35 cursor-grab shrink-0" />
+                <img
+                  v-if="qSong.picUrl"
+                  :src="getImgUrl(qSong.picUrl, '100y100')"
+                  alt=""
+                  class="w-10 h-10 rounded-lg object-cover shrink-0 bg-black/30"
+                />
+                <div
+                  v-else
+                  class="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center shrink-0 text-white/50"
+                >
+                  <i class="ri-music-2-line" />
+                </div>
+                <div class="flex-1 min-w-0">
+                  <div
+                    class="text-sm font-semibold truncate"
+                    :class="qIdx === playerStore.playListIndex ? 'text-white' : 'text-white/85'"
+                  >
+                    {{ qSong.name }}
+                  </div>
+                  <div class="text-xs text-white/55 truncate">
+                    {{
+                      (qSong.ar || (qSong as any).artists || []).map((a: any) => a.name).join(' / ') ||
+                      (qSong as any).artist ||
+                      'Unknown Artist'
+                    }}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  class="w-7 h-7 rounded-full flex items-center justify-center text-white/40 hover:text-rose-400 hover:bg-white/10 transition shrink-0"
+                  title="Remove from queue"
+                  @click.stop="playerStore.removeFromPlayList(qSong.id)"
+                >
+                  <i class="ri-close-line" />
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -547,10 +726,11 @@ import Cover3D from '@/components/cover/Cover3D.vue';
 import LyricCorrectionControl from '@/components/lyric/LyricCorrectionControl.vue';
 import LyricSettings from '@/components/lyric/LyricSettings.vue';
 import NamidaAmbientCanvas from '@/components/namida/NamidaAmbientCanvas.vue';
+import NamidaWaveformSeekbar from '@/components/namida/NamidaWaveformSeekbar.vue';
 import NamidaStackedPlayer from '@/components/player/NamidaStackedPlayer.vue';
 import SaveToDiskModal from '@/components/player/SaveToDiskModal.vue';
-import SimplePlayBar from '@/components/player/SimplePlayBar.vue';
 import VideoSourcePopover from '@/components/player/VideoSourcePopover.vue';
+import { useBakedArtworkGlow } from '@/composables/useBakedArtworkGlow';
 import { useLinkedMediaSync } from '@/composables/useLinkedMediaSync';
 import {
   adjustCorrectionTime,
@@ -592,11 +772,11 @@ import { usePlayerStore } from '@/store/modules/player';
 import { useSettingsStore } from '@/store/modules/settings';
 import { DEFAULT_LYRIC_CONFIG, LyricConfig } from '@/types/lyric';
 import type { ILyricText } from '@/types/music';
-import { getImgUrl, isElectron, isMobile } from '@/utils';
+import { getImgUrl, isElectron, isMobile, secondToMinute } from '@/utils';
 import { getTextColors } from '@/utils/linearColor';
 import { filePathToMediaUrl } from '@/utils/localMediaUrl';
 import { LYRIC_CONFIG_CHANGE_EVENT, readLyricConfig, writeLyricConfig } from '@/utils/lyricConfig';
-import { formatLrcTimestamp, formatLrcTimestampMs } from '@/utils/lyrics';
+import { formatLrcTimestamp, formatLrcTimestampMs, getWordFillProgress } from '@/utils/lyrics';
 
 const { t } = useI18n();
 const lrcSider = ref<any>(null);
@@ -1031,8 +1211,51 @@ const playerStore = usePlayerStore();
 
 // Playback & mode hooks
 const { isFavorite, toggleFavorite } = useFavorite();
-const { playMode, togglePlayMode } = usePlayMode();
-const { handlePrev, handleNext } = usePlaybackControl();
+const { playMode, playModeIcon, playModeText, togglePlayMode } = usePlayMode();
+const { playMusicEvent, handlePrev, handleNext } = usePlaybackControl();
+
+// Widescreen 50/50 right pane tab, baked glow, and drag-to-reorder queue
+const rightPaneTab = ref<'lyrics' | 'queue'>('lyrics');
+const artworkGlowSrc = computed(() =>
+  playMusic.value?.picUrl ? getImgUrl(playMusic.value.picUrl, '100y100') : ''
+);
+const { glowDataUrl: bakedGlowUrl } = useBakedArtworkGlow(artworkGlowSrc);
+const queueContainerRef = ref<HTMLElement | null>(null);
+const draggedQueueIndex = ref<number | null>(null);
+const dragOverQueueIndex = ref<number | null>(null);
+
+const onQueueDragStart = (index: number) => {
+  draggedQueueIndex.value = index;
+};
+
+const onQueueDrop = (targetIndex: number) => {
+  const from = draggedQueueIndex.value;
+  draggedQueueIndex.value = null;
+  dragOverQueueIndex.value = null;
+  if (from === null || from === targetIndex) return;
+  const nextList = [...playerStore.playList];
+  if (from < 0 || from >= nextList.length || targetIndex < 0 || targetIndex >= nextList.length) {
+    return;
+  }
+  const [moved] = nextList.splice(from, 1);
+  nextList.splice(targetIndex, 0, moved);
+  playerStore.setPlayList(nextList, true, false, true);
+};
+
+const jumpToPlayingInQueue = () => {
+  const activeEl = queueContainerRef.value?.querySelector('[data-queue-active="true"]');
+  if (activeEl && typeof (activeEl as HTMLElement).scrollIntoView === 'function') {
+    (activeEl as HTMLElement).scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+};
+
+const getKaraokeWordProgress = (
+  lineIndex: number,
+  word: { startTime: number; duration: number }
+): number => {
+  if (lineIndex !== nowIndex.value) return 0;
+  return getWordFillProgress(word, (nowTime.value + correctionTime.value) * 1000);
+};
 
 // Video & Popover state
 const sideVideoRef = ref<HTMLVideoElement | null>(null);
@@ -1104,7 +1327,7 @@ const nextLyricItem = computed(() => {
 // video instead of dropping the whole column under it (which looked broken).
 const isNarrowLayout = ref(false);
 const measureLayoutWidth = () => {
-  isNarrowLayout.value = window.innerWidth < 1024;
+  isNarrowLayout.value = window.innerWidth < 960;
 };
 
 const showUnderArtworkLyrics = computed(
@@ -1924,6 +2147,14 @@ defineExpose({
   }
 }
 
+.namida-ambient-scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.32);
+  pointer-events: none;
+  z-index: 1;
+}
+
 .background-layer {
   position: absolute;
   top: 0;
@@ -1955,22 +2186,23 @@ defineExpose({
 
   .content-wrapper {
     @apply grid items-center mx-auto h-full;
-    grid-template-columns: minmax(300px, 40%) 1fr;
-    gap: 3rem;
+    grid-template-columns: 1fr 1fr;
+    gap: 26px;
     max-width: 1500px;
-    padding: 2rem;
+    padding: 16px 24px;
     transition: width 0.3s ease;
 
-    @media (max-width: 1024px) {
+    @media (max-width: 959px) {
       // Narrow: the side lyric column is not rendered at all (see
       // `isNarrowLayout`) — the left column takes the full width and lyrics
       // show as a strip under the artwork instead.
       grid-template-columns: 1fr;
       gap: 1.5rem;
+      padding: 16px;
     }
 
     &.compact-mode {
-      gap: 2rem;
+      gap: 20px;
 
       .right-side {
         max-width: 520px;
@@ -2003,7 +2235,7 @@ defineExpose({
       @apply col-span-2;
 
       .img-container {
-        @apply w-[60vh] aspect-square;
+        @apply w-[52vh] aspect-square;
       }
 
       .music-info {
@@ -2012,8 +2244,34 @@ defineExpose({
     }
 
     .img-container {
-      @apply relative w-[45vh] mb-4 aspect-square;
-      max-width: 100%;
+      @apply relative w-[38vh] max-w-[360px] mb-2 aspect-square;
+      border-radius: var(--namida-radius-art, 12px);
+    }
+
+    .baked-artwork-glow {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scale(1.15);
+      opacity: 0.45;
+      pointer-events: none;
+      border-radius: inherit;
+      z-index: 0;
+    }
+
+    .artwork-scale-wrapper {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      height: 100%;
+      transform: scale(0.94);
+      transition: transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
+
+      &.is-playing {
+        transform: scale(1);
+      }
     }
 
     .single-lyric-under-art {
@@ -2038,16 +2296,24 @@ defineExpose({
     }
 
     .music-info {
-      @apply w-full text-center max-w-[400px];
+      @apply w-full text-center max-w-[440px];
 
       .music-content-name {
-        @apply text-3xl font-bold mb-2 line-clamp-2;
-        color: var(--text-color-active);
+        font-size: 20px;
+        font-weight: 600;
+        line-height: 1.3;
+        margin-bottom: 4px;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        color: rgba(255, 255, 255, 0.92);
       }
 
       .music-content-singer {
-        @apply text-lg opacity-80;
-        color: var(--text-color-primary);
+        font-size: 15px;
+        font-weight: 600;
+        color: rgba(255, 255, 255, 0.71);
       }
     }
   }
@@ -2397,6 +2663,12 @@ defineExpose({
   background: rgba(142, 142, 142, 0.192);
   backdrop-filter: blur(12px);
 
+  &--collapse {
+    width: 48px;
+    height: 48px;
+    border-radius: 16px;
+  }
+
   i {
     @apply text-xl;
     color: var(--text-color-active);
@@ -2451,6 +2723,91 @@ defineExpose({
     0 8px 32px rgba(0, 0, 0, 0.35),
     inset 0 1px 0 rgba(255, 255, 255, 0.18);
   max-width: min(640px, 80vw);
+}
+
+.namida-transport-icon-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.78);
+  transition:
+    background-color 180ms ease,
+    color 180ms ease,
+    transform 140ms ease;
+  cursor: pointer;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.12);
+    color: #ffffff;
+  }
+
+  &:active {
+    transform: scale(0.94);
+  }
+}
+
+.namida-squircle-play-btn {
+  width: 56px;
+  height: 56px;
+  border-radius: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  background: rgb(var(--namida-seed, 139, 92, 246));
+  box-shadow: 0 10px 26px color-mix(in srgb, rgb(var(--namida-seed, 139, 92, 246)) 45%, transparent);
+  transition:
+    transform 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    filter 180ms ease;
+  cursor: pointer;
+
+  &:hover {
+    filter: brightness(1.08);
+    transform: scale(1.04);
+  }
+
+  &:active {
+    transform: scale(0.95);
+  }
+}
+
+.namida-pane-tab-btn {
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.68);
+  transition:
+    background-color 200ms ease,
+    color 200ms ease;
+  cursor: pointer;
+
+  &.is-active {
+    background: color-mix(in srgb, rgb(var(--namida-seed, 139, 92, 246)) 35%, rgba(255, 255, 255, 0.14));
+    color: #ffffff;
+  }
+}
+
+.namida-queue-row {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.1);
+  }
+
+  &.is-current {
+    background: color-mix(in srgb, rgb(var(--namida-seed, 139, 92, 246)) 26%, rgba(255, 255, 255, 0.08));
+    border-color: color-mix(in srgb, rgb(var(--namida-seed, 139, 92, 246)) 55%, transparent);
+  }
+
+  &.is-drag-over {
+    border-color: rgb(var(--namida-seed, 139, 92, 246));
+    transform: translateY(-1px);
+  }
 }
 
 .lrc-edit-actions {

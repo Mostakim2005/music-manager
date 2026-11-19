@@ -4,10 +4,17 @@
     @click="$emit('click')"
   >
     <n-image
+      v-if="imageUrl"
       :src="imageUrl"
       class="w-[60px] h-[60px] flex-shrink-0 rounded-xl bg-light-300 dark:bg-dark-300"
       lazy
       preview-disabled
+    />
+    <MultiArtworkCard
+      v-else
+      :covers="collageCovers || []"
+      size="60px"
+      fallback-icon="ri-play-list-2-line"
     />
     <div class="flex-1 min-w-0">
       <div class="text-base text-gray-900 dark:text-white mb-1">
@@ -32,8 +39,11 @@
 </template>
 
 <script setup lang="ts">
+import MultiArtworkCard from '@/components/namida/MultiArtworkCard.vue';
+
 defineProps<{
   imageUrl: string;
+  collageCovers?: string[];
   name: string;
   description: string;
   count?: number;

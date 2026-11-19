@@ -475,6 +475,12 @@ const drawLiveWaveform = (timestamp: number) => {
   const barWidth = Math.max(dpr, (width - gap * (count - 1)) / count);
   const playedX = progressRatio.value * width;
 
+  const playedColorRaw =
+    typeof getComputedStyle === 'function'
+      ? getComputedStyle(document.documentElement).getPropertyValue('--namida-seed').trim()
+      : '';
+  const playedFill = playedColorRaw ? `rgb(${playedColorRaw})` : '#1ed760';
+
   for (let i = 0; i < count; i++) {
     let level = fallback[i] / 100;
     if (spectrum.length > 0) {
@@ -484,7 +490,7 @@ const drawLiveWaveform = (timestamp: number) => {
 
     const barHeight = Math.max(2 * dpr, Math.min(1, level) * height);
     const x = i * (barWidth + gap);
-    ctx.fillStyle = x + barWidth <= playedX ? '#1ed760' : 'rgba(156, 163, 175, 0.35)';
+    ctx.fillStyle = x + barWidth <= playedX ? playedFill : 'rgba(156, 163, 175, 0.35)';
     ctx.fillRect(x, height - barHeight, barWidth, barHeight);
   }
 };
@@ -602,10 +608,20 @@ const openPlayListDrawer = () => {
 
 .music-play-bar {
   @apply h-20 w-full absolute bottom-0 left-0 flex items-center box-border px-6 py-2 pt-3;
-  @apply bg-light dark:bg-dark shadow-2xl shadow-gray-300;
+  background: color-mix(in srgb, var(--namida-surface-elevated, rgb(25, 25, 32)) 78%, transparent);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 -8px 28px rgba(0, 0, 0, 0.14);
+  transition: var(--namida-theme-transition);
   z-index: 9999;
   animation-duration: 0.5s !important;
   cursor: pointer;
+
+  :root.dark & {
+    border-top-color: rgba(255, 255, 255, 0.08);
+    box-shadow: 0 -10px 32px rgba(0, 0, 0, 0.42);
+  }
 
   .play-bar-container {
     max-width: 1100px;

@@ -115,22 +115,28 @@ sequenceDiagram
   * `src/renderer/services/songLibrary.ts` -> `computeNormKey`, `ingestLocalTrack`, `linkVariant`, `getVariants`, `findSongByPath`, `getSongKey`, `getCurrentSongKey`, `getOrComputeWaveformPeaks`
   * `src/main/modules/audioFingerprint.ts` -> `computeAudioFingerprint`, `computeWaveformPeaks`, `computePeaksFromPcm`
 
-### [SUBSYSTEM: Namida-Theme-Engine] | Aliases: dynamic theme, seed color, pitch black, lexend deca, naive ui overrides, sliders
-> **1-Line Summary:** Extracts an artwork seed color without oversaturating monochrome covers and drives `:root` `in srgb` CSS tokens, 5-level Pitch Black blending, scaled corner radii, and Naive UI `GlobalThemeOverrides`.
-* **How It Works (Plain English):** `useNamidaTheme` watches the active track artwork, dark/light mode, `namidaPitchLevel` (0–5), and `namidaRadiusMult` (0.5–1.5). Pixel sampling checks weighted saturation (< 0.12 keeps neutral grayscale) and falls back to Vibrant if CORS-tainted. `computeNamidaCssVars` blends surfaces with `color-mix(in srgb, ...)` (avoiding `in oklch` pink-tint artifacts) and updates `:root` tokens + Naive UI `themeOverrides` in `App.vue`, while `namida.css` applies `Lexend Deca`, softened ink opacities, 47%-tinted nav icons, `20px` settings cards, and Material 3 pill-thumb sliders.
+### [SUBSYSTEM: Namida-Theme-Engine] | Aliases: dynamic theme, seed color, pitch black, lexend deca, naive ui overrides, sliders, baked glow, widescreen split
+> **1-Line Summary:** Extracts an artwork seed color without oversaturating monochrome covers, pre-bakes 64x64 artwork glow, and drives `:root` `in srgb` CSS tokens, 5-level Pitch Black blending, scaled corner radii, 50/50 widescreen player layout, and Naive UI `GlobalThemeOverrides`.
+* **How It Works (Plain English):** `useNamidaTheme` watches the active track artwork, dark/light mode, `namidaPitchLevel` (0–5), and `namidaRadiusMult` (0.5–1.5). Pixel sampling checks weighted saturation (< 0.12 keeps neutral grayscale) and falls back to Vibrant if CORS-tainted. `useBakedArtworkGlow` pre-blurs artwork onto an offscreen 64x64 canvas once per track (`scale(1.15); opacity: 0.45`) instead of expensive live full-screen CSS blur. `NamidaWaveformSeekbar` uses 54%-width bars with `computeSeekPokeScale` spring pulses, while `MusicFull.vue` (>=960px) splits 50/50 between track controls and a segmented Lyrics/Queue pane.
 * **Data Flow Diagram:**
 ```mermaid
 flowchart LR
     ART[Active Track Cover] --> EXT[extractSeedRgbFromUrl]
+    ART --> GLOW[bakeArtworkGlow 64x64]
     EXT --> ENG[namidaThemeEngine]
     SET[Pitch Level 0..5 & Radius 0.5..1.5] --> ENG
     ENG --> ROOT[:root CSS Vars & color-scheme]
     ENG --> NUI[Naive UI GlobalThemeOverrides]
-    ROOT --> SHELL[AppLayout / AppMenu / SettingSection / Sliders]
+    ROOT --> SHELL[AppLayout / AppMenu / SettingSection / Sliders / PlayBar]
+    GLOW --> MF[MusicFull 50/50 Widescreen Split]
 ```
 * **Code Anchors (Grep Targets):**
   * `src/renderer/utils/namidaThemeEngine.ts` -> `extractSeedRgbFromImageData`, `computeNamidaCssVars`, `buildNaiveThemeOverrides`
   * `src/renderer/composables/useNamidaTheme.ts` -> `useNamidaTheme`, `extractSeedRgbFromUrl`, `applyNamidaThemeToDocument`
+  * `src/renderer/composables/useBakedArtworkGlow.ts` -> `useBakedArtworkGlow`, `bakeArtworkGlow`
+  * `src/renderer/utils/waveformHelpers.ts` -> `computeSeekPokeScale`, `dedupeArtworkCovers`
+  * `src/renderer/components/lyric/MusicFull.vue` -> `rightPaneTab`, `onQueueDrop`, `getKaraokeWordProgress`
+  * `src/renderer/components/namida/MultiArtworkCard.vue` -> `gridTiles`
   * `src/renderer/App.vue` -> `useNamidaTheme`
   * `src/renderer/views/set/SettingSection.vue` -> `.namida-settings-card`
   * `src/renderer/styles/namida.css` -> `:root`, `.n-slider`, `.namida-range`

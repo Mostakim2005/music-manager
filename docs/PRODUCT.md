@@ -43,12 +43,12 @@
   * `src/renderer/utils/videoQualityHelpers.ts` -> `formatQualityRow`, `getUniqueVideoHeights`
   * `src/renderer/components/player/VideoSourcePopover.vue` -> `downloadVideoQuality`, `downloadedVariantFor`
 
-### [FEATURE: Synced-Lyrics-With-Responsive-Layout] | Aliases: lyrics panel, lyric column, mini lyrics, line times, under artwork
-> **1-Line Summary:** Lyrics show in a side column when the window is wide, or as a scrollable click-to-seek strip under the artwork when it is narrow, with each line's start time visible.
-* **User Intention (Non-Negotiable):** The lyric column must never drop broken below the player; the current line must appear exactly once; clicking a line seeks; `mm:ss,ms` start times stay visible.
-* **Visual / UI Behavior:** Right column ≥1024px; below that a 3-line strip under the artwork/video; toggleable per-line timestamps in the lyric settings.
+### [FEATURE: Synced-Lyrics-With-Responsive-Layout] | Aliases: lyrics panel, lyric column, mini lyrics, line times, under artwork, widescreen split
+> **1-Line Summary:** Lyrics and Up Next Queue share a 50/50 side column when the window is wide (>=960px), or lyrics collapse to a scrollable click-to-seek strip under the artwork when narrow, with each line's start time visible.
+* **User Intention (Non-Negotiable):** The lyric column must never drop broken below the player; the current line must appear exactly once; clicking a line seeks; `mm:ss,ms` start times stay visible; switching between Lyrics and Up Next Queue keeps playback uninterrupted.
+* **Visual / UI Behavior:** 50/50 desktop split >=960px (track header + baked-glow artwork + waveform transport on the left, segmented Lyrics/Queue pane on the right); below 960px a 3-line strip under the artwork/video; toggleable per-line timestamps in the lyric settings.
 * **Code Anchors (Grep Targets):**
-  * `src/renderer/components/lyric/MusicFull.vue` -> `underArtworkLyricLines`, `lineTimeLabel`, `showUnderArtworkLyrics`
+  * `src/renderer/components/lyric/MusicFull.vue` -> `underArtworkLyricLines`, `lineTimeLabel`, `showUnderArtworkLyrics`, `rightPaneTab`, `onQueueDrop`
   * `src/renderer/types/lyric.ts` -> `LyricConfig`
 
 ### [FEATURE: Edit-LRC-Editor] | Aliases: edit lrc, lyric editor, timestamps, lrc sync, tap timestamp
@@ -105,18 +105,24 @@
 * **Code Anchors (Grep Targets):**
   * `src/renderer/services/songLibrary.ts` -> `computeNormKey`, `ingestLocalTrack`, `linkVariant`, `getVariants`, `getSongKey`
 
-### [FEATURE: Player-Look-And-Feel] | Aliases: stacked player, themes, palette, waveform, fullscreen, ambient canvas, karaoke glow, smtc, media session, pitch black, lexend deca, pill slider
-> **1-Line Summary:** A polished Namida-inspired player: `Lexend Deca` typography, dynamic artwork color engine with 5-level Pitch Black mode, Material 3 pill-thumb sliders, `20px` settings cards, stacked layout, WebGL2 ambient shader canvas, glassmorphism panels, karaoke word fill, real Dexie-cached acoustic waveform seekbar, and Windows SMTC media controls.
+### [FEATURE: Player-Look-And-Feel] | Aliases: stacked player, themes, palette, waveform, fullscreen, ambient canvas, karaoke glow, smtc, media session, pitch black, lexend deca, pill slider, baked glow, frosted mini player, collage
+> **1-Line Summary:** A polished Namida-inspired player: `Lexend Deca` typography, dynamic artwork color engine with 5-level Pitch Black mode, Material 3 pill-thumb sliders, `20px` settings cards, 50/50 widescreen & stacked layouts, pre-baked 64x64 artwork glow, WebGL2 ambient shader canvas, frosted glass playbar, hover-reveal floating lyrics, 2x2 collage cards, 3-row track tiles, karaoke word fill, real Dexie-cached acoustic waveform seekbar with seek-poke pulse, and Windows SMTC media controls.
 * **User Intention (Non-Negotiable):** Clean visual hierarchy, proportional spacing, strong contrast in both themes (preserving monochrome covers without false oversaturation), 5-level Pitch Black scaling up to pure AMOLED `#000`, real acoustic waveform bars for local files, and native Windows hardware media key / lock-screen controls.
-* **Visual / UI Behavior:** Side-by-side or stacked fullscreen layouts; dynamic theme tokens (`--namida-seed`, `--namida-pitch-level`, `--namida-radius-mult`) driving Naive UI overrides, 47%-tinted icons, and `20px` settings cards; WebGL2 ambient background shader; interactive 140-bar waveform seekbar in the stacked player.
+* **Visual / UI Behavior:** 50/50 widescreen or stacked fullscreen layouts with pre-baked 64x64 artwork glow and play/pause artwork scaling; dynamic theme tokens (`--namida-seed`, `--namida-pitch-level`, `--namida-radius-mult`) driving Naive UI overrides, 47%-tinted icons, and `20px` settings cards; frosted glass PlayBar; 2x2 collage cards; 3-row local track tiles; interactive 140-bar waveform seekbar with 54%-width bars and seek-poke spring pulse.
 * **Code Anchors (Grep Targets):**
   * `src/renderer/composables/useNamidaTheme.ts` -> `useNamidaTheme`, `extractSeedRgbFromUrl`, `applyNamidaThemeToDocument`
+  * `src/renderer/composables/useBakedArtworkGlow.ts` -> `useBakedArtworkGlow`, `bakeArtworkGlow`
   * `src/renderer/utils/namidaThemeEngine.ts` -> `extractSeedRgbFromImageData`, `computeNamidaCssVars`, `buildNaiveThemeOverrides`
-  * `src/renderer/styles/namida.css` -> `:root`, `.n-slider`
+  * `src/renderer/utils/waveformHelpers.ts` -> `computeSeekPokeScale`, `dedupeArtworkCovers`
+  * `src/renderer/styles/namida.css` -> `:root`, `.n-slider`, `.namida-karaoke-word`
   * `src/renderer/views/set/SettingSection.vue` -> `.namida-settings-card`
   * `src/renderer/components/namida/NamidaAmbientCanvas.vue` -> `renderLoop`, `hexToRgbNormalized`
-  * `src/renderer/components/namida/NamidaWaveformSeekbar.vue` -> `onPointerDown`, `onPointerUp`, `normalizedPeaks`
+  * `src/renderer/components/namida/NamidaWaveformSeekbar.vue` -> `onPointerDown`, `onPointerUp`, `normalizedPeaks`, `triggerPoke`
+  * `src/renderer/components/namida/MultiArtworkCard.vue` -> `gridTiles`
   * `src/renderer/components/player/NamidaStackedPlayer.vue` -> `currentLyricSub`
+  * `src/renderer/components/player/PlayBar.vue` -> `drawLiveWaveform`
+  * `src/renderer/views/lyric/index.vue` -> `showControls`, `handleMouseEnter`
+  * `src/renderer/views/local-music/LocalTrackRow.vue` -> `subtitleLine`, `formatBadge`
   * `src/renderer/services/osMediaSession.ts` -> `bindOsMediaSessionHandlers`, `updateOsMediaMetadata`
   * `src/renderer/services/songLibrary.ts` -> `getOrComputeWaveformPeaks`
   * `src/main/modules/audioFingerprint.ts` -> `computeWaveformPeaks`, `computePeaksFromPcm`

@@ -373,10 +373,7 @@ const showThemeColorPanel = ref(false);
 const currentHighlightColor = ref('#1db954');
 
 const showControls = computed(() => {
-  if (lyricSetting.value.isLock) {
-    return isHovering.value;
-  }
-  return true;
+  return isHovering.value || showThemeColorPanel.value;
 });
 
 const clearHideTimer = () => {
@@ -434,8 +431,8 @@ const updateControlBarPosition = () => {
 
 const handleMouseEnter = () => {
   updateControlBarPosition();
+  isHovering.value = true;
   if (lyricSetting.value.isLock) {
-    isHovering.value = true;
     window.api.setIgnoreMouse(true);
     scheduleLockedControlsHide();
   } else {
@@ -444,10 +441,12 @@ const handleMouseEnter = () => {
 };
 
 const handleMouseLeave = () => {
-  if (!lyricSetting.value.isLock) return;
   clearHideTimer();
   isHovering.value = false;
   showThemeColorPanel.value = false;
+  if (!lyricSetting.value.isLock) {
+    return;
+  }
   window.api.setIgnoreMouse(false);
 
   const lyricWindow = document.querySelector('.lyric-window') as HTMLElement;
@@ -1153,7 +1152,7 @@ body,
   height: 100vh;
   position: relative;
   overflow: hidden;
-  background: transparent !important;
+  background: transparent;
   user-select: none;
   transition: background-color 0.3s ease;
   cursor: default;
@@ -1190,23 +1189,19 @@ body,
   }
 
   &.dark {
-    --text-color: #e6e6e6;
-    --text-secondary: #ffffffea;
+    --text-color: #dddddd;
+    --text-secondary: rgba(221, 221, 221, 0.78);
     --highlight-color: var(--lyric-highlight-color, #1ed760);
     --control-bg: rgba(124, 124, 124, 0.3);
-    &:hover:not(.lyric_lock) {
-      background: rgba(44, 44, 44, 0.466) !important;
-    }
+    background: rgba(14, 14, 17, 0.94);
   }
 
   &.light {
-    --text-color: #383838;
-    --text-secondary: #282828ae;
+    --text-color: #16161a;
+    --text-secondary: rgba(22, 22, 26, 0.72);
     --highlight-color: var(--lyric-highlight-color, #1db954);
-    --control-bg: rgba(38, 38, 38, 0.532);
-    &:hover:not(.lyric_lock) {
-      background: rgba(0, 0, 0, 0.434) !important;
-    }
+    --control-bg: rgba(38, 38, 38, 0.16);
+    background: rgba(245, 245, 248, 0.94);
   }
 }
 
