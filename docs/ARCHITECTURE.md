@@ -108,11 +108,12 @@ sequenceDiagram
   * `src/renderer/utils/lyrics.ts` -> `formatLrcTimestampMs`, `parseLrcTimestamp`, `nudgeTimestamp`
   * `src/renderer/components/lyric/MusicFull.vue` -> `handleApplyEditedLrc`, `lineTimeLabel`
 
-### [SUBSYSTEM: Unified-Song-Library] | Aliases: variants, dexie, fingerprint, duplicates, song identity
-> **1-Line Summary:** One Dexie database links every audio/video/lyrics file to a single song record using artist|title identity plus fingerprint matching.
-* **How It Works (Plain English):** Ingestion matches by path, YouTube ID, fingerprint, normalized `artist|title` key with ±3s duration, then fuzzy token similarity. Variants record codec, height, bitrate and size so the Files tab can manage each one independently (unlink keeps the file, delete removes it).
+### [SUBSYSTEM: Unified-Song-Library] | Aliases: variants, dexie, fingerprint, duplicates, song identity, waveform cache
+> **1-Line Summary:** One Dexie database links every audio/video/lyrics file to a single song record using artist|title identity plus fingerprint matching, and caches decoded acoustic waveform peaks per local file.
+* **How It Works (Plain English):** Ingestion matches by path, YouTube ID, fingerprint, normalized `artist|title` key with ±3s duration, then fuzzy token similarity. Variants record codec, height, bitrate and size so the Files tab can manage each one independently (unlink keeps the file, delete removes it). Dexie schema v3 adds the `waveforms` table (`&filePath, updatedAt`), caching normalized 140-bucket RMS/peak envelopes computed via bundled FFmpeg (`local-music:waveform-peaks`).
 * **Code Anchors (Grep Targets):**
-  * `src/renderer/services/songLibrary.ts` -> `computeNormKey`, `ingestLocalTrack`, `linkVariant`, `getVariants`, `findSongByPath`, `getSongKey`
+  * `src/renderer/services/songLibrary.ts` -> `computeNormKey`, `ingestLocalTrack`, `linkVariant`, `getVariants`, `findSongByPath`, `getSongKey`, `getOrComputeWaveformPeaks`
+  * `src/main/modules/audioFingerprint.ts` -> `computeAudioFingerprint`, `computeWaveformPeaks`, `computePeaksFromPcm`
 
 ### [SUBSYSTEM: Tag-Metadata-And-Lyric-IO] | Aliases: tags, artwork, rename, lrclib, metadata fetch
 > **1-Line Summary:** The main process writes native tags and sidecar lyrics per format and fetches metadata/lyrics from iTunes, MusicBrainz and LRCLIB.
@@ -127,6 +128,7 @@ sequenceDiagram
   * `src/renderer/utils/localMediaUrl.ts` -> `toPlayableMediaUrl`, `filePathToMediaUrl`
   * `src/renderer/utils/localMusicUtils.ts` -> `toSongResult`, `parseLrcToILyric`
   * `src/renderer/hooks/IndexDBHook.ts` -> `musicDB`, `getMusicDBInstance`
+  * `src/renderer/services/osMediaSession.ts` -> `bindOsMediaSessionHandlers`, `updateOsMediaMetadata`
   * `src/main/modules/otherApi.ts` -> `fetchYouTubeSuggestions`, `initializeOtherApi`
   * `src/main/modules/discordRpc.ts` -> `resolveDiscordClientId`, `setDiscordClientId`, `initializeDiscordRpc`
 

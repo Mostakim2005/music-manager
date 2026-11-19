@@ -15,6 +15,11 @@ const api = {
       durationSec: number;
       windows: number;
     } | null>,
+  /** Computes normalized acoustic waveform peaks for a local media file. */
+  getWaveformPeaks: (filePath: string, buckets = 140) =>
+    ipcRenderer.invoke('local-music:waveform-peaks', filePath, buckets) as Promise<
+      number[] | null
+    >,
   /** Deletes a downloaded/local variant file from disk. */
   deleteVariantFile: (filePath: string) =>
     ipcRenderer.invoke('library:delete-variant-file', filePath) as Promise<{

@@ -18,8 +18,9 @@ import {
 import { getFfmpegPath } from './youtube';
 
 const SAMPLE_RATE = 8000;
+const WAVEFORM_MAX_SECONDS = 900;
 
-function decodePcm(filePath: string): Promise<Int16Array> {
+function decodePcm(filePath: string, maxSeconds = FINGERPRINT_MAX_SECONDS): Promise<Int16Array> {
   return new Promise((resolve, reject) => {
     const ffmpeg = getFfmpegPath();
     if (!ffmpeg) {
@@ -31,7 +32,7 @@ function decodePcm(filePath: string): Promise<Int16Array> {
       '-v',
       'error',
       '-t',
-      String(FINGERPRINT_MAX_SECONDS),
+      String(maxSeconds),
       '-i',
       filePath,
       '-ac',
@@ -99,6 +100,60 @@ export async function computeAudioFingerprint(filePath: string): Promise<AudioFi
     };
   } catch (error) {
     console.warn('[fingerprint] failed:', filePath, error);
+    return null;
+  }
+}
+
+/**
+ * Downsamples a raw Int16 PCM sample array into `buckets` normalized RMS/peak values in `0..1`.
+ */
+export function computePeaksFromPcm(samples: Int16Array, buckets = 140): number[] {
+  const safeBuckets = Math.max(16, Math.min(512, Math.floor(buckets) || 140));
+  if (!samples || samples.length === 0) {
+    return Array(safeBuckets).fill(0.25);
+  }
+
+  const samplesPerBucket = Math.max(1, Math.floor(samples.length / safeBuckets));
+  const rawBuckets: number[] = [];
+
+  for (let b = 0; b < safeBuckets; b += 1) {
+    const start = b * samplesPerBucket;
+    const end = Math.min(samples.length, start + samplesPerBucket);
+    if (start >= samples.length || end <= start) {
+      rawBuckets.push(0.18);
+      continue;
+    }
+    let sumSq = 0;
+    let maxAbs = 0;
+    for (let i = start; i < end; i += 1) {
+      const val = Math.abs(samples[i]) / 32768;
+      sumSq += val * val;
+      if (val > maxAbs) maxAbs = val;
+    }
+    const rms = Math.sqrt(sumSq / (end - start));
+    // Blend RMS energy with peak transient so percussion and dynamics remain visible
+    rawBuckets.push(rms * 0.65 + maxAbs * 0.35);
+  }
+
+  const globalPeak = Math.max(...rawBuckets, 1e-5);
+  return rawBuckets.map((val) => {
+    const normalized = Math.min(1, Math.max(0.14, val / globalPeak));
+    return Math.round(normalized * 1000) / 1000;
+  });
+}
+
+/**
+ * Computes normalized acoustic waveform peaks (`0..1`) for a local media file via bundled FFmpeg.
+ */
+export async function computeWaveformPeaks(
+  filePath: string,
+  buckets = 140
+): Promise<number[] | null> {
+  try {
+    const samples = await decodePcm(filePath, WAVEFORM_MAX_SECONDS);
+    return computePeaksFromPcm(samples, buckets);
+  } catch (error) {
+    console.warn('[waveform] failed to decode PCM peaks:', filePath, error);
     return null;
   }
 }

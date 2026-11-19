@@ -51,6 +51,12 @@ export interface PlaybackPositionRecord {
   updatedAt: number;
 }
 
+export interface WaveformCacheRecord {
+  filePath: string;
+  peaks: number[];
+  updatedAt: number;
+}
+
 export interface IngestTrackInput {
   path: string;
   title: string;
@@ -75,6 +81,7 @@ export class MusicManagerLibraryDB extends Dexie {
   songs!: Table<Song, string>;
   variants!: Table<Variant, string>;
   playbackPositions!: Table<PlaybackPositionRecord, string>;
+  waveforms!: Table<WaveformCacheRecord, string>;
 
   constructor(customIndexedDB?: any) {
     super('musicManagerLibrary', customIndexedDB ? { indexedDB: customIndexedDB } : undefined);
@@ -83,6 +90,13 @@ export class MusicManagerLibraryDB extends Dexie {
       songs: '&id, normKey, youtubeId, fingerprint, createdAt',
       variants: '&id, songId, path, kind, addedAt',
       playbackPositions: '&key, updatedAt'
+    });
+
+    this.version(3).stores({
+      songs: '&id, normKey, youtubeId, fingerprint, createdAt',
+      variants: '&id, songId, path, kind, addedAt',
+      playbackPositions: '&key, updatedAt',
+      waveforms: '&filePath, updatedAt'
     });
   }
 }
@@ -716,4 +730,66 @@ export function getCurrentSongKey(): string {
   } catch {
     return '';
   }
+}
+
+function buildProceduralWaveformFallback(filePath: string, buckets = 140): number[] {
+  let hash = 2166136261;
+  for (let i = 0; i < filePath.length; i += 1) {
+    hash ^= filePath.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  const seed = (Math.abs(hash) % 97) + 13;
+  return Array.from({ length: buckets }, (_, i) => {
+    const val = 0.22 + 0.68 * Math.abs(Math.sin((i + 1) * seed * 0.019) * Math.cos(i * 0.07));
+    return Math.round(val * 1000) / 1000;
+  });
+}
+
+/**
+ * Retrieves cached acoustic waveform peaks from Dexie (`waveforms` table), or
+ * computes and caches them via bundled FFmpeg (`local-music:waveform-peaks`).
+ */
+export async function getOrComputeWaveformPeaks(
+  filePath: string,
+  buckets = 140,
+  customIndexedDB?: any
+): Promise<number[]> {
+  let cleanPath = String(filePath || '').trim();
+  if (!cleanPath || cleanPath.startsWith('http://') || cleanPath.startsWith('https://')) {
+    return buildProceduralWaveformFallback(cleanPath || 'stream', buckets);
+  }
+  if (cleanPath.startsWith('local://')) {
+    try {
+      cleanPath = decodeURIComponent(cleanPath.replace(/^local:\/\/\/?/, ''));
+      if (/^\/[a-zA-Z]:\//.test(cleanPath)) cleanPath = cleanPath.slice(1);
+    } catch {
+      cleanPath = cleanPath.replace(/^local:\/\/\/?/, '');
+    }
+  }
+
+  try {
+    const db = getLibraryDB(customIndexedDB);
+    const cached = await db.waveforms.get(cleanPath);
+    if (cached && Array.isArray(cached.peaks) && cached.peaks.length === buckets) {
+      return cached.peaks;
+    }
+
+    let computedPeaks: number[] | null = null;
+    if (typeof window !== 'undefined' && window.api?.getWaveformPeaks) {
+      computedPeaks = await window.api.getWaveformPeaks(cleanPath, buckets);
+    }
+
+    if (computedPeaks && Array.isArray(computedPeaks) && computedPeaks.length > 0) {
+      await db.waveforms.put({
+        filePath: cleanPath,
+        peaks: computedPeaks,
+        updatedAt: Date.now()
+      });
+      return computedPeaks;
+    }
+  } catch (err) {
+    console.debug('[songLibrary] getOrComputeWaveformPeaks fallback:', err);
+  }
+
+  return buildProceduralWaveformFallback(cleanPath, buckets);
 }

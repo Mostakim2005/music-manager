@@ -9,6 +9,8 @@ interface API {
   getAudioFingerprint: (
     filePath: string
   ) => Promise<{ fingerprint: string; durationSec: number; windows: number } | null>;
+  /** Computes normalized acoustic waveform peaks (0..1) for a local media file. */
+  getWaveformPeaks: (filePath: string, buckets?: number) => Promise<number[] | null>;
   /** Deletes a downloaded or local variant file from disk. */
   deleteVariantFile: (
     filePath: string

@@ -4,6 +4,7 @@ import { computed, type ComputedRef, nextTick, onUnmounted, ref, watch } from 'v
 import { musicDB } from '@/hooks/IndexDBHook';
 import { audioService } from '@/services/audioService';
 import { currentMediaOwner } from '@/services/mediaCoordinator';
+import { bindOsMediaSessionHandlers, updateOsMediaMetadata } from '@/services/osMediaSession';
 import { playbackRequestManager } from '@/services/playbackRequestManager';
 import { getSongKey, savePosition } from '@/services/songLibrary';
 import type { usePlayerStore } from '@/store';
@@ -32,6 +33,63 @@ export const initMusicHook = (store: ReturnType<typeof usePlayerStore>): void =>
   setupCorrectionTimeWatcher();
   setupPlayStateWatcher();
   setupAudioListeners();
+  setupOsMediaSession();
+};
+
+const syncOsMediaSession = () => {
+  try {
+    const store = getPlayerStore();
+    const song = store.playMusic;
+    if (!song?.id) return;
+    const artist =
+      Array.isArray(song.ar) && song.ar.length > 0
+        ? song.ar.map((a) => a.name).join(' / ')
+        : Array.isArray((song as any).artists) && (song as any).artists.length > 0
+          ? (song as any).artists.map((a: any) => a.name).join(' / ')
+          : (song as any).artist || 'Unknown Artist';
+
+    updateOsMediaMetadata({
+      title: song.name || (song as any).title || 'Unknown Title',
+      artist,
+      album: song.al?.name || (song as any).album?.name || (song as any).album || 'Music Manager',
+      coverUrl: song.picUrl || song.al?.picUrl || '',
+      durationSec: allTime.value,
+      positionSec: nowTime.value,
+      isPlaying: Boolean(store.isPlay)
+    });
+  } catch {
+    // Ignore OS Media Session errors
+  }
+};
+
+const setupOsMediaSession = () => {
+  bindOsMediaSessionHandlers({
+    onPlay: () => {
+      void getPlayerStore().setPlayMusic(true);
+    },
+    onPause: () => {
+      getPlayerStore().handlePause();
+    },
+    onPrev: () => {
+      getPlayerStore().prevPlay();
+    },
+    onNext: () => {
+      getPlayerStore().nextPlay();
+    },
+    onSeekTo: (seconds: number) => {
+      audioService.seek(seconds);
+      nowTime.value = seconds;
+      syncOsMediaSession();
+    }
+  });
+
+  watch(
+    () => [getPlayerStore().playMusic?.id, getPlayerStore().isPlay, allTime.value],
+    () => {
+      syncOsMediaSession();
+    },
+    { immediate: true }
+  );
 };
 
 const getPlayerStore = () => {
@@ -369,11 +427,14 @@ const setupAudioListeners = () => {
           }
         }
 
-        if (isElectron && !isVideoMode && lyricThrottleCounter % 20 === 0) {
-          try {
-            window.electron.ipcRenderer.send('mpris-position-update', currentTime);
-          } catch {
-            // Ignore MPRIS update failures
+        if (lyricThrottleCounter % 20 === 0) {
+          syncOsMediaSession();
+          if (isElectron && !isVideoMode) {
+            try {
+              window.electron.ipcRenderer.send('mpris-position-update', currentTime);
+            } catch {
+              // Ignore MPRIS update failures
+            }
           }
         }
       } catch (error) {

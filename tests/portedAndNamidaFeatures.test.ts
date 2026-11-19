@@ -315,4 +315,107 @@ describe('YesPlayMusic Ported Features & Namida Enhancements', () => {
       });
     });
   });
+
+  describe('7. Real Acoustic Waveform Seekbar & Windows SMTC (Tasks 1.4, 1.5 / E-12, E-14)', () => {
+    it('Task 1.4 / E-14: bindOsMediaSessionHandlers and updateOsMediaMetadata wire SMTC controls', async () => {
+      const actionHandlers: Record<string, (...args: any[]) => void> = {};
+      const setPositionStateSpy = vi.fn();
+
+      class MockMediaMetadata {
+        title: string;
+        artist: string;
+        album: string;
+        artwork: any[];
+        constructor(init: any) {
+          this.title = init.title;
+          this.artist = init.artist;
+          this.album = init.album;
+          this.artwork = init.artwork;
+        }
+      }
+
+      vi.stubGlobal('MediaMetadata', MockMediaMetadata);
+      (globalThis.navigator as any).mediaSession = {
+        metadata: null,
+        playbackState: 'none',
+        setActionHandler: vi.fn((action: string, cb: (...args: any[]) => void) => {
+          actionHandlers[action] = cb;
+        }),
+        setPositionState: setPositionStateSpy
+      };
+
+      const { bindOsMediaSessionHandlers, updateOsMediaMetadata } = await import(
+        '../src/renderer/services/osMediaSession'
+      );
+
+      const onPlay = vi.fn();
+      const onPause = vi.fn();
+      const onPrev = vi.fn();
+      const onNext = vi.fn();
+      const onSeekTo = vi.fn();
+
+      bindOsMediaSessionHandlers({ onPlay, onPause, onPrev, onNext, onSeekTo });
+
+      expect(actionHandlers.play).toBe(onPlay);
+      expect(actionHandlers.pause).toBe(onPause);
+      expect(actionHandlers.previoustrack).toBe(onPrev);
+      expect(actionHandlers.nexttrack).toBe(onNext);
+      actionHandlers.seekto({ seekTime: 42.5 });
+      expect(onSeekTo).toHaveBeenCalledWith(42.5);
+
+      updateOsMediaMetadata({
+        title: 'Idol',
+        artist: 'YOASOBI',
+        album: 'THE BOOK 3',
+        durationSec: 213,
+        positionSec: 45,
+        isPlaying: true
+      });
+
+      expect((globalThis.navigator as any).mediaSession.metadata.title).toBe('Idol');
+      expect((globalThis.navigator as any).mediaSession.metadata.artist).toBe('YOASOBI');
+      expect((globalThis.navigator as any).mediaSession.playbackState).toBe('playing');
+      expect(setPositionStateSpy).toHaveBeenCalledWith({
+        duration: 213,
+        playbackRate: 1.0,
+        position: 45
+      });
+    });
+
+    it('Task 1.5 / E-12: computePeaksFromPcm downsamples PCM into normalized 0..1 waveform buckets', async () => {
+      const { computePeaksFromPcm } = await import('../src/main/modules/audioFingerprint');
+      const pcm = new Int16Array(8000);
+      for (let i = 0; i < pcm.length; i += 1) {
+        // First half quiet, second half loud
+        const amp = i < 4000 ? 4000 : 28000;
+        pcm[i] = Math.round(Math.sin(i * 0.1) * amp);
+      }
+
+      const peaks = computePeaksFromPcm(pcm, 40);
+      expect(peaks).toHaveLength(40);
+      expect(Math.max(...peaks)).toBe(1);
+      expect(peaks[5]).toBeLessThan(peaks[35]);
+    });
+
+    it('Task 1.5 / E-12: getOrComputeWaveformPeaks caches computed peaks in Dexie waveforms table', async () => {
+      const fakeIndexedDB = await import('fake-indexeddb');
+      const { getOrComputeWaveformPeaks } = await import('../src/renderer/services/songLibrary');
+
+      const mockPeaks = Array.from({ length: 32 }, (_, i) => Number(((i + 1) / 32).toFixed(3)));
+      const getWaveformPeaksSpy = vi.fn(async () => mockPeaks);
+      (globalThis as any).window.api = {
+        ...(globalThis as any).window.api,
+        getWaveformPeaks: getWaveformPeaksSpy
+      };
+
+      const first = await getOrComputeWaveformPeaks('C:/Music/test_track.flac', 32, fakeIndexedDB.indexedDB);
+      expect(first).toEqual(mockPeaks);
+      expect(getWaveformPeaksSpy).toHaveBeenCalledTimes(1);
+
+      // Second lookup hits Dexie cache without re-invoking IPC
+      const second = await getOrComputeWaveformPeaks('C:/Music/test_track.flac', 32, fakeIndexedDB.indexedDB);
+      expect(second).toEqual(mockPeaks);
+      expect(getWaveformPeaksSpy).toHaveBeenCalledTimes(1);
+    });
+  });
 });

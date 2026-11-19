@@ -5,7 +5,7 @@ import * as mm from 'music-metadata';
 import * as os from 'os';
 import * as path from 'path';
 
-import { computeAudioFingerprint } from './audioFingerprint';
+import { computeAudioFingerprint, computeWaveformPeaks } from './audioFingerprint';
 
 const SUPPORTED_AUDIO_FORMATS = [
   '.mp3',
@@ -445,6 +445,18 @@ export function initializeLocalMusicScanner(): void {
       return null;
     }
   });
+
+  ipcMain.handle(
+    'local-music:waveform-peaks',
+    async (_, filePath: string, buckets = 140): Promise<number[] | null> => {
+      try {
+        return await computeWaveformPeaks(filePath, buckets);
+      } catch (error) {
+        console.warn('[waveform] ipc failed:', error);
+        return null;
+      }
+    }
+  );
 
   ipcMain.handle('parse-local-music-metadata', async (_, filePaths: string[]) => {
     try {
