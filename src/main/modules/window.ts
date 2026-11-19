@@ -179,6 +179,13 @@ function setThumbarButtons(window: BrowserWindow) {
 
 /**
  */
+export function updateWindowPlayState(playing: boolean): void {
+  isPlaying = Boolean(playing);
+  if (mainWindowInstance && !mainWindowInstance.isDestroyed()) {
+    setThumbarButtons(mainWindowInstance);
+  }
+}
+
 export function initializeWindowManager() {
   initializeProxy();
 
@@ -322,13 +329,6 @@ export function initializeWindowManager() {
     }
   });
 
-  ipcMain.on('update-play-state', (_, playing: boolean) => {
-    isPlaying = playing;
-    if (mainWindowInstance) {
-      setThumbarButtons(mainWindowInstance);
-    }
-  });
-
   store.onDidChange('set.proxyConfig', () => {
     initializeProxy();
   });
@@ -355,7 +355,7 @@ export function createMainWindow(icon: Electron.NativeImage): BrowserWindow {
     preload: join(__dirname, '../preload/index.js'),
     sandbox: false,
     contextIsolation: true,
-    webSecurity: false,
+    webSecurity: true,
     backgroundThrottling: false
   };
 

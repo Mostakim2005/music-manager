@@ -486,9 +486,11 @@ watch(
 
 async function handleSelectLocalCover() {
   try {
-    const res = await window.electron.ipcRenderer.invoke('local-music:select-cover-file');
+    const res = window.api?.selectCoverFile
+      ? await window.api.selectCoverFile()
+      : await window.electron.ipcRenderer.invoke('local-music:select-cover-file');
     if (res && !res.canceled && (res.dataUrl || res.filePath)) {
-      form.coverDataUrlOrPath = res.dataUrl || res.filePath;
+      form.coverDataUrlOrPath = (res.dataUrl || res.filePath) ?? '';
       coverImageBroken.value = false;
     }
   } catch (err) {
@@ -507,11 +509,14 @@ async function handleAutoFetchMetadata() {
 
   fetchingMeta.value = true;
   try {
-    const res = await window.electron.ipcRenderer.invoke('metadata:fetch-online', {
+    const query = {
       title: queryTitle,
       artist: queryArtist,
       album: form.album.trim() || undefined
-    });
+    };
+    const res = window.api?.fetchOnlineMetadata
+      ? await window.api.fetchOnlineMetadata(query)
+      : await window.electron.ipcRenderer.invoke('metadata:fetch-online', query);
     const list = res?.results || [];
     if (list.length === 0) {
       message.info('No matching online metadata found.');
@@ -550,12 +555,15 @@ async function handleAutoFetchLyrics() {
 
   fetchingLyrics.value = true;
   try {
-    const res = await window.electron.ipcRenderer.invoke('lyrics:fetch-multi-source', {
+    const query = {
       title: queryTitle,
       artist: queryArtist,
       album: form.album.trim() || undefined,
       durationSec: props.entry?.duration ? Math.round(props.entry.duration / 1000) : undefined
-    });
+    };
+    const res = window.api?.fetchMultiSourceLyrics
+      ? await window.api.fetchMultiSourceLyrics(query)
+      : await window.electron.ipcRenderer.invoke('lyrics:fetch-multi-source', query);
     // Keep every candidate so the user can pick the version closest to their
     // file by length and offset, instead of trusting the auto-pick alone.
     lyricCandidates.value = Array.isArray(res?.candidates) ? res.candidates : [];
@@ -610,7 +618,7 @@ async function handleSave() {
   const currentPos = isThisSongPlaying ? audioService.getCurrentTime() : 0;
 
   try {
-    const res = await window.electron.ipcRenderer.invoke('local-music:update-tags-and-file', {
+    const payload = {
       filePath: props.entry.filePath,
       newFileName: form.newFileName.trim(),
       title: form.title.trim() || props.entry.title,
@@ -621,7 +629,10 @@ async function handleSave() {
       lyrics: form.lyrics || undefined,
       coverDataUrlOrPath: form.coverDataUrlOrPath || undefined,
       saveSidecarLrc: form.saveSidecarLrc
-    });
+    };
+    const res = window.api?.updateLocalMusicTagsAndFile
+      ? await window.api.updateLocalMusicTagsAndFile(payload)
+      : await window.electron.ipcRenderer.invoke('local-music:update-tags-and-file', payload);
 
     if (res?.ok && res.updatedEntry) {
       message.success('Tags, artwork, and filename saved successfully!');

@@ -85,10 +85,23 @@ const api = {
   reportError: (entry: any) => ipcRenderer.invoke('error-reporter:report', entry),
   invoke: (channel: string, ...args: any[]) => {
     const validChannels = [
+      'check-file-exists',
+      'clear-disk-cache',
       'clear-lyrics-cache',
+      'get-content-zoom',
+      'get-disk-cache-config',
+      'get-disk-cache-stats',
+      'get-downloads-path',
+      'get-local-ip-addresses',
+      'get-remote-control-config',
       'get-system-fonts',
       'get-cached-lyric',
       'cache-lyric',
+      'resolve-cached-music-url',
+      'set-disk-cache-config',
+      'shortcuts:get-config',
+      'shortcuts:save',
+      'switch-disk-cache-directory',
       'scan-local-music',
       'scan-local-music-with-stats',
       'parse-local-music-metadata',
@@ -99,9 +112,12 @@ const api = {
       'error-reporter:test',
       'metadata:fetch-online',
       'lyrics:fetch-multi-source',
+      'local-music:fingerprint',
+      'local-music:waveform-peaks',
       'local-music:update-tags-and-file',
       'local-music:save-synced-lyrics',
       'local-music:select-cover-file',
+      'library:delete-variant-file',
       'library:export-m3u8',
       'library:import-m3u8',
       'library:export-backup-json',
@@ -114,6 +130,30 @@ const api = {
     }
     return Promise.reject(new Error(`Unauthorized IPC channel: ${channel}`));
   },
+  checkFileExists: (filePath: string) =>
+    ipcRenderer.invoke('check-file-exists', filePath) as Promise<boolean>,
+  clearDiskCache: (scope: string = 'all') =>
+    ipcRenderer.invoke('clear-disk-cache', scope) as Promise<boolean>,
+  getContentZoom: () => ipcRenderer.invoke('get-content-zoom') as Promise<number>,
+  setContentZoom: (zoom: number) => ipcRenderer.send('set-content-zoom', zoom),
+  getDiskCacheConfig: () => ipcRenderer.invoke('get-disk-cache-config'),
+  setDiskCacheConfig: (config: any) => ipcRenderer.invoke('set-disk-cache-config', config),
+  getDiskCacheStats: () => ipcRenderer.invoke('get-disk-cache-stats'),
+  switchDiskCacheDirectory: (payload: any) =>
+    ipcRenderer.invoke('switch-disk-cache-directory', payload),
+  getDownloadsPath: () => ipcRenderer.invoke('get-downloads-path') as Promise<string>,
+  getLocalIpAddresses: () => ipcRenderer.invoke('get-local-ip-addresses') as Promise<string[]>,
+  getRemoteControlConfig: () => ipcRenderer.invoke('get-remote-control-config'),
+  updateRemoteControlConfig: (config: any) =>
+    ipcRenderer.send('update-remote-control-config', config),
+  resolveCachedMusicUrl: (payload: any) =>
+    ipcRenderer.invoke('resolve-cached-music-url', payload),
+  getCachedLyric: (id: number | string) => ipcRenderer.invoke('get-cached-lyric', id),
+  cacheLyric: (id: number | string, lyricData: any) =>
+    ipcRenderer.invoke('cache-lyric', id, lyricData),
+  getShortcutsConfig: () => ipcRenderer.invoke('shortcuts:get-config'),
+  saveShortcutsConfig: (config: any) => ipcRenderer.invoke('shortcuts:save', config),
+  openDirectory: (dirPath: string) => ipcRenderer.send('open-directory', dirPath),
   getSearchSuggestions: (keyword: string) => ipcRenderer.invoke('get-search-suggestions', keyword),
 
   lxMusicHttpRequest: (request: { url: string; options: any; requestId: string }) =>
@@ -224,7 +264,7 @@ const ipc = {
     ipcRenderer.send(channel, ...args);
   },
   invoke: (channel: string, ...args: any[]) => {
-    return ipcRenderer.invoke(channel, ...args);
+    return api.invoke(channel, ...args);
   },
   on: (channel: string, listener: (...args: any[]) => void) => {
     const wrappedListener = (_event: IpcRendererEvent, ...args: any[]) => listener(...args);

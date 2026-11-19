@@ -31,6 +31,24 @@ export interface IElectronAPI {
     _folderPath: string
   ) => Promise<{ files: { path: string; modifiedTime: number }[]; count: number }>;
   parseLocalMusicMetadata: (_filePaths: string[]) => Promise<LocalMusicMeta[]>;
+  checkFileExists: (_filePath: string) => Promise<boolean>;
+  clearDiskCache: (_scope?: string) => Promise<boolean>;
+  getContentZoom: () => Promise<number>;
+  setContentZoom: (_zoom: number) => void;
+  getDiskCacheConfig: () => Promise<any>;
+  setDiskCacheConfig: (_config: any) => Promise<any>;
+  getDiskCacheStats: () => Promise<any>;
+  switchDiskCacheDirectory: (_payload: any) => Promise<any>;
+  getDownloadsPath: () => Promise<string>;
+  getLocalIpAddresses: () => Promise<string[]>;
+  getRemoteControlConfig: () => Promise<any>;
+  updateRemoteControlConfig: (_config: any) => void;
+  resolveCachedMusicUrl: (_payload: any) => Promise<any>;
+  getCachedLyric: (_id: number | string) => Promise<any>;
+  cacheLyric: (_id: number | string, _lyricData: any) => Promise<any>;
+  getShortcutsConfig: () => Promise<any>;
+  saveShortcutsConfig: (_config: any) => Promise<any>;
+  openDirectory: (_dirPath: string) => void;
   // Download manager
   downloadAdd: (_task: any) => Promise<string>;
   downloadAddBatch: (_tasks: any) => Promise<{ batchId: string; taskIds: string[] }>;

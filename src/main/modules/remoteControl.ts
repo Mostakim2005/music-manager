@@ -1,4 +1,5 @@
 import cors from 'cors';
+import crypto from 'crypto';
 import { ipcMain } from 'electron';
 import express from 'express';
 import fs from 'fs';
@@ -11,12 +12,20 @@ export interface RemoteControlConfig {
   enabled: boolean;
   port: number;
   allowedIps: string[];
+  allowLan?: boolean;
+  authToken?: string;
+}
+
+export function generatePairingToken(): string {
+  return crypto.randomBytes(6).toString('hex');
 }
 
 export const defaultRemoteControlConfig: RemoteControlConfig = {
   enabled: false,
   port: 31888,
-  allowedIps: []
+  allowedIps: [],
+  allowLan: false,
+  authToken: generatePairingToken()
 };
 
 let app: express.Application | null = null;
@@ -24,6 +33,58 @@ let server: any = null;
 let mainWindowRef: Electron.BrowserWindow | null = null;
 let currentSong: any = null;
 let isPlaying: boolean = false;
+let activeConfig: RemoteControlConfig = { ...defaultRemoteControlConfig };
+
+export function updateRemoteControlSong(song: any): void {
+  currentSong = song;
+}
+
+export function updateRemoteControlPlayState(playing: boolean): void {
+  isPlaying = Boolean(playing);
+}
+
+export function normalizeRemoteControlConfig(raw?: Partial<RemoteControlConfig> | null): RemoteControlConfig {
+  const token =
+    typeof raw?.authToken === 'string' && raw.authToken.trim().length >= 4
+      ? raw.authToken.trim()
+      : generatePairingToken();
+  return {
+    enabled: Boolean(raw?.enabled),
+    port: typeof raw?.port === 'number' && raw.port >= 1024 && raw.port <= 65535 ? raw.port : 31888,
+    allowedIps: Array.isArray(raw?.allowedIps)
+      ? raw!.allowedIps.map((ip) => String(ip || '').trim()).filter(Boolean)
+      : [],
+    allowLan: Boolean(raw?.allowLan),
+    authToken: token
+  };
+}
+
+export function isRemoteRequestAuthorized(
+  headers: Record<string, string | string[] | undefined>,
+  query: Record<string, any> | undefined,
+  expectedToken?: string
+): boolean {
+  const required = String(expectedToken || '').trim();
+  if (!required) return false;
+
+  const authHeader = String(headers['authorization'] || headers['Authorization'] || '').trim();
+  if (authHeader.toLowerCase().startsWith('bearer ')) {
+    const bearer = authHeader.slice(7).trim();
+    if (bearer === required) return true;
+  }
+
+  const headerToken = String(headers['x-remote-token'] || headers['X-Remote-Token'] || '').trim();
+  if (headerToken === required) return true;
+
+  const queryToken = String(query?.token || query?.pin || '').trim();
+  if (queryToken === required) return true;
+
+  return false;
+}
+
+export function resolveRemoteBindHost(config: RemoteControlConfig): string {
+  return config.allowLan ? '0.0.0.0' : '127.0.0.1';
+}
 
 function getLocalIpAddresses(): string[] {
   const interfaces = os.networkInterfaces();
@@ -46,36 +107,31 @@ function getLocalIpAddresses(): string[] {
 export function initializeRemoteControl(mainWindow: Electron.BrowserWindow) {
   mainWindowRef = mainWindow;
   const store = getStore() as any;
-  let config = store.get('remoteControl') as RemoteControlConfig;
-
-  if (!config) {
-    config = defaultRemoteControlConfig;
-    store.set('remoteControl', config);
-  }
-
-  ipcMain.on('update-current-song', (_, song: any) => {
-    currentSong = song;
-  });
-
-  ipcMain.on('update-play-state', (_, playing: boolean) => {
-    isPlaying = playing;
-  });
+  const rawConfig = store.get('remoteControl') as RemoteControlConfig | undefined;
+  const config = normalizeRemoteControlConfig(rawConfig);
+  activeConfig = config;
+  store.set('remoteControl', config);
 
   ipcMain.on('update-remote-control-config', (_, newConfig: RemoteControlConfig) => {
     if (server) {
       stopServer();
     }
 
-    store.set('remoteControl', newConfig);
+    const normalized = normalizeRemoteControlConfig(newConfig);
+    activeConfig = normalized;
+    store.set('remoteControl', normalized);
 
-    if (newConfig.enabled) {
-      startServer(newConfig);
+    if (normalized.enabled) {
+      startServer(normalized);
     }
   });
 
   ipcMain.handle('get-remote-control-config', () => {
-    const config = store.get('remoteControl') as RemoteControlConfig;
-    return config || defaultRemoteControlConfig;
+    const stored = store.get('remoteControl') as RemoteControlConfig | undefined;
+    const normalized = normalizeRemoteControlConfig(stored || activeConfig);
+    activeConfig = normalized;
+    store.set('remoteControl', normalized);
+    return normalized;
   });
 
   ipcMain.handle('get-local-ip-addresses', () => {
@@ -101,19 +157,20 @@ function startServer(config: RemoteControlConfig) {
   app.use((req, res, next) => {
     const clientIp = req.ip || req.socket.remoteAddress || '';
     const cleanIp = clientIp.replace(/^::ffff:/, '');
-    console.log('config', config);
-    if (config.allowedIps.length === 0 || config.allowedIps.includes(cleanIp)) {
+    const isLoopback = cleanIp === '127.0.0.1' || cleanIp === '::1' || cleanIp === 'localhost';
+    if (isLoopback || config.allowedIps.length === 0 || config.allowedIps.includes(cleanIp)) {
       next();
     } else {
       res.status(403).json({ error: 'Unauthorized IP address' });
     }
   });
 
-  setupRoutes(app);
+  setupRoutes(app, config);
 
+  const host = resolveRemoteBindHost(config);
   try {
-    server = app.listen(config.port, () => {
-      console.log(`Remote control service started, port: ${config.port}`);
+    server = app.listen(config.port, host, () => {
+      console.log(`Remote control service started on ${host}:${config.port}`);
     });
   } catch (error) {
     console.error('Failed to start remote control service:', error);
@@ -129,7 +186,15 @@ function stopServer() {
   }
 }
 
-function setupRoutes(app: express.Application) {
+function setupRoutes(app: express.Application, config: RemoteControlConfig) {
+  const requireAuth: express.RequestHandler = (req, res, next) => {
+    if (isRemoteRequestAuthorized(req.headers as any, req.query as any, config.authToken)) {
+      next();
+      return;
+    }
+    res.status(401).json({ error: 'Unauthorized: valid pairing token or PIN required' });
+  };
+
   app.get('/api/status', (_, res) => {
     res.json({
       isPlaying,
@@ -137,7 +202,7 @@ function setupRoutes(app: express.Application) {
     });
   });
 
-  app.post('/api/toggle-play', (_, res) => {
+  app.post('/api/toggle-play', requireAuth, (_, res) => {
     if (!mainWindowRef) {
       return res.status(500).json({ error: 'Main window not ready' });
     }
@@ -145,7 +210,7 @@ function setupRoutes(app: express.Application) {
     res.json({ success: true, message: 'Sent play/pause command' });
   });
 
-  app.post('/api/prev', (_, res) => {
+  app.post('/api/prev', requireAuth, (_, res) => {
     if (!mainWindowRef) {
       return res.status(500).json({ error: 'Main window not ready' });
     }
@@ -153,7 +218,7 @@ function setupRoutes(app: express.Application) {
     res.json({ success: true, message: 'Sent previous-track command' });
   });
 
-  app.post('/api/next', (_, res) => {
+  app.post('/api/next', requireAuth, (_, res) => {
     if (!mainWindowRef) {
       return res.status(500).json({ error: 'Main window not ready' });
     }
@@ -161,7 +226,7 @@ function setupRoutes(app: express.Application) {
     res.json({ success: true, message: 'Sent next-track command' });
   });
 
-  app.post('/api/volume-up', (_, res) => {
+  app.post('/api/volume-up', requireAuth, (_, res) => {
     if (!mainWindowRef) {
       return res.status(500).json({ error: 'Main window not ready' });
     }
@@ -169,7 +234,7 @@ function setupRoutes(app: express.Application) {
     res.json({ success: true, message: 'Sent volume-up command' });
   });
 
-  app.post('/api/volume-down', (_, res) => {
+  app.post('/api/volume-down', requireAuth, (_, res) => {
     if (!mainWindowRef) {
       return res.status(500).json({ error: 'Main window not ready' });
     }
@@ -177,7 +242,7 @@ function setupRoutes(app: express.Application) {
     res.json({ success: true, message: 'Sent volume-down command' });
   });
 
-  app.post('/api/toggle-favorite', (_, res) => {
+  app.post('/api/toggle-favorite', requireAuth, (_, res) => {
     if (!mainWindowRef) {
       return res.status(500).json({ error: 'Main window not ready' });
     }

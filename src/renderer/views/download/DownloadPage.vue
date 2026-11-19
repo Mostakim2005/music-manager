@@ -714,7 +714,11 @@ const getLocalFilePath = (path: string) => {
 };
 
 const openDirectory = (path: string) => {
-  window.electron.ipcRenderer.send('open-directory', path);
+  if (window.api?.openDirectory) {
+    window.api.openDirectory(path);
+  } else {
+    window.electron.ipcRenderer.send('open-directory', path);
+  }
 };
 
 // ── Play music ──────────────────────────────────────────────────────────────
@@ -722,7 +726,9 @@ const openDirectory = (path: string) => {
 const handlePlayMusic = async (item: any) => {
   try {
     const filePath = item.path || item.filePath;
-    const fileExists = await window.electron.ipcRenderer.invoke('check-file-exists', filePath);
+    const fileExists = window.api?.checkFileExists
+      ? await window.api.checkFileExists(filePath)
+      : await window.electron.ipcRenderer.invoke('check-file-exists', filePath);
 
     if (!fileExists) {
       message.error(t('download.delete.fileNotFound', { name: item.displayName || item.filename }));
@@ -922,7 +928,9 @@ const formatNamePreview = computed(() => {
 });
 
 const selectDownloadPath = async () => {
-  const result = await window.electron.ipcRenderer.invoke('select-directory');
+  const result = window.api?.selectDirectory
+    ? await window.api.selectDirectory()
+    : await window.electron.ipcRenderer.invoke('select-directory');
   if (result && !result.canceled && result.filePaths.length > 0) {
     downloadSettings.value.path = result.filePaths[0];
   }
@@ -930,7 +938,11 @@ const selectDownloadPath = async () => {
 
 const openDownloadPath = () => {
   if (downloadSettings.value.path) {
-    window.electron.ipcRenderer.send('open-directory', downloadSettings.value.path);
+    if (window.api?.openDirectory) {
+      window.api.openDirectory(downloadSettings.value.path);
+    } else {
+      window.electron.ipcRenderer.send('open-directory', downloadSettings.value.path);
+    }
   } else {
     message.warning(t('download.settingsPanel.noPathSelected'));
   }
@@ -984,7 +996,11 @@ const initDownloadSettings = async () => {
   );
 
   downloadSettings.value = {
-    path: path || (await window.electron.ipcRenderer.invoke('get-downloads-path')),
+    path:
+      path ||
+      (window.api?.getDownloadsPath
+        ? await window.api.getDownloadsPath()
+        : await window.electron.ipcRenderer.invoke('get-downloads-path')),
     nameFormat: nameFormat || '{songName} - {artistName}',
     separator: separator || ' - ',
     saveLyric: saveLyric || false

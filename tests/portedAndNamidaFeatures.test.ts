@@ -418,4 +418,53 @@ describe('YesPlayMusic Ported Features & Namida Enhancements', () => {
       expect(getWaveformPeaksSpy).toHaveBeenCalledTimes(1);
     });
   });
+
+  describe('8. Security & Structural Hardening (E-07 through E-11)', () => {
+    it('E-11: remoteControl defaults to 127.0.0.1 and enforces pairing token/PIN authentication', async () => {
+      const {
+        defaultRemoteControlConfig,
+        isRemoteRequestAuthorized,
+        normalizeRemoteControlConfig,
+        resolveRemoteBindHost
+      } = await import('../src/main/modules/remoteControl');
+
+      const normalized = normalizeRemoteControlConfig({ enabled: true, port: 31888, allowedIps: [] });
+      expect(normalized.allowLan).toBe(false);
+      expect(resolveRemoteBindHost(normalized)).toBe('127.0.0.1');
+      expect(normalized.authToken).toBeTruthy();
+      expect(normalized.authToken!.length).toBeGreaterThanOrEqual(4);
+
+      const lanConfig = normalizeRemoteControlConfig({
+        ...defaultRemoteControlConfig,
+        allowLan: true,
+        authToken: 'secret-pin-1234'
+      });
+      expect(resolveRemoteBindHost(lanConfig)).toBe('0.0.0.0');
+
+      // Unauthorized when token missing or wrong
+      expect(isRemoteRequestAuthorized({}, {}, 'secret-pin-1234')).toBe(false);
+      expect(
+        isRemoteRequestAuthorized({ authorization: 'Bearer wrong' }, {}, 'secret-pin-1234')
+      ).toBe(false);
+
+      // Authorized via Bearer token, X-Remote-Token header, or query parameter
+      expect(
+        isRemoteRequestAuthorized(
+          { authorization: 'Bearer secret-pin-1234' },
+          {},
+          'secret-pin-1234'
+        )
+      ).toBe(true);
+      expect(
+        isRemoteRequestAuthorized(
+          { 'x-remote-token': 'secret-pin-1234' },
+          {},
+          'secret-pin-1234'
+        )
+      ).toBe(true);
+      expect(
+        isRemoteRequestAuthorized({}, { token: 'secret-pin-1234' }, 'secret-pin-1234')
+      ).toBe(true);
+    });
+  });
 });

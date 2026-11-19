@@ -222,11 +222,11 @@ const readDiskCacheConfigFromUI = (): DiskCacheConfig => {
 };
 
 const refreshDiskCacheStats = async (silent: boolean = true) => {
-  if (!window.electron) return;
+  if (!window.electron && !window.api) return;
   try {
-    const stats = (await window.electron.ipcRenderer.invoke(
-      'get-disk-cache-stats'
-    )) as DiskCacheStats;
+    const stats = (window.api?.getDiskCacheStats
+      ? await window.api.getDiskCacheStats()
+      : await window.electron.ipcRenderer.invoke('get-disk-cache-stats')) as DiskCacheStats;
     if (stats) {
       diskCacheStats.value = stats;
     }
@@ -239,12 +239,12 @@ const refreshDiskCacheStats = async (silent: boolean = true) => {
 };
 
 const loadDiskCacheConfig = async () => {
-  if (!window.electron) return;
+  if (!window.electron && !window.api) return;
 
   try {
-    const config = (await window.electron.ipcRenderer.invoke(
-      'get-disk-cache-config'
-    )) as DiskCacheConfig;
+    const config = (window.api?.getDiskCacheConfig
+      ? await window.api.getDiskCacheConfig()
+      : await window.electron.ipcRenderer.invoke('get-disk-cache-config')) as DiskCacheConfig;
     if (config) {
       setData.value = {
         ...setData.value,
@@ -260,15 +260,14 @@ const loadDiskCacheConfig = async () => {
 };
 
 const applyDiskCacheConfig = async () => {
-  if (!window.electron || applyingDiskCacheConfig.value) return;
+  if ((!window.electron && !window.api) || applyingDiskCacheConfig.value) return;
 
   applyingDiskCacheConfig.value = true;
   try {
     const config = readDiskCacheConfigFromUI();
-    const updated = (await window.electron.ipcRenderer.invoke(
-      'set-disk-cache-config',
-      config
-    )) as DiskCacheConfig;
+    const updated = (window.api?.setDiskCacheConfig
+      ? await window.api.setDiskCacheConfig(config)
+      : await window.electron.ipcRenderer.invoke('set-disk-cache-config', config)) as DiskCacheConfig;
 
     if (updated) {
       setData.value = {
@@ -370,10 +369,13 @@ const selectCacheDirectory = async () => {
 
   switchingCacheDirectory.value = true;
   try {
-    const result = (await window.electron.ipcRenderer.invoke('switch-disk-cache-directory', {
-      directory: selectedPath,
-      action
-    })) as SwitchCacheDirectoryResult;
+    const payload = { directory: selectedPath, action };
+    const result = (window.api?.switchDiskCacheDirectory
+      ? await window.api.switchDiskCacheDirectory(payload)
+      : await window.electron.ipcRenderer.invoke(
+          'switch-disk-cache-directory',
+          payload
+        )) as SwitchCacheDirectoryResult;
 
     if (!result?.success) {
       message.error(t('settings.system.messages.switchDirectoryFailed'));
@@ -416,10 +418,12 @@ const openCacheDirectory = () => {
 };
 
 const clearDiskCacheByScope = async (scope: DiskCacheScope) => {
-  if (!window.electron) return;
+  if (!window.electron && !window.api) return;
 
   try {
-    const success = await window.electron.ipcRenderer.invoke('clear-disk-cache', scope);
+    const success = window.api?.clearDiskCache
+      ? await window.api.clearDiskCache(scope)
+      : await window.electron.ipcRenderer.invoke('clear-disk-cache', scope);
     if (success) {
       await refreshDiskCacheStats();
       message.success(t('settings.system.messages.diskCacheClearSuccess'));
@@ -461,6 +465,10 @@ const clearCache = async (selectedCacheTypes: string[]) => {
       case 'resources':
         if (window.electron) {
           window.electron.ipcRenderer.send('clear-audio-cache');
+        }
+        if (window.api?.clearDiskCache) {
+          await window.api.clearDiskCache('music');
+        } else if (window.electron) {
           await window.electron.ipcRenderer.invoke('clear-disk-cache', 'music');
         }
         localStorage.removeItem('lyricCache');
@@ -476,7 +484,9 @@ const clearCache = async (selectedCacheTypes: string[]) => {
         }
         break;
       case 'lyrics':
-        if (window.electron) {
+        if (window.api?.clearDiskCache) {
+          await window.api.clearDiskCache('lyrics');
+        } else if (window.electron) {
           await window.electron.ipcRenderer.invoke('clear-disk-cache', 'lyrics');
         }
         await window.api.invoke('clear-lyrics-cache');

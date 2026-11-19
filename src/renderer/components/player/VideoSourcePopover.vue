@@ -967,7 +967,9 @@ const playVariant = (variant: Variant) => {
 };
 
 const revealFile = (filePath: string) => {
-  if (window.ipcRenderer) {
+  if (window.api?.openDirectory) {
+    window.api.openDirectory(filePath);
+  } else if (window.ipcRenderer) {
     window.ipcRenderer.send('open-directory', filePath);
   }
 };

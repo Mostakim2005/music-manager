@@ -70,11 +70,7 @@ import i18n from '../i18n/main';
 import { loadLyricWindow } from './lyric';
 import { initializeCacheManager } from './modules/cache';
 import { initializeConfig } from './modules/config';
-import {
-  initializeDiscordRpc,
-  updateDiscordPlayState,
-  updateDiscordSong
-} from './modules/discordRpc';
+import { initializeDiscordRpc } from './modules/discordRpc';
 import { initializeDownloadManager, setDownloadManagerWindow } from './modules/downloadManager';
 import {
   initializeErrorReporter,
@@ -91,13 +87,14 @@ import {
 import { initializeLocalMusicScanner } from './modules/localMusicScanner';
 import { registerLocalProtocol } from './modules/localProtocol';
 import { initLxMusicHttp } from './modules/lxMusicHttp';
-import { initializeMpris, updateMprisCurrentSong, updateMprisPlayState } from './modules/mpris';
+import { initializeMpris } from './modules/mpris';
 import { initializeOtherApi } from './modules/otherApi';
+import { initializePlaybackStateHub } from './modules/playbackStateHub';
 import { initPluginMediaProxy } from './modules/pluginMediaProxy';
 import { initializeRemoteControl } from './modules/remoteControl';
 import { initializeShortcuts } from './modules/shortcuts';
 import { initializeTagAndMetadataManager } from './modules/tagAndMetadataManager';
-import { initializeTray, updateCurrentSong, updatePlayState, updateTrayMenu } from './modules/tray';
+import { initializeTray, updateTrayMenu } from './modules/tray';
 import { setupUpdateHandlers } from './modules/update';
 import { createMainWindow, initializeWindowManager, setAppQuitting } from './modules/window';
 import { initWindowSizeManager } from './modules/window-size';
@@ -155,6 +152,8 @@ function initialize(configStore: any) {
   initializeMpris(mainWindow);
 
   initializeDiscordRpc();
+
+  initializePlaybackStateHub();
 
   setupUpdateHandlers(mainWindow);
 }
@@ -235,12 +234,6 @@ if (!isSingleInstance) {
     mainWindow?.webContents.send('language-changed', locale);
   });
 
-  ipcMain.on('update-play-state', (_, playing: boolean) => {
-    updatePlayState(playing);
-    updateMprisPlayState(playing);
-    updateDiscordPlayState(playing);
-  });
-
   ipcMain.on('update-discord-rpc-enabled', (_, enabled: boolean) => {
     const { setDiscordRpcEnabled } = require('./modules/discordRpc');
     setDiscordRpcEnabled(enabled);
@@ -263,12 +256,6 @@ if (!isSingleInstance) {
     } catch (error) {
       console.warn('[main] Failed to show OS notification:', error);
     }
-  });
-
-  ipcMain.on('update-current-song', (_, song: any) => {
-    updateCurrentSong(song);
-    updateMprisCurrentSong(song);
-    updateDiscordSong(song);
   });
 
   app.on('window-all-closed', () => {

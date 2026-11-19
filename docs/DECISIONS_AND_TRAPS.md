@@ -203,3 +203,13 @@ flowchart LR
 * **Why This Trap Exists (Plain English):** When parallel ports (Electron vs Tauri) and multiple branches exist, users cannot tell which engine or branch an executable was compiled from. Self-identifying filenames eliminate ambiguity.
 * **Protected Code Anchors (Grep Targets):**
   * `.github/workflows/build.yml` -> `discover-branches` and `Standardize Self-Identifying Binary Names`
+
+### [TRAP: Centralized-Playback-State-Hub-And-Security-Boundaries] | Aliases: playbackStateHub, webSecurity, remoteControl auth, validChannels
+> **1-Line Summary:** NEVER register duplicate `update-play-state` / `update-current-song` IPC listeners across modules, disable `webSecurity`, or bind LAN remote control without token authentication.
+* **Strict Rule:** Route all main-process playback state updates through `playbackStateHub.ts`, keep `webSecurity: true` in `window.ts`, gate `window.ipcRenderer.invoke` through `api.invoke` (`validChannels`), and default `remoteControl.ts` to `127.0.0.1` with pairing token verification.
+* **Why This Trap Exists (Plain English):** Scattered `ipcMain.on('update-play-state')` listeners across `index.ts`, `window.ts`, and `remoteControl.ts` caused out-of-order state drift; `webSecurity: false` disabled Same-Origin Policy across the renderer; and unauthenticated `0.0.0.0` binding exposed playback controls to any LAN device.
+* **Protected Code Anchors (Grep Targets):**
+  * `src/main/modules/playbackStateHub.ts` -> `initializePlaybackStateHub`, `dispatchPlayStateUpdate`, `dispatchCurrentSongUpdate`
+  * `src/main/modules/remoteControl.ts` -> `isRemoteRequestAuthorized`, `resolveRemoteBindHost`
+  * `src/main/modules/window.ts` -> `createMainWindow`
+  * `src/preload/index.ts` -> `validChannels`

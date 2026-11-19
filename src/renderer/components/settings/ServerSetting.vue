@@ -22,6 +22,21 @@
             />
           </n-form-item>
 
+          <n-form-item label="Allow LAN Access">
+            <n-switch
+              v-model:value="remoteControlConfig.allowLan"
+              :disabled="!remoteControlConfig.enabled"
+            />
+          </n-form-item>
+
+          <n-form-item label="Pairing Token / PIN">
+            <n-input
+              v-model:value="remoteControlConfig.authToken"
+              placeholder="Required for remote playback commands"
+              :disabled="!remoteControlConfig.enabled"
+            />
+          </n-form-item>
+
           <n-form-item :label="t('settings.remoteControl.allowedIps')">
             <div class="allowed-ips-container">
               <div
@@ -112,10 +127,14 @@ const defaultConfig: {
   enabled: boolean;
   port: number;
   allowedIps: string[];
+  allowLan?: boolean;
+  authToken?: string;
 } = {
   enabled: false,
   port: 31888,
-  allowedIps: []
+  allowedIps: [],
+  allowLan: false,
+  authToken: ''
 };
 
 const remoteControlConfig = ref({ ...defaultConfig });
@@ -123,7 +142,11 @@ const remoteControlConfig = ref({ ...defaultConfig });
 const localIpAddresses = ref<string[]>([]);
 
 const getLocalIpAddresses = () => {
-  if (window.electron) {
+  if (window.api?.getLocalIpAddresses) {
+    window.api.getLocalIpAddresses().then((ips: string[]) => {
+      localIpAddresses.value = ips;
+    });
+  } else if (window.electron) {
     window.electron.ipcRenderer.invoke('get-local-ip-addresses').then((ips: string[]) => {
       localIpAddresses.value = ips;
     });
@@ -143,7 +166,10 @@ const saveConfig = () => {
     (ip) => ip.trim() !== ''
   );
 
-  if (window.electron) {
+  if (window.api?.updateRemoteControlConfig) {
+    window.api.updateRemoteControlConfig(cloneDeep(remoteControlConfig.value));
+    message.success(t('settings.remoteControl.saveSuccess'));
+  } else if (window.electron) {
     window.electron.ipcRenderer.send(
       'update-remote-control-config',
       cloneDeep(remoteControlConfig.value)
@@ -153,8 +179,11 @@ const saveConfig = () => {
 };
 
 const resetConfig = () => {
-  if (window.electron) {
-    window.electron.ipcRenderer.invoke('get-remote-control-config').then((config) => {
+  const loader = window.api?.getRemoteControlConfig
+    ? window.api.getRemoteControlConfig()
+    : window.electron?.ipcRenderer.invoke('get-remote-control-config');
+  if (loader) {
+    loader.then((config: any) => {
       if (config) {
         remoteControlConfig.value = config;
       } else {
@@ -165,9 +194,12 @@ const resetConfig = () => {
 };
 
 onMounted(async () => {
-  if (window.electron) {
+  const loader = window.api?.getRemoteControlConfig
+    ? window.api.getRemoteControlConfig()
+    : window.electron?.ipcRenderer.invoke('get-remote-control-config');
+  if (loader) {
     try {
-      const config = await window.electron.ipcRenderer.invoke('get-remote-control-config');
+      const config = await loader;
       if (config) {
         remoteControlConfig.value = config;
       }

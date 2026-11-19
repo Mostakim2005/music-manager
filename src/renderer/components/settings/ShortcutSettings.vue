@@ -566,7 +566,9 @@ async function loadShortcutsFromMain() {
   }
 
   try {
-    const shortcuts = await window.electron.ipcRenderer.invoke('shortcuts:get-config');
+    const shortcuts = window.api?.getShortcutsConfig
+      ? await window.api.getShortcutsConfig()
+      : await window.electron.ipcRenderer.invoke('shortcuts:get-config');
     const normalized = normalizeShortcutsConfig(shortcuts);
     storedShortcuts.value = cloneDeep(normalized);
     draftShortcuts.value = cloneDeep(normalized);
@@ -629,10 +631,12 @@ async function handleSave() {
       return;
     }
 
-    const result = (await window.electron.ipcRenderer.invoke(
-      'shortcuts:save',
-      shortcutsPayload
-    )) as ShortcutSaveResult;
+    const result = (window.api?.saveShortcutsConfig
+      ? await window.api.saveShortcutsConfig(shortcutsPayload)
+      : await window.electron.ipcRenderer.invoke(
+          'shortcuts:save',
+          shortcutsPayload
+        )) as ShortcutSaveResult;
 
     if (!result?.ok) {
       serverIssues.value = result?.validation?.issues ?? [];

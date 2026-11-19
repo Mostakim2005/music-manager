@@ -696,11 +696,14 @@ async function handleApply() {
   if (props.filePath) {
     applying.value = true;
     try {
-      const res = await window.electron.ipcRenderer.invoke('local-music:save-synced-lyrics', {
+      const payload = {
         filePath: props.filePath,
         lyrics: output,
         saveSidecar: true
-      });
+      };
+      const res = window.api?.saveSyncedLyrics
+        ? await window.api.saveSyncedLyrics(payload)
+        : await window.electron.ipcRenderer.invoke('local-music:save-synced-lyrics', payload);
       if (res?.ok) {
         message.success('Synced lyrics embedded in audio tags & saved to sidecar .lrc!');
       } else {

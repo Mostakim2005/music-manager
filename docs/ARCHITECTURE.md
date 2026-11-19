@@ -131,6 +131,8 @@ sequenceDiagram
   * `src/renderer/services/osMediaSession.ts` -> `bindOsMediaSessionHandlers`, `updateOsMediaMetadata`
   * `src/main/modules/otherApi.ts` -> `fetchYouTubeSuggestions`, `initializeOtherApi`
   * `src/main/modules/discordRpc.ts` -> `resolveDiscordClientId`, `setDiscordClientId`, `initializeDiscordRpc`
+  * `src/main/modules/playbackStateHub.ts` -> `initializePlaybackStateHub`, `dispatchPlayStateUpdate`, `dispatchCurrentSongUpdate`
+  * `src/main/modules/remoteControl.ts` -> `normalizeRemoteControlConfig`, `isRemoteRequestAuthorized`, `resolveRemoteBindHost`
 
 ## 4. Verification & Health Checks
 
