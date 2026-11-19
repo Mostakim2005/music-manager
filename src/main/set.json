@@ -49,6 +49,7 @@
   "enableDynamicPalette": true,
   "enablePlayPauseFade": true,
   "enableDiscordRpc": true,
+  "discordClientId": "",
   "showRomanization": true,
   "showTranslation": true,
   "enableSmartCrossfade": true,

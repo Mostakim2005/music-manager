@@ -79,16 +79,18 @@ flowchart LR
 * **Code Anchors (Grep Targets):**
   * `src/main/modules/youtube.ts` -> `getFfmpegPath`
 
-### [DECISION: English-Only-Source-With-Documented-Exemptions] | Aliases: de-china, chinese comments, sweep gate
-> **1-Line Summary:** All source text and comments are English, with four deliberate CJK data exemptions and a regression gate.
-* **Decision Maker:** `[DECIDED BY: HUMAN]` (requirement from the rebrand)
-* **Original User Intention:** A clean English-first codebase and UI.
+### [DECISION: English-Only-Source-With-Documented-Exemptions] | Aliases: de-china, chinese comments, sweep gate, kugou removal, netease stubs
+> **1-Line Summary:** All source text, comments, and network endpoints are English/local-first, removing legacy Chinese Kugou HTTP proxies and dead Netease API stubs, with four deliberate CJK data exemptions and a regression gate.
+* **Decision Maker:** `[DECIDED BY: HUMAN]` (requirement from the rebrand and audit)
+* **Original User Intention:** A clean English-first codebase, UI, and network surface with no hidden Chinese HTTP calls or no-op Netease stubs.
 * **Options Considered:**
-  * **Option A (Rejected):** Blanket-delete every CJK character. This destroyed romanisation lookup tables and broke the multilingual playlist importer.
-  * **Option B (Chosen):** Translate real source text, keep transliteration tables, locale bundles, the playlist-header matcher and the font-preview sample, proven by `.sweep-gate.mjs`.
+  * **Option A (Rejected):** Blanket-delete every CJK character or leave legacy Kugou/Netease stubs returning empty `code: 200` responses. Blanket deletion destroyed romanisation lookup tables, while legacy stubs silently dropped user actions and sent plaintext HTTP traffic to Kugou.
+  * **Option B (Chosen):** Translate real source text, remove dead Netease stubs in `src/renderer/api/music.ts`, replace the Kugou suggestion proxy with local Dexie matches + HTTPS YouTube suggestions (`fetchYouTubeSuggestions`), and keep transliteration tables, locale bundles, the playlist-header matcher and the font-preview sample, proven by `.sweep-gate.mjs`.
 * **Code Anchors (Grep Targets):**
   * `.sweep-gate.mjs` -> gate script
   * `src/shared/transliteration.ts` -> `detectScriptAndRomanize`, `generateRomanizedLyricLrc`
+  * `src/main/modules/otherApi.ts` -> `fetchYouTubeSuggestions`
+  * `src/renderer/api/search.ts` -> `getSearchSuggestions`
 
 ### [DECISION: PolyForm-Noncommercial-Licensing] | Aliases: license, third party notices, mit upstream
 > **1-Line Summary:** The project ships under PolyForm Noncommercial 1.0.0 with all upstream MIT/Apache credits kept in `THIRD_PARTY_NOTICES.md`.

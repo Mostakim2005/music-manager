@@ -2,19 +2,17 @@ import { useMessage } from 'naive-ui';
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 
-import { usePlayerStore, useRecommendStore } from '@/store';
+import { usePlayerStore } from '@/store';
 import type { SongResult } from '@/types/music';
 import { getImgUrl } from '@/utils';
 import { getImageBackground } from '@/utils/linearColor';
 
-import { dislikeRecommendedSong } from '../api/music';
 import { useArtist } from './useArtist';
 import { useDownload } from './useDownload';
 
 export function useSongItem(props: { item: SongResult; canRemove?: boolean }) {
   const { t } = useI18n();
   const playerStore = usePlayerStore();
-  const recommendStore = useRecommendStore();
   const message = useMessage();
   const { downloadMusic, downloadLyric } = useDownload();
   const { navigateToArtist } = useArtist();
@@ -80,10 +78,6 @@ export function useSongItem(props: { item: SongResult; canRemove?: boolean }) {
     }
   };
 
-  const isDailyRecommendSong = computed(() => {
-    return recommendStore.dailyRecommendSongs.some((song) => song.id === props.item.id);
-  });
-
   const toggleDislike = async (e: Event) => {
     e && e.stopPropagation();
 
@@ -93,41 +87,6 @@ export function useSongItem(props: { item: SongResult; canRemove?: boolean }) {
     }
 
     playerStore.addToDislikeList(props.item.id);
-
-    if (!isDailyRecommendSong.value) {
-      return;
-    }
-    try {
-      console.log('Sending dislike request, song ID:', props.item.id);
-      const numericId = typeof props.item.id === 'string' ? parseInt(props.item.id) : props.item.id;
-      const response = await dislikeRecommendedSong(numericId);
-      if (response.data.data) {
-        console.log(response);
-        const newSongData = response.data.data;
-        const newSong: SongResult = {
-          ...newSongData,
-          name: newSongData.name,
-          id: newSongData.id,
-          picUrl: newSongData.al?.picUrl || newSongData.album?.picUrl,
-          ar: newSongData.ar || newSongData.artists,
-          al: newSongData.al || newSongData.album,
-          song: {
-            ...newSongData.song,
-            id: newSongData.id,
-            name: newSongData.name,
-            artists: newSongData.ar || newSongData.artists,
-            album: newSongData.al || newSongData.album
-          },
-          source: 'youtube' as any,
-          count: 0
-        };
-        recommendStore.replaceSongInDailyRecommend(props.item.id, newSong);
-      } else {
-        console.warn('Dislike API succeeded but returned no new song.', response.data);
-      }
-    } catch (error) {
-      console.error('Error sending dislike request:', error);
-    }
   };
 
   const handlePlayNext = () => {

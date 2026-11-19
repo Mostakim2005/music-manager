@@ -67,10 +67,20 @@
       title="Discord Rich Presence"
       description="Show the current song, artist and playback progress in your Discord profile status"
     >
-      <n-switch v-model:value="setData.enableDiscordRpc" @update:value="handleDiscordRpcChange">
-        <template #checked>{{ t('common.on') }}</template>
-        <template #unchecked>{{ t('common.off') }}</template>
-      </n-switch>
+      <div class="flex items-center gap-2">
+        <n-input
+          v-model:value="setData.discordClientId"
+          size="small"
+          placeholder="Set your Discord App ID"
+          style="width: 195px"
+          @blur="handleDiscordClientIdChange"
+          @keyup.enter="handleDiscordClientIdChange"
+        />
+        <n-switch v-model:value="setData.enableDiscordRpc" @update:value="handleDiscordRpcChange">
+          <template #checked>{{ t('common.on') }}</template>
+          <template #unchecked>{{ t('common.off') }}</template>
+        </n-switch>
+      </div>
     </setting-item>
 
     <shortcut-settings v-model:show="showShortcutModal" @change="handleShortcutsChange" />
@@ -205,6 +215,12 @@ const handleShortcutsChange = (shortcuts: any) => {
 const handleDiscordRpcChange = (enabled: boolean) => {
   if (window.electron?.ipcRenderer) {
     window.electron.ipcRenderer.send('update-discord-rpc-enabled', enabled);
+  }
+};
+
+const handleDiscordClientIdChange = () => {
+  if (window.electron?.ipcRenderer) {
+    window.electron.ipcRenderer.send('update-discord-client-id', setData.value.discordClientId || '');
   }
 };
 

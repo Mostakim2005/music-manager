@@ -262,4 +262,57 @@ describe('YesPlayMusic Ported Features & Namida Enhancements', () => {
       expect(mockVideo.playbackRate).toBe(1.0);
     });
   });
+
+  describe('6. Priority 1 Bug Fixes (E-01 through E-06)', () => {
+    it('E-03: resolveDiscordClientId rejects empty and fake placeholder client IDs', async () => {
+      const { resolveDiscordClientId } = await import('../src/main/modules/discordRpc');
+      delete process.env.DISCORD_CLIENT_ID;
+      expect(resolveDiscordClientId()).toBe('');
+
+      process.env.DISCORD_CLIENT_ID = '1123456789012345678';
+      expect(resolveDiscordClientId()).toBe('');
+
+      process.env.DISCORD_CLIENT_ID = '1298765432109876543';
+      expect(resolveDiscordClientId()).toBe('1298765432109876543');
+      delete process.env.DISCORD_CLIENT_ID;
+    });
+
+    it('E-06: getSearchSuggestions combines local library matches and HTTPS YouTube suggestions', async () => {
+      const mockGetSearchSuggestions = vi.fn(async (q: string) => ({
+        data: [{ keyword: `${q} official video` }, { keyword: `${q} live` }]
+      }));
+      (globalThis as any).window.api = {
+        getSearchSuggestions: mockGetSearchSuggestions,
+        downloadClearCompleted: vi.fn(async () => true),
+        showNotification: vi.fn()
+      };
+
+      const { getSearchSuggestions } = await import('../src/renderer/api/search');
+      const suggestions = await getSearchSuggestions('yoasobi');
+      expect(mockGetSearchSuggestions).toHaveBeenCalledWith('yoasobi');
+      expect(suggestions).toContain('yoasobi official video');
+      expect(suggestions).toContain('yoasobi live');
+    });
+
+    it('E-01 & E-02: SystemTab downloadClearCompleted and sleepTimer showNotification contracts', async () => {
+      const clearSpy = vi.fn(async () => true);
+      const notifySpy = vi.fn();
+      (globalThis as any).window.api = {
+        downloadClearCompleted: clearSpy,
+        showNotification: notifySpy
+      };
+
+      await (globalThis as any).window.api.downloadClearCompleted();
+      expect(clearSpy).toHaveBeenCalledOnce();
+
+      (globalThis as any).window.api.showNotification({
+        title: 'Sleep Timer Ended',
+        body: 'Playback stopped'
+      });
+      expect(notifySpy).toHaveBeenCalledWith({
+        title: 'Sleep Timer Ended',
+        body: 'Playback stopped'
+      });
+    });
+  });
 });

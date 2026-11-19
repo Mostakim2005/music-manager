@@ -454,8 +454,8 @@ const clearCache = async (selectedCacheTypes: string[]) => {
         localStorage.removeItem('lyricFontSize');
         break;
       case 'downloads':
-        if (window.electron) {
-          window.electron.ipcRenderer.send('clear-downloads-history');
+        if (window.api?.downloadClearCompleted) {
+          await window.api.downloadClearCompleted();
         }
         break;
       case 'resources':

@@ -39,7 +39,6 @@ const api = {
   },
   close: () => ipcRenderer.send('close-window'),
   quitApp: () => ipcRenderer.send('quit-app'),
-  dragStart: (data) => ipcRenderer.send('drag-start', data),
   miniTray: () => ipcRenderer.send('mini-tray'),
   miniWindow: () => ipcRenderer.send('mini-window'),
   restore: () => ipcRenderer.send('restore-window'),
@@ -49,7 +48,8 @@ const api = {
   openLyric: () => ipcRenderer.send('open-lyric'),
   sendLyric: (data) => ipcRenderer.send('send-lyric', data),
   sendSong: (data) => ipcRenderer.send('update-current-song', data),
-  unblockMusic: () => Promise.resolve(null),
+  showNotification: (payload: { title: string; body: string }) =>
+    ipcRenderer.send('show-notification', payload),
   importCustomApiPlugin: () => ipcRenderer.invoke('import-custom-api-plugin'),
   importLxMusicScript: () => ipcRenderer.invoke('import-lx-music-script'),
   importMusicSourcePlugin: () => ipcRenderer.invoke('import-music-source-plugin'),
@@ -80,12 +80,10 @@ const api = {
   reportError: (entry: any) => ipcRenderer.invoke('error-reporter:report', entry),
   invoke: (channel: string, ...args: any[]) => {
     const validChannels = [
-      'get-lyrics',
       'clear-lyrics-cache',
       'get-system-fonts',
       'get-cached-lyric',
       'cache-lyric',
-      'clear-lyric-cache',
       'scan-local-music',
       'scan-local-music-with-stats',
       'parse-local-music-metadata',

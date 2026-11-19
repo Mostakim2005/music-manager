@@ -120,13 +120,15 @@ sequenceDiagram
 * **Code Anchors (Grep Targets):**
   * `src/main/modules/tagAndMetadataManager.ts` -> `fetchFromITunes`, `fetchFromMusicBrainz`, `lrcTimeBounds`, `local-music:update-tags-and-file`
 
-### [SUBSYSTEM: Local-Media-Runtime] | Aliases: local protocol, range seeking, scanner, covers
-> **1-Line Summary:** Local files stream through a loopback protocol with range seeking and cover extraction, and are scanned into the library in the background.
-* **How It Works (Plain English):** Chromium cannot seek custom schemes, so playable URLs are converted at playback time while stored URLs stay `local://` for identity checks. Covers come from embedded art or folder images.
+### [SUBSYSTEM: Local-Media-Runtime] | Aliases: local protocol, range seeking, scanner, covers, notifications, suggestions, discord rpc
+> **1-Line Summary:** Local files stream through a loopback protocol with range seeking and cover extraction, and are scanned into the library in the background alongside native OS notifications, configurable Discord Rich Presence, and hybrid local + HTTPS YouTube search suggestions.
+* **How It Works (Plain English):** Chromium cannot seek custom schemes, so playable URLs are converted at playback time while stored URLs stay `local://` for identity checks. Covers come from embedded art or folder images. Search suggestions merge local Dexie library titles/artists/albums with HTTPS YouTube autocomplete (`fetchYouTubeSuggestions`). Discord RPC only connects when a real Discord Application ID is configured (`resolveDiscordClientId`), and sleep-timer completion invokes native Electron `Notification`.
 * **Code Anchors (Grep Targets):**
   * `src/renderer/utils/localMediaUrl.ts` -> `toPlayableMediaUrl`, `filePathToMediaUrl`
   * `src/renderer/utils/localMusicUtils.ts` -> `toSongResult`, `parseLrcToILyric`
   * `src/renderer/hooks/IndexDBHook.ts` -> `musicDB`, `getMusicDBInstance`
+  * `src/main/modules/otherApi.ts` -> `fetchYouTubeSuggestions`, `initializeOtherApi`
+  * `src/main/modules/discordRpc.ts` -> `resolveDiscordClientId`, `setDiscordClientId`, `initializeDiscordRpc`
 
 ## 4. Verification & Health Checks
 

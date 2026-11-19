@@ -1,5 +1,5 @@
 import { electronApp, optimizer } from '@electron-toolkit/utils';
-import { app, dialog, ipcMain, nativeImage, protocol, session } from 'electron';
+import { app, dialog, ipcMain, nativeImage, Notification, protocol, session } from 'electron';
 import { join } from 'path';
 
 const FILE_LOCK_ERROR_CODES = new Set(['EBUSY', 'EPERM', 'EACCES', 'EAGAIN', 'EMFILE', 'ENFILE']);
@@ -244,6 +244,25 @@ if (!isSingleInstance) {
   ipcMain.on('update-discord-rpc-enabled', (_, enabled: boolean) => {
     const { setDiscordRpcEnabled } = require('./modules/discordRpc');
     setDiscordRpcEnabled(enabled);
+  });
+
+  ipcMain.on('update-discord-client-id', (_, clientId: string) => {
+    const { setDiscordClientId } = require('./modules/discordRpc');
+    setDiscordClientId(clientId);
+  });
+
+  ipcMain.on('show-notification', (_, payload: { title?: string; body?: string }) => {
+    try {
+      if (Notification.isSupported()) {
+        const notification = new Notification({
+          title: payload?.title || 'Music Manager',
+          body: payload?.body || ''
+        });
+        notification.show();
+      }
+    } catch (error) {
+      console.warn('[main] Failed to show OS notification:', error);
+    }
   });
 
   ipcMain.on('update-current-song', (_, song: any) => {

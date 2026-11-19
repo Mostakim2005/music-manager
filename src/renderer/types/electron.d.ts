@@ -9,12 +9,11 @@ export interface IElectronAPI {
   isFullScreen: () => Promise<boolean>;
   onWindowFullScreenState: (_callback: (_fullscreen: boolean) => void) => () => void;
   close: () => void;
-  dragStart: (_data: string) => void;
   miniTray: () => void;
   restart: () => void;
   openLyric: () => void;
   sendLyric: (_data: string) => void;
-  unblockMusic: (_id: number) => Promise<string>;
+  showNotification: (_payload: { title: string; body: string }) => void;
   importCustomApiPlugin: () => Promise<{ name: string; content: string } | null>;
   importLxMusicScript: () => Promise<{ name: string; content: string } | null>;
   importMusicSourcePlugin: () => Promise<{ name: string; content: string; path?: string } | null>;

@@ -1,12 +1,14 @@
 import { Client } from '@xhayper/discord-rpc';
 
 import { getSharedStore } from './config';
+import { recordErrorReport } from './errorReporter';
 
-const DISCORD_CLIENT_ID = '1123456789012345678';
+const PLACEHOLDER_CLIENT_ID = '1123456789012345678';
 
 let rpcClient: Client | null = null;
 let isConnected = false;
 let isEnabled = true;
+let activeClientId = '';
 let currentSongInfo: {
   name?: string;
   artist?: string;
@@ -16,20 +18,56 @@ let currentSongInfo: {
 } | null = null;
 let isPlayingState = false;
 
+export function resolveDiscordClientId(): string {
+  try {
+    const store = getSharedStore();
+    const configured = String(store?.get('set.discordClientId') || '').trim();
+    const envId = String(process.env.DISCORD_CLIENT_ID || '').trim();
+    const candidate = configured || envId;
+    if (!candidate || candidate === PLACEHOLDER_CLIENT_ID) {
+      return '';
+    }
+    return candidate;
+  } catch {
+    return '';
+  }
+}
+
+function destroyRpcClient(): void {
+  if (rpcClient) {
+    try {
+      rpcClient.user?.clearActivity().catch(() => {
+        // Ignore clear errors during teardown
+      });
+      rpcClient.destroy().catch(() => {
+        // Ignore destroy errors during teardown
+      });
+    } catch {
+      // Ignore synchronous teardown errors
+    }
+    rpcClient = null;
+    isConnected = false;
+  }
+}
+
 export function setDiscordRpcEnabled(enabled: boolean): void {
   isEnabled = Boolean(enabled);
   if (!isEnabled) {
-    if (rpcClient) {
-      try {
-        rpcClient.user?.clearActivity().catch(() => {});
-        rpcClient.destroy().catch(() => {});
-      } catch {
-        // ignore
-      }
-      rpcClient = null;
-      isConnected = false;
-    }
+    destroyRpcClient();
   } else if (!rpcClient) {
+    initializeDiscordRpc();
+  }
+}
+
+export function setDiscordClientId(clientId: string): void {
+  try {
+    const store = getSharedStore();
+    store?.set('set.discordClientId', String(clientId || '').trim());
+  } catch {
+    // Ignore store persistence errors in headless mode
+  }
+  destroyRpcClient();
+  if (isEnabled) {
     initializeDiscordRpc();
   }
 }
@@ -46,8 +84,16 @@ export function initializeDiscordRpc(): void {
       return;
     }
     isEnabled = true;
+    const clientId = resolveDiscordClientId();
+    if (!clientId) {
+      // Do not attempt connection without a valid registered Discord Application ID
+      isConnected = false;
+      return;
+    }
+
+    activeClientId = clientId;
     rpcClient = new Client({
-      clientId: DISCORD_CLIENT_ID
+      clientId: activeClientId
     });
 
     rpcClient.on('ready', () => {
@@ -59,11 +105,24 @@ export function initializeDiscordRpc(): void {
       isConnected = false;
     });
 
-    rpcClient.login().catch(() => {
+    rpcClient.login().catch((err: unknown) => {
       isConnected = false;
+      const message = err instanceof Error ? err.message : String(err);
+      recordErrorReport({
+        source: 'main',
+        severity: 'warn',
+        message: `Discord RPC login failed: ${message}`,
+        context: { clientId: activeClientId }
+      });
     });
-  } catch {
+  } catch (err: unknown) {
     isConnected = false;
+    const message = err instanceof Error ? err.message : String(err);
+    recordErrorReport({
+      source: 'main',
+      severity: 'warn',
+      message: `Discord RPC initialization failed: ${message}`
+    });
   }
 }
 
@@ -85,7 +144,14 @@ function syncActivity(): void {
         smallImageText: isPlayingState ? 'Playing' : 'Paused',
         instance: false
       })
-      .catch(() => {});
+      .catch((err: unknown) => {
+        const message = err instanceof Error ? err.message : String(err);
+        recordErrorReport({
+          source: 'main',
+          severity: 'warn',
+          message: `Discord RPC setActivity failed: ${message}`
+        });
+      });
   } catch {
     // Ignore RPC activity errors when Discord is closed
   }

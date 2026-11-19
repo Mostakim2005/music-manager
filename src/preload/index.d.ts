@@ -22,7 +22,6 @@ interface API {
   onWindowFullScreenState: (callback: (fullscreen: boolean) => void) => () => void;
   close: () => void;
   quitApp: () => void;
-  dragStart: (data: any) => void;
   miniTray: () => void;
   miniWindow: () => void;
   restore: () => void;
@@ -32,7 +31,7 @@ interface API {
   openLyric: () => void;
   sendLyric: (data: any) => void;
   sendSong: (data: any) => void;
-  unblockMusic: (id: number, data: any, enabledSources?: string[]) => Promise<any>;
+  showNotification: (payload: { title: string; body: string }) => void;
   onLyricWindowClosed: (callback: () => void) => void;
   onLyricWindowReady: (callback: () => void) => void;
   getAppUpdateState: () => Promise<AppUpdateState>;

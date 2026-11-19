@@ -1,3 +1,4 @@
+import { getLibraryDB } from '@/services/songLibrary';
 import youtubeService, { type YtSearchResult } from '@/services/youtubeService';
 import type { SongResult } from '@/types/music';
 
@@ -65,16 +66,55 @@ export const getSearch = async (params: SearchParams) => {
 };
 
 export const getSearchSuggestions = async (keyword: string): Promise<string[]> => {
-  if (!keyword || !keyword.trim()) return [];
+  const clean = String(keyword || '').trim();
+  if (!clean) return [];
+  const lower = clean.toLowerCase();
+  const seen = new Set<string>();
+  const results: string[] = [];
+
+  const addCandidate = (value?: string) => {
+    const trimmed = String(value || '').trim();
+    if (!trimmed) return;
+    const key = trimmed.toLowerCase();
+    if (!seen.has(key) && results.length < 10) {
+      seen.add(key);
+      results.push(trimmed);
+    }
+  };
+
+  try {
+    const db = getLibraryDB();
+    const localSongs = await db.songs.toArray();
+    for (const song of localSongs) {
+      if (song.title?.toLowerCase().includes(lower)) {
+        addCandidate(song.artist ? `${song.title} - ${song.artist}` : song.title);
+      } else if (song.artist?.toLowerCase().includes(lower)) {
+        addCandidate(song.artist);
+      } else if (song.album?.toLowerCase().includes(lower)) {
+        addCandidate(song.album);
+      }
+      if (results.length >= 6) break;
+    }
+  } catch {
+    // Ignore local IndexedDB errors in headless environments
+  }
+
   try {
     if (typeof window !== 'undefined' && window.api?.getSearchSuggestions) {
-      const responseData = await window.api.getSearchSuggestions(keyword);
+      const responseData = await window.api.getSearchSuggestions(clean);
       if (responseData && Array.isArray(responseData.data)) {
-        return responseData.data.map((item: any) => item.keyword).slice(0, 10);
+        for (const item of responseData.data) {
+          addCandidate(typeof item === 'string' ? item : item?.keyword);
+        }
+      } else if (Array.isArray(responseData)) {
+        for (const item of responseData) {
+          addCandidate(typeof item === 'string' ? item : item?.keyword);
+        }
       }
     }
-    return [];
   } catch {
-    return [];
+    // Ignore remote suggestion errors when offline
   }
+
+  return results.slice(0, 10);
 };
