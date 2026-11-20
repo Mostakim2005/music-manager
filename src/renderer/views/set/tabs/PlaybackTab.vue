@@ -170,6 +170,16 @@
       </setting-item>
 
       <setting-item
+        title="Auto-skip YouTube SponsorBlock non-music segments"
+        description="Automatically jumps over SponsorBlock non-music, intro, outro, and sponsor segments on linked YouTube tracks"
+      >
+        <n-switch v-model:value="sponsorBlockAutoSkipEnabled">
+          <template #checked>{{ t('common.on') }}</template>
+          <template #unchecked>{{ t('common.off') }}</template>
+        </n-switch>
+      </setting-item>
+
+      <setting-item
         v-if="isElectron"
         :title="t('settings.playback.audioDevice')"
         :description="t('settings.playback.audioDeviceDesc')"
@@ -193,6 +203,10 @@ import { useI18n } from 'vue-i18n';
 import AudioDeviceSettings from '@/components/settings/AudioDeviceSettings.vue';
 import MusicSourceSettings from '@/components/settings/MusicSourceSettings.vue';
 import { audioService } from '@/services/audioService';
+import {
+  isAutoSkipSponsorBlockEnabled,
+  setAutoSkipSponsorBlockEnabled
+} from '@/services/sponsorBlockService';
 import { usePlayerStore } from '@/store/modules/player';
 import { type Platform } from '@/types/music';
 import { isElectron } from '@/utils';
@@ -250,6 +264,14 @@ const gaplessEnabled = computed({
   set: (val: boolean) => {
     setData.value = { ...setData.value, enableGaplessPlayback: val };
     audioService.setGaplessEnabled(val);
+  }
+});
+
+const sponsorBlockAutoSkipEnabled = computed({
+  get: () => setData.value?.enableSponsorBlockAutoSkip ?? isAutoSkipSponsorBlockEnabled(),
+  set: (val: boolean) => {
+    setData.value = { ...setData.value, enableSponsorBlockAutoSkip: val };
+    setAutoSkipSponsorBlockEnabled(val);
   }
 });
 

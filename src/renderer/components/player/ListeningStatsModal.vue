@@ -163,6 +163,49 @@
             </div>
           </div>
 
+          <!-- Listen-Threshold Scrobble Controls -->
+          <div
+            class="p-3.5 rounded-2xl bg-neutral-50 dark:bg-neutral-800/50 border border-neutral-200 dark:border-neutral-800 flex flex-wrap items-center justify-between gap-3"
+          >
+            <div>
+              <div class="text-xs font-semibold text-neutral-800 dark:text-neutral-200">
+                Scrobble Listen Threshold
+              </div>
+              <div class="text-[11px] text-neutral-500 dark:text-neutral-400">
+                Count a play after listening at least this many seconds OR this percentage of a
+                track.
+              </div>
+            </div>
+            <div class="flex items-center gap-3">
+              <label
+                class="flex items-center gap-1.5 text-xs text-neutral-600 dark:text-neutral-300"
+              >
+                <span>Min Sec</span>
+                <n-input-number
+                  v-model:value="thresholdMinSeconds"
+                  :min="0"
+                  :max="600"
+                  size="tiny"
+                  class="w-20"
+                  @update:value="saveThresholdConfig"
+                />
+              </label>
+              <label
+                class="flex items-center gap-1.5 text-xs text-neutral-600 dark:text-neutral-300"
+              >
+                <span>Min %</span>
+                <n-input-number
+                  v-model:value="thresholdMinPercent"
+                  :min="0"
+                  :max="100"
+                  size="tiny"
+                  class="w-20"
+                  @update:value="saveThresholdConfig"
+                />
+              </label>
+            </div>
+          </div>
+
           <!-- Highlight Preview: Top 3 Tracks & Top 3 Artists side-by-side -->
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <!-- Top 3 Tracks -->
@@ -374,6 +417,15 @@
                 {{ formatListeningTime(t.seconds) }}
               </div>
             </div>
+            <button
+              type="button"
+              class="w-7 h-7 rounded-lg flex items-center justify-center text-neutral-400 hover:text-red-500 hover:bg-red-500/10 transition shrink-0"
+              title="Remove track from stats"
+              aria-label="Remove track from stats"
+              @click="handleDeleteTrack(t.id)"
+            >
+              <i class="ri-delete-bin-6-line text-sm" />
+            </button>
           </div>
         </div>
 
@@ -457,8 +509,19 @@
                 <span class="text-neutral-500">{{ s.artist }}</span>
               </div>
             </div>
-            <div class="text-[11px] text-neutral-400 shrink-0 font-mono tabular-nums">
-              {{ formatTimestamp(s.playedAt) }}
+            <div class="flex items-center gap-2 shrink-0">
+              <div class="text-[11px] text-neutral-400 font-mono tabular-nums">
+                {{ formatTimestamp(s.playedAt) }}
+              </div>
+              <button
+                type="button"
+                class="w-6 h-6 rounded-md flex items-center justify-center text-neutral-400 hover:text-red-500 hover:bg-red-500/10 transition"
+                title="Delete scrobble entry"
+                aria-label="Delete scrobble entry"
+                @click="handleDeleteScrobble(s.playedAt, i)"
+              >
+                <i class="ri-close-line text-sm" />
+              </button>
             </div>
           </div>
         </div>
@@ -488,7 +551,11 @@ import {
   clearListeningStats,
   exportListeningStatsRaw,
   getListeningStatsSummary,
-  type ListeningStatsData
+  getListenThresholdConfig,
+  type ListeningStatsData,
+  removeScrobbleEntry,
+  removeTrackStat,
+  setListenThresholdConfig
 } from '@/services/listeningStatsService';
 
 const props = defineProps<{
@@ -503,6 +570,9 @@ const activeTab = ref<'overview' | 'tracks' | 'artists' | 'scrobbles'>('overview
 
 const summary = ref(getListeningStatsSummary());
 const rawData = ref<ListeningStatsData>(exportListeningStatsRaw());
+const initialThreshold = getListenThresholdConfig();
+const thresholdMinSeconds = ref<number>(initialThreshold.minSeconds);
+const thresholdMinPercent = ref<number>(initialThreshold.minPercent);
 
 const uniqueArtistsCount = computed(() => Object.keys(rawData.value.artists || {}).length);
 const uniqueTracksCount = computed(() => Object.keys(rawData.value.tracks || {}).length);
@@ -510,6 +580,31 @@ const uniqueTracksCount = computed(() => Object.keys(rawData.value.tracks || {})
 function refreshData() {
   summary.value = getListeningStatsSummary();
   rawData.value = exportListeningStatsRaw();
+  const cfg = getListenThresholdConfig();
+  thresholdMinSeconds.value = cfg.minSeconds;
+  thresholdMinPercent.value = cfg.minPercent;
+}
+
+function saveThresholdConfig() {
+  const next = setListenThresholdConfig({
+    minSeconds: Number(thresholdMinSeconds.value ?? 30),
+    minPercent: Number(thresholdMinPercent.value ?? 50)
+  });
+  thresholdMinSeconds.value = next.minSeconds;
+  thresholdMinPercent.value = next.minPercent;
+}
+
+function handleDeleteScrobble(playedAt: string, index: number) {
+  const removed = playedAt ? removeScrobbleEntry(playedAt) : removeScrobbleEntry(index);
+  if (removed) {
+    refreshData();
+  }
+}
+
+function handleDeleteTrack(trackId: string | number) {
+  if (removeTrackStat(trackId)) {
+    refreshData();
+  }
 }
 
 function formatListeningTime(totalSeconds: number): string {

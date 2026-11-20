@@ -1,7 +1,9 @@
 # System Architecture (`ARCHITECTURE.md`)
+
 > **1-Line Summary:** Plain-English visual map of how the app works, why we chose each tool, and step-by-step recipes for adding new features.
 
 ## 1. High-Level Visual System Map
+
 ```mermaid
 flowchart TB
     subgraph UI["Renderer (Vue 3)"]
@@ -38,24 +40,27 @@ flowchart TB
 
 ## 2. Tech Stack & Why We Chose It
 
-| Layer | Tool / Library | Plain-English Reason Why |
-| --- | --- | --- |
-| Desktop shell | Electron | Windows-native window, media keys, tray, and local file access while keeping one web codebase. |
-| Frontend | Vue 3 + Vite + TypeScript | Reactive UI with fast builds; strict types catch breakage before the GUI can be tested. |
-| Component kit | Naive UI + Tailwind + Sass | Polished dark/light theming with utility styling for proportional spacing. |
-| State | Pinia (+ persisted state) | One predictable store layer that survives restarts. |
-| Local library | Dexie / IndexedDB | Fast offline song/variant database with versioned schema. |
-| Audio engine | HTMLAudioElement + WebAudio | Gapless seeking with EQ/crossfade; one persistent element keeps one clock. |
-| Media tools | Bundled `yt-dlp` + `ffmpeg` | No external installs; video search/download and tag writing work out of the box. |
-| Tagging | node-id3, flac-tagger, music-metadata | Native ID3v2/Vorbis/MP4 tag reading and writing per format. |
-| Theming | node-vibrant | Pulls palette colors from album art for the dynamic gradient. |
+| Layer         | Tool / Library                        | Plain-English Reason Why                                                                       |
+| ------------- | ------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Desktop shell | Electron                              | Windows-native window, media keys, tray, and local file access while keeping one web codebase. |
+| Frontend      | Vue 3 + Vite + TypeScript             | Reactive UI with fast builds; strict types catch breakage before the GUI can be tested.        |
+| Component kit | Naive UI + Tailwind + Sass            | Polished dark/light theming with utility styling for proportional spacing.                     |
+| State         | Pinia (+ persisted state)             | One predictable store layer that survives restarts.                                            |
+| Local library | Dexie / IndexedDB                     | Fast offline song/variant database with versioned schema.                                      |
+| Audio engine  | HTMLAudioElement + WebAudio           | Gapless seeking with EQ/crossfade; one persistent element keeps one clock.                     |
+| Media tools   | Bundled `yt-dlp` + `ffmpeg`           | No external installs; video search/download and tag writing work out of the box.               |
+| Tagging       | node-id3, flac-tagger, music-metadata | Native ID3v2/Vorbis/MP4 tag reading and writing per format.                                    |
+| Theming       | node-vibrant                          | Pulls palette colors from album art for the dynamic gradient.                                  |
 
 ## 3. Core Subsystems & Engineering Tricks
 
 ### [SUBSYSTEM: Linked-AV-Playback-Engine] | Aliases: video mode, muted video, shared clock, audio master, rate locked sync
+
 > **1-Line Summary:** The audio element is always the master clock and only sound source; the video is muted and follows it via proportional `playbackRate` micro-adjustments, so the two can never drift apart audibly or visually.
-* **How It Works (Plain English):** Entering video mode keeps audio playing. When the video's metadata is ready it is seeked to the audio's current time and plays muted. `useLinkedMediaSync` enforces `video.muted = true` and `video.volume = 0` every 120ms, applies proportional `playbackRate` micro-corrections (`±0.035`) for drift between `35ms` and `450ms`, and hard-seeks only when drift exceeds `450ms`. Streams and downloads are video-only, so no duplicated audio exists anywhere.
-* **Data Flow Diagram:**
+
+- **How It Works (Plain English):** Entering video mode keeps audio playing. When the video's metadata is ready it is seeked to the audio's current time and plays muted. `useLinkedMediaSync` enforces `video.muted = true` and `video.volume = 0` every 120ms, applies proportional `playbackRate` micro-corrections (`±0.035`) for drift between `35ms` and `450ms`, and hard-seeks only when drift exceeds `450ms`. Streams and downloads are video-only, so no duplicated audio exists anywhere.
+- **Data Flow Diagram:**
+
 ```mermaid
 sequenceDiagram
     participant U as User
@@ -69,49 +74,61 @@ sequenceDiagram
     AS-->>MF: timeupdate (nowTime)
     MF->>V: proportional playbackRate sync (35-450ms) or seek (>450ms)
 ```
-* **Code Anchors (Grep Targets):**
-  * `src/renderer/components/lyric/MusicFull.vue` -> `enterVideoMode`, `syncVideoSlaveState`, `onVideoTimeUpdate`
-  * `src/renderer/composables/useLinkedMediaSync.ts` -> `useLinkedMediaSync`, `enforceSyncTick`
-  * `src/renderer/services/audioService.ts` -> `getAudioElement`
-  * `src/renderer/store/modules/playerCore.ts` -> `setPlaybackMode`
+
+- **Code Anchors (Grep Targets):**
+  - `src/renderer/components/lyric/MusicFull.vue` -> `enterVideoMode`, `syncVideoSlaveState`, `onVideoTimeUpdate`
+  - `src/renderer/composables/useLinkedMediaSync.ts` -> `useLinkedMediaSync`, `enforceSyncTick`
+  - `src/renderer/services/audioService.ts` -> `getAudioElement`
+  - `src/renderer/store/modules/playerCore.ts` -> `setPlaybackMode`
 
 ### [SUBSYSTEM: Single-Play-State-Arbitration] | Aliases: play button state, pause everything, isPlay
+
 > **1-Line Summary:** One boolean play state, written by one rule set, drives every button and pause stops every surface at once.
-* **How It Works (Plain English):** `setIsPlay` is the only writer of the play flag. Late crossfade pause events are ignored while another surface owns playback, resuming cancels pending fade-out pauses, and pausing asks the media coordinator to stop every registered element.
-* **Code Anchors (Grep Targets):**
-  * `src/renderer/store/modules/playerCore.ts` -> `setIsPlay`, `handlePause`
-  * `src/renderer/hooks/MusicHook.ts` -> `setupAudioListeners`
-  * `src/renderer/services/audioService.ts` -> `pause`, `cancelFadeTimer`
-  * `src/renderer/services/mediaCoordinator.ts` -> `pauseAllLocal`, `toggleActiveNonAudioPlayback`
+
+- **How It Works (Plain English):** `setIsPlay` is the only writer of the play flag. Late crossfade pause events are ignored while another surface owns playback, resuming cancels pending fade-out pauses, and pausing asks the media coordinator to stop every registered element.
+- **Code Anchors (Grep Targets):**
+  - `src/renderer/store/modules/playerCore.ts` -> `setIsPlay`, `handlePause`
+  - `src/renderer/hooks/MusicHook.ts` -> `setupAudioListeners`
+  - `src/renderer/services/audioService.ts` -> `pause`, `cancelFadeTimer`
+  - `src/renderer/services/mediaCoordinator.ts` -> `pauseAllLocal`, `toggleActiveNonAudioPlayback`
 
 ### [SUBSYSTEM: Per-Song-Media-Lifecycle] | Aliases: track change reset, stale video, song id matching
+
 > **1-Line Summary:** Video, quality, and YouTube link belong to one song ID and are fully dropped the moment the track changes.
-* **How It Works (Plain English):** `playTrack` resets playback mode on a new song ID; the fullscreen player clears its video state, the MV drawer closes, and the pill recomputes. Stream URLs are also prefetched per song so switching to video later is instant.
-* **Code Anchors (Grep Targets):**
-  * `src/renderer/services/playbackController.ts` -> `playTrack`
-  * `src/renderer/store/modules/playerCore.ts` -> `resetMediaStateForNewSong`
-  * `src/renderer/components/lyric/MusicFull.vue` -> `resetVideoStateForNewSong`, `prefetchVideoStream`
+
+- **How It Works (Plain English):** `playTrack` resets playback mode on a new song ID; the fullscreen player clears its video state, the MV drawer closes, and the pill recomputes. Stream URLs are also prefetched per song so switching to video later is instant.
+- **Code Anchors (Grep Targets):**
+  - `src/renderer/services/playbackController.ts` -> `playTrack`
+  - `src/renderer/store/modules/playerCore.ts` -> `resetMediaStateForNewSong`
+  - `src/renderer/components/lyric/MusicFull.vue` -> `resetVideoStateForNewSong`, `prefetchVideoStream`
 
 ### [SUBSYSTEM: YouTube-Engine] | Aliases: yt-dlp, ffmpeg, video download, quality ladder, video only
+
 > **1-Line Summary:** Bundled yt-dlp finds formats and downloads video-only files; ffmpeg handles tag writing and legacy stream muxing.
-* **How It Works (Plain English):** Format lists come from `yt-dlp -J`, grouped into one row per height and codec. Downloads select the exact format ID and skip the audio merge (linked playback supplies audio). A 4-hour cache serves stream URLs; the old ffmpeg DASH mux proxy remains only as a seek fallback.
-* **Code Anchors (Grep Targets):**
-  * `src/main/modules/youtube.ts` -> `getStreamUrl`, `downloadMedia`, `getYtDlpJson`, `ensureProxyServer`, `getFfmpegPath`
-  * `src/main/modules/youtubeFormats.ts` -> `mapAndGroupFormats`, `normalizeCodec`
-  * `src/renderer/utils/videoQualityHelpers.ts` -> `getUniqueVideoHeights`
+
+- **How It Works (Plain English):** Format lists come from `yt-dlp -J`, grouped into one row per height and codec. Downloads select the exact format ID and skip the audio merge (linked playback supplies audio). A 4-hour cache serves stream URLs; the old ffmpeg DASH mux proxy remains only as a seek fallback.
+- **Code Anchors (Grep Targets):**
+  - `src/main/modules/youtube.ts` -> `getStreamUrl`, `downloadMedia`, `getYtDlpJson`, `ensureProxyServer`, `getFfmpegPath`
+  - `src/main/modules/youtubeFormats.ts` -> `mapAndGroupFormats`, `normalizeCodec`
+  - `src/renderer/utils/videoQualityHelpers.ts` -> `getUniqueVideoHeights`
 
 ### [SUBSYSTEM: Lyric-Pipeline] | Aliases: lyrics, lrc, timestamps, edit lrc, offset
+
 > **1-Line Summary:** Lyrics load from sidecar files, embedded tags, cache or LRCLIB, render with per-line timestamps and offsets, and can be edited live in LRC form.
-* **How It Works (Plain English):** Lines carry start times in milliseconds; the shared clock computes the active line. "Edit LRC" applies raw `[mm:ss.xxx]` text straight into the live arrays and saves to tags plus sidecar for local files. The offset control shifts all lines per song and is remembered.
-* **Code Anchors (Grep Targets):**
-  * `src/renderer/hooks/MusicHook.ts` -> `getLrcIndex`, `setAudioTime`, `setCorrectionTime`
-  * `src/renderer/utils/lyrics.ts` -> `formatLrcTimestampMs`, `parseLrcTimestamp`, `nudgeTimestamp`
-  * `src/renderer/components/lyric/MusicFull.vue` -> `handleApplyEditedLrc`, `lineTimeLabel`
+
+- **How It Works (Plain English):** Lines carry start times in milliseconds; the shared clock computes the active line. "Edit LRC" applies raw `[mm:ss.xxx]` text straight into the live arrays and saves to tags plus sidecar for local files. The offset control shifts all lines per song and is remembered.
+- **Code Anchors (Grep Targets):**
+  - `src/renderer/hooks/MusicHook.ts` -> `getLrcIndex`, `setAudioTime`, `setCorrectionTime`
+  - `src/renderer/utils/lyrics.ts` -> `formatLrcTimestampMs`, `parseLrcTimestamp`, `nudgeTimestamp`
+  - `src/renderer/components/lyric/MusicFull.vue` -> `handleApplyEditedLrc`, `lineTimeLabel`
 
 ### [SUBSYSTEM: Unified-Song-Library] | Aliases: variants, dexie, fingerprint, duplicates, song identity, waveform cache, smart playlists, multi-queues, ratings
+
 > **1-Line Summary:** Dexie v4 links every audio/video/lyrics file to a unified song record with waveform cache, multi-queues, smart playlists, ratings/moods/tags, excluded folders, and artist split exceptions.
-* **How It Works (Plain English):** Ingestion matches by path, YouTube ID, fingerprint, normalized `artist|title` key with ±3s duration, then fuzzy token similarity. Dexie v3 added `waveforms`; Dexie v4 extends `songs` with multi-entry indexes (`rating`, `*artistsSplit`, `*genresSplit`, `*moods`, `*tags`) and adds `queues` and `smartPlaylists` tables without modifying v2/v3 schemas. `localMusicScanner` forwards `excludedFolders` during disk traversal and extracts `genre`, `bitrate`, and `codec`. `localMusicUtils.parseMultiArtists()` masks built-in `DEFAULT_ARTIST_EXCEPTIONS` and persisted custom allowlist names before splitting featured credits, while `evaluateSmartPlaylist()` filters and sorts local tracks in memory using rules and memoized play counts.
-* **Data Flow Diagram:**
+
+- **How It Works (Plain English):** Ingestion matches by path, YouTube ID, fingerprint, normalized `artist|title` key with ±3s duration, then fuzzy token similarity. Dexie v3 added `waveforms`; Dexie v4 extends `songs` with multi-entry indexes (`rating`, `*artistsSplit`, `*genresSplit`, `*moods`, `*tags`) and adds `queues` and `smartPlaylists` tables without modifying v2/v3 schemas. `localMusicScanner` forwards `excludedFolders` during disk traversal and extracts `genre`, `bitrate`, and `codec`. `localMusicUtils.parseMultiArtists()` masks built-in `DEFAULT_ARTIST_EXCEPTIONS` and persisted custom allowlist names before splitting featured credits, while `evaluateSmartPlaylist()` filters and sorts local tracks in memory using rules and memoized play counts.
+- **Data Flow Diagram:**
+
 ```mermaid
 flowchart LR
     classDef disk fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
@@ -131,18 +148,22 @@ flowchart LR
       D3["Green: Library & Queue UI"]:::ui
     end
 ```
-* **Code Anchors (Grep Targets):**
-  * `src/renderer/services/songLibrary.ts` -> `MusicManagerLibraryDB`, `saveNamedQueue`, `saveSmartPlaylist`, `updateSongTagsAndRating`, `getSongAnnotationMap`, `evaluateSmartPlaylist`, `getOrComputeWaveformPeaks`
-  * `src/renderer/utils/localMusicUtils.ts` -> `DEFAULT_ARTIST_EXCEPTIONS`, `parseMultiArtists`, `parseMultiGenres`, `setArtistSplitExceptions`
-  * `src/main/modules/localMusicScanner.ts` -> `scanMusicFilesWithStats`, `parseMetadata`
-  * `src/renderer/store/modules/localMusic.ts` -> `visibleMusicList`, `excludedFolders`, `minDurationSec`
-  * `src/renderer/store/modules/playlist.ts` -> `addToQueueEnd`, `reorderPlayList`, `undoClearPlayAll`
-  * `src/main/modules/audioFingerprint.ts` -> `computeAudioFingerprint`, `computeWaveformPeaks`, `computePeaksFromPcm`
+
+- **Code Anchors (Grep Targets):**
+  - `src/renderer/services/songLibrary.ts` -> `MusicManagerLibraryDB`, `saveNamedQueue`, `saveSmartPlaylist`, `updateSongTagsAndRating`, `getSongAnnotationMap`, `evaluateSmartPlaylist`, `getOrComputeWaveformPeaks`
+  - `src/renderer/utils/localMusicUtils.ts` -> `DEFAULT_ARTIST_EXCEPTIONS`, `parseMultiArtists`, `parseMultiGenres`, `setArtistSplitExceptions`
+  - `src/main/modules/localMusicScanner.ts` -> `scanMusicFilesWithStats`, `parseMetadata`
+  - `src/renderer/store/modules/localMusic.ts` -> `visibleMusicList`, `excludedFolders`, `minDurationSec`
+  - `src/renderer/store/modules/playlist.ts` -> `addToQueueEnd`, `reorderPlayList`, `undoClearPlayAll`
+  - `src/main/modules/audioFingerprint.ts` -> `computeAudioFingerprint`, `computeWaveformPeaks`, `computePeaksFromPcm`
 
 ### [SUBSYSTEM: Namida-Theme-Engine] | Aliases: dynamic theme, seed color, pitch black, lexend deca, naive ui overrides, sliders, baked glow, widescreen split
+
 > **1-Line Summary:** Extracts an artwork seed color without oversaturating monochrome covers, pre-bakes 64x64 artwork glow, and drives `:root` `in srgb` CSS tokens, 5-level Pitch Black blending, scaled corner radii, 50/50 widescreen player layout, and Naive UI `GlobalThemeOverrides`.
-* **How It Works (Plain English):** `useNamidaTheme` watches the active track artwork, dark/light mode, `namidaPitchLevel` (0–5), and `namidaRadiusMult` (0.5–1.5). Pixel sampling checks weighted saturation (< 0.12 keeps neutral grayscale) and falls back to Vibrant if CORS-tainted. `useBakedArtworkGlow` pre-blurs artwork onto an offscreen 64x64 canvas once per track (`scale(1.15); opacity: 0.45`) instead of expensive live full-screen CSS blur. `NamidaWaveformSeekbar` uses 54%-width bars with `computeSeekPokeScale` spring pulses, while `MusicFull.vue` (>=960px) splits 50/50 between track controls and a segmented Lyrics/Queue pane.
-* **Data Flow Diagram:**
+
+- **How It Works (Plain English):** `useNamidaTheme` watches the active track artwork, dark/light mode, `namidaPitchLevel` (0–5), and `namidaRadiusMult` (0.5–1.5). Pixel sampling checks weighted saturation (< 0.12 keeps neutral grayscale) and falls back to Vibrant if CORS-tainted. `useBakedArtworkGlow` pre-blurs artwork onto an offscreen 64x64 canvas once per track (`scale(1.15); opacity: 0.45`) instead of expensive live full-screen CSS blur. `NamidaWaveformSeekbar` uses 54%-width bars with `computeSeekPokeScale` spring pulses, while `MusicFull.vue` (>=960px) splits 50/50 between track controls and a segmented Lyrics/Queue pane.
+- **Data Flow Diagram:**
+
 ```mermaid
 flowchart LR
     ART[Active Track Cover] --> EXT[extractSeedRgbFromUrl]
@@ -154,21 +175,25 @@ flowchart LR
     ROOT --> SHELL[AppLayout / AppMenu / SettingSection / Sliders / PlayBar]
     GLOW --> MF[MusicFull 50/50 Widescreen Split]
 ```
-* **Code Anchors (Grep Targets):**
-  * `src/renderer/utils/namidaThemeEngine.ts` -> `extractSeedRgbFromImageData`, `computeNamidaCssVars`, `buildNaiveThemeOverrides`
-  * `src/renderer/composables/useNamidaTheme.ts` -> `useNamidaTheme`, `extractSeedRgbFromUrl`, `applyNamidaThemeToDocument`
-  * `src/renderer/composables/useBakedArtworkGlow.ts` -> `useBakedArtworkGlow`, `bakeArtworkGlow`
-  * `src/renderer/utils/waveformHelpers.ts` -> `computeSeekPokeScale`, `dedupeArtworkCovers`
-  * `src/renderer/components/lyric/MusicFull.vue` -> `rightPaneTab`, `onQueueDrop`, `getKaraokeWordProgress`
-  * `src/renderer/components/namida/MultiArtworkCard.vue` -> `gridTiles`
-  * `src/renderer/App.vue` -> `useNamidaTheme`
-  * `src/renderer/views/set/SettingSection.vue` -> `.namida-settings-card`
-  * `src/renderer/styles/namida.css` -> `:root`, `.n-slider`, `.namida-range`
+
+- **Code Anchors (Grep Targets):**
+  - `src/renderer/utils/namidaThemeEngine.ts` -> `extractSeedRgbFromImageData`, `computeNamidaCssVars`, `buildNaiveThemeOverrides`
+  - `src/renderer/composables/useNamidaTheme.ts` -> `useNamidaTheme`, `extractSeedRgbFromUrl`, `applyNamidaThemeToDocument`
+  - `src/renderer/composables/useBakedArtworkGlow.ts` -> `useBakedArtworkGlow`, `bakeArtworkGlow`
+  - `src/renderer/utils/waveformHelpers.ts` -> `computeSeekPokeScale`, `dedupeArtworkCovers`
+  - `src/renderer/components/lyric/MusicFull.vue` -> `rightPaneTab`, `onQueueDrop`, `getKaraokeWordProgress`
+  - `src/renderer/components/namida/MultiArtworkCard.vue` -> `gridTiles`
+  - `src/renderer/App.vue` -> `useNamidaTheme`
+  - `src/renderer/views/set/SettingSection.vue` -> `.namida-settings-card`
+  - `src/renderer/styles/namida.css` -> `:root`, `.n-slider`, `.namida-range`
 
 ### [SUBSYSTEM: Web-Audio-DSP-And-Gapless-Pipeline] | Aliases: dsp graph, eq, autoeq, parametric, preamp, mono, preservespitch, gapless
+
 > **1-Line Summary:** Routes audio through a single WeakMap-guarded `AudioDspGraph` (`Preamp -> 10-band or AutoEQ parametric BiquadFilters -> Mono/Stereo channel mode -> Master Gain -> Analyser -> Destination`) alongside detached standby gapless pre-buffering.
-* **How It Works (Plain English):** `audioService.ts` attaches its primary `HTMLAudioElement` to `audioDspGraph`, which caches `(AudioContext, MediaElementAudioSourceNode)` in `WeakMap`s so `createMediaElementSource` is never called twice. Importing an EqualizerAPO/AutoEQ `.txt` profile parses `Preamp` and `PK`/`LSC`/`HSC` filters and dynamically rebuilds the `BiquadFilterNode` chain. Mono downmix toggles `channelCount = 1` (`explicit`), while `preservesPitch` updates all vendor pitch flags on the media element. Separately, `playlist.ts` triggers `prepareGaplessNext()` to warm the next URL in an isolated, muted `standbyAudio` element that never registers with `mediaCoordinator` or Web Audio.
-* **Data Flow Diagram:**
+
+- **How It Works (Plain English):** `audioService.ts` attaches its primary `HTMLAudioElement` to `audioDspGraph`, which caches `(AudioContext, MediaElementAudioSourceNode)` in `WeakMap`s so `createMediaElementSource` is never called twice. Importing an EqualizerAPO/AutoEQ `.txt` profile parses `Preamp` and `PK`/`LSC`/`HSC` filters and dynamically rebuilds the `BiquadFilterNode` chain. Mono downmix toggles `channelCount = 1` (`explicit`), while `preservesPitch` updates all vendor pitch flags on the media element. Separately, `playlist.ts` triggers `prepareGaplessNext()` to warm the next URL in an isolated, muted `standbyAudio` element that never registers with `mediaCoordinator` or Web Audio.
+- **Data Flow Diagram:**
+
 ```mermaid
 flowchart LR
     classDef src fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
@@ -194,57 +219,102 @@ flowchart LR
       L4["Amber: Gapless Warm Cache"]:::warm
     end
 ```
-* **Code Anchors (Grep Targets):**
-  * `src/renderer/services/audioDspGraph.ts` -> `AudioDspGraph`, `parseAutoEqProfile`, `createDefaultEqBands`, `audioDspGraph`
-  * `src/renderer/services/audioService.ts` -> `setupEQ`, `prepareGaplessNext`, `getSignalPathInfo`, `setPreservesPitch`, `setMono`, `setPreampDb`, `applyAutoEqText`
-  * `src/renderer/store/modules/playlist.ts` -> `fetchSongs`
-  * `src/renderer/components/EQControl.vue` -> `syncFromDsp`, `applyAutoEqString`
-  * `src/renderer/views/set/tabs/PlaybackTab.vue` -> `preservesPitchEnabled`, `monoAudioEnabled`, `gaplessEnabled`
+
+- **Code Anchors (Grep Targets):**
+  - `src/renderer/services/audioDspGraph.ts` -> `AudioDspGraph`, `parseAutoEqProfile`, `createDefaultEqBands`, `audioDspGraph`
+  - `src/renderer/services/audioService.ts` -> `setupEQ`, `prepareGaplessNext`, `getSignalPathInfo`, `setPreservesPitch`, `setMono`, `setPreampDb`, `applyAutoEqText`
+  - `src/renderer/store/modules/playlist.ts` -> `fetchSongs`
+  - `src/renderer/components/EQControl.vue` -> `syncFromDsp`, `applyAutoEqString`
+  - `src/renderer/views/set/tabs/PlaybackTab.vue` -> `preservesPitchEnabled`, `monoAudioEnabled`, `gaplessEnabled`
+
+### [SUBSYSTEM: Power-UX-Seekbar-Overlays-And-Command-Palette] | Aliases: sponsorblock, chapters, settings search, command palette, ctrl+k, listen threshold, signal path
+
+> **1-Line Summary:** Connects SponsorBlock/chapter seekbar overlays, live cross-tab settings filtering, a native `<dialog closedby="any">` `Ctrl+K` Command Palette, threshold-gated scrobbling, and live DSP signal path telemetry.
+
+- **How It Works (Plain English):** `sponsorBlockService.ts` fetches non-music segments with a 4s `AbortController` timeout and in-memory cache while `parseChaptersFromDescription()` extracts timestamped chapters. `MusicFull.vue` and `NamidaStackedPlayer.vue` feed `abLoop`, `bookmarks`, and `segments` into `NamidaWaveformSeekbar.vue` and subscribe to `audioService`'s `markers_changed` event. `audioService.ts` gates `recordTrackPlay()` behind `shouldRecordPlayThreshold()` during `handleListeningStatsTick()`. Settings search injects `SETTINGS_SEARCH_KEY` into every `SettingItem.vue` while expanding all tab wrappers. `CommandPalette.vue` uses a native `<dialog closedby="any">` opened via `showModal()` backed by pure `searchCommandPaletteItems()` (including LRC lyric snippet search), and `DiagnosticsModal.vue` renders `audioService.getSignalPathInfo()`.
+- **Data Flow Diagram:**
+
+```mermaid
+flowchart LR
+    classDef svc fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
+    classDef ui fill:#dcfce7,stroke:#16a34a,color:#14532d
+    classDef diag fill:#ede9fe,stroke:#7c3aed,color:#4c1d95
+    classDef legend fill:#f3f4f6,stroke:#6b7280,color:#111827
+
+    SB["sponsorBlockService (4s Timeout + Cache + Chapters)"]:::svc --> MF["MusicFull & NamidaStackedPlayer"]:::ui
+    AS["audioService (markers_changed + Threshold Scrobble + getSignalPathInfo)"]:::svc --> MF
+    MF --> SEEK["NamidaWaveformSeekbar (A-B / Bookmarks / Segments)"]:::ui
+    AS --> STATS["ListeningStatsModal (Thresholds + Delete)"]:::diag
+    AS --> DIAG["DiagnosticsModal (Live Audio Signal Path)"]:::diag
+    CPH["commandPaletteHelpers (Actions + Lyric Snippets)"]:::svc --> CMD["CommandPalette (Native <dialog closedby=any>)"]:::ui
+    SET["Settings Header (SETTINGS_SEARCH_KEY)"]:::svc --> ITEM["SettingItem (Cross-Tab v-show Filter)"]:::ui
+
+    subgraph Legend
+      P1["Blue: Services & Pure Helpers"]:::svc
+      P2["Green: Interactive UX & Overlays"]:::ui
+      P3["Purple: Telemetry & Stats Modals"]:::diag
+    end
+```
+
+- **Code Anchors (Grep Targets):**
+  - `src/renderer/services/sponsorBlockService.ts` -> `fetchSponsorBlockSegments`, `parseChaptersFromDescription`, `findActiveSkipSegment`
+  - `src/renderer/components/namida/NamidaWaveformSeekbar.vue` -> `abLoopOverlay`, `renderedBookmarks`, `renderedSegments`
+  - `src/renderer/services/listeningStatsService.ts` -> `shouldRecordPlayThreshold`, `removeScrobbleEntry`, `removeTrackStat`
+  - `src/renderer/views/set/keys.ts` -> `SETTINGS_SEARCH_KEY`
+  - `src/renderer/utils/commandPaletteHelpers.ts` -> `searchCommandPaletteItems`, `extractLyricSnippet`
+  - `src/renderer/components/namida/CommandPalette.vue` -> `openPalette`, `onDialogClick`, `executeItem`
+  - `src/renderer/components/player/DiagnosticsModal.vue` -> `refreshSignalPath`
 
 ### [SUBSYSTEM: Tag-Metadata-And-Lyric-IO] | Aliases: tags, artwork, rename, lrclib, metadata fetch
+
 > **1-Line Summary:** The main process writes native tags and sidecar lyrics per format and fetches metadata/lyrics from iTunes, MusicBrainz and LRCLIB.
-* **How It Works (Plain English):** `node-id3` handles MP3, `flac-tagger` FLAC, and ffmpeg the iTunes atoms for m4a/mp4/opus/ogg/wav. Lyric search returns candidates with duration and offset metadata so the picker can prefer the closest version.
-* **Code Anchors (Grep Targets):**
-  * `src/main/modules/tagAndMetadataManager.ts` -> `fetchFromITunes`, `fetchFromMusicBrainz`, `lrcTimeBounds`, `local-music:update-tags-and-file`
+
+- **How It Works (Plain English):** `node-id3` handles MP3, `flac-tagger` FLAC, and ffmpeg the iTunes atoms for m4a/mp4/opus/ogg/wav. Lyric search returns candidates with duration and offset metadata so the picker can prefer the closest version.
+- **Code Anchors (Grep Targets):**
+  - `src/main/modules/tagAndMetadataManager.ts` -> `fetchFromITunes`, `fetchFromMusicBrainz`, `lrcTimeBounds`, `local-music:update-tags-and-file`
 
 ### [SUBSYSTEM: Local-Media-Runtime] | Aliases: local protocol, range seeking, scanner, covers, notifications, suggestions, discord rpc
+
 > **1-Line Summary:** Local files stream through a loopback protocol with range seeking and cover extraction, and are scanned into the library in the background alongside native OS notifications, configurable Discord Rich Presence, and hybrid local + HTTPS YouTube search suggestions.
-* **How It Works (Plain English):** Chromium cannot seek custom schemes, so playable URLs are converted at playback time while stored URLs stay `local://` for identity checks. Covers come from embedded art or folder images. Search suggestions merge local Dexie library titles/artists/albums with HTTPS YouTube autocomplete (`fetchYouTubeSuggestions`). Discord RPC only connects when a real Discord Application ID is configured (`resolveDiscordClientId`), and sleep-timer completion invokes native Electron `Notification`.
-* **Code Anchors (Grep Targets):**
-  * `src/renderer/utils/localMediaUrl.ts` -> `toPlayableMediaUrl`, `filePathToMediaUrl`
-  * `src/renderer/utils/localMusicUtils.ts` -> `toSongResult`, `parseLrcToILyric`
-  * `src/renderer/hooks/IndexDBHook.ts` -> `musicDB`, `getMusicDBInstance`
-  * `src/renderer/services/osMediaSession.ts` -> `bindOsMediaSessionHandlers`, `updateOsMediaMetadata`
-  * `src/main/modules/otherApi.ts` -> `fetchYouTubeSuggestions`, `initializeOtherApi`
-  * `src/main/modules/discordRpc.ts` -> `resolveDiscordClientId`, `setDiscordClientId`, `initializeDiscordRpc`
-  * `src/main/modules/playbackStateHub.ts` -> `initializePlaybackStateHub`, `dispatchPlayStateUpdate`, `dispatchCurrentSongUpdate`
-  * `src/main/modules/remoteControl.ts` -> `normalizeRemoteControlConfig`, `isRemoteRequestAuthorized`, `resolveRemoteBindHost`
+
+- **How It Works (Plain English):** Chromium cannot seek custom schemes, so playable URLs are converted at playback time while stored URLs stay `local://` for identity checks. Covers come from embedded art or folder images. Search suggestions merge local Dexie library titles/artists/albums with HTTPS YouTube autocomplete (`fetchYouTubeSuggestions`). Discord RPC only connects when a real Discord Application ID is configured (`resolveDiscordClientId`), and sleep-timer completion invokes native Electron `Notification`.
+- **Code Anchors (Grep Targets):**
+  - `src/renderer/utils/localMediaUrl.ts` -> `toPlayableMediaUrl`, `filePathToMediaUrl`
+  - `src/renderer/utils/localMusicUtils.ts` -> `toSongResult`, `parseLrcToILyric`
+  - `src/renderer/hooks/IndexDBHook.ts` -> `musicDB`, `getMusicDBInstance`
+  - `src/renderer/services/osMediaSession.ts` -> `bindOsMediaSessionHandlers`, `updateOsMediaMetadata`
+  - `src/main/modules/otherApi.ts` -> `fetchYouTubeSuggestions`, `initializeOtherApi`
+  - `src/main/modules/discordRpc.ts` -> `resolveDiscordClientId`, `setDiscordClientId`, `initializeDiscordRpc`
+  - `src/main/modules/playbackStateHub.ts` -> `initializePlaybackStateHub`, `dispatchPlayStateUpdate`, `dispatchCurrentSongUpdate`
+  - `src/main/modules/remoteControl.ts` -> `normalizeRemoteControlConfig`, `isRemoteRequestAuthorized`, `resolveRemoteBindHost`
 
 ## 4. Verification & Health Checks
 
 ### [VERIFY: Automated-Check-Suite] | Aliases: test commands, build check, typecheck, lint, sweep gate
+
 > **1-Line Summary:** Commands every AI must run to prove nothing broke before committing.
-* **Type & Lint Check:** `npm run typecheck:web` and `npm run typecheck:node` (both must exit 0); `npx eslint ./src` (the `no-empty` count must stay 0). On a fresh clone run `npm run build` first — it generates the gitignored `auto-imports.d.ts` / `components.d.ts` stubs that the type checks require.
-* **Automated UI / Logic Verification:** `npx vitest run` (all unit tests must pass).
-* **English-Sweep Gate:** `node .sweep-gate.mjs` (must report 0 unexplained CJK lines).
-* **Bundle Check:** `npm run build` (electron-vite build must exit 0).
-* **Portable `.exe` Packaging Command:** `npm run build:portable` (rapid-test artifact); `npm run build:installer` (NSIS).
+
+- **Type & Lint Check:** `npm run typecheck:web` and `npm run typecheck:node` (both must exit 0); `npx eslint ./src` (the `no-empty` count must stay 0). On a fresh clone run `npm run build` first — it generates the gitignored `auto-imports.d.ts` / `components.d.ts` stubs that the type checks require.
+- **Automated UI / Logic Verification:** `npx vitest run` (all unit tests must pass).
+- **English-Sweep Gate:** `node .sweep-gate.mjs` (must report 0 unexplained CJK lines).
+- **Bundle Check:** `npm run build` (electron-vite build must exit 0).
+- **Portable `.exe` Packaging Command:** `npm run build:portable` (rapid-test artifact); `npm run build:installer` (NSIS).
 
 ## 5. Recipes: How to Add New Things Safely
 
-* **To add a new video format field (e.g. codec, fps):**
+- **To add a new video format field (e.g. codec, fps):**
   1. Edit `src/main/modules/youtubeFormats.ts` -> `mapAndGroupFormats` and the `YtVideoFormat` interface.
   2. Surface it in `src/renderer/utils/videoQualityHelpers.ts` -> `formatQualityRow`.
   3. Render it in `src/renderer/components/player/VideoSourcePopover.vue` -> quality row template.
-* **To add a new main-process capability:**
+- **To add a new main-process capability:**
   1. Create a module under `src/main/modules/` and register `ipcMain.handle('domain:action', ...)` in its initializer.
   2. Expose it in `src/preload/index.ts` -> the `window.api` bridge (keep it optional-chained in tests).
   3. Call it from a renderer service; never touch `fs` from the renderer.
-* **To add a player control or toggle:**
+- **To add a player control or toggle:**
   1. Add state/action in `src/renderer/store/modules/playerCore.ts` and re-export it in `src/renderer/store/modules/player.ts`.
   2. Route button clicks through `src/renderer/hooks/usePlaybackControl.ts` so the play state stays single-sourced.
-* **To add a lyric display option:**
+- **To add a lyric display option:**
   1. Add the field to `src/renderer/types/lyric.ts` -> `LyricConfig` and `DEFAULT_LYRIC_CONFIG`.
   2. Add the toggle in `src/renderer/components/lyric/LyricSettings.vue`.
   3. Consume it in `src/renderer/components/lyric/MusicFull.vue` (config is mirrored via `src/renderer/utils/lyricConfig.ts` -> `writeLyricConfig`).
-* **To update project documentation:** follow the blueprints in `C:\Users\kazir\.agent-templates\DOC_BLUEPRINTS.md`; every section needs a `### [TYPE: slug] | Aliases: ...` header and a one-line summary. Never add line-number anchors.
+- **To update project documentation:** follow the blueprints in `C:\Users\kazir\.agent-templates\DOC_BLUEPRINTS.md`; every section needs a `### [TYPE: slug] | Aliases: ...` header and a one-line summary. Never add line-number anchors.

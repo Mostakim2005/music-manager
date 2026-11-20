@@ -44,6 +44,7 @@
     <playlist-drawer v-model="showPlaylistDrawer" :song-id="currentSongId" />
     <sleep-timer-top v-if="!settingsStore.isMobile" />
     <playing-list-drawer />
+    <command-palette />
   </div>
 </template>
 
@@ -53,6 +54,7 @@ import { useRoute } from 'vue-router';
 
 import PlayBottom from '@/components/common/PlayBottom.vue';
 import UpdateModal from '@/components/common/UpdateModal.vue';
+import CommandPalette from '@/components/namida/CommandPalette.vue';
 import SleepTimerTop from '@/components/player/SleepTimerTop.vue';
 import homeRouter from '@/router/home';
 import otherRouter from '@/router/other';

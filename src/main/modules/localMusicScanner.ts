@@ -6,6 +6,7 @@ import * as os from 'os';
 import * as path from 'path';
 
 import { computeAudioFingerprint, computeWaveformPeaks } from './audioFingerprint';
+import { readSidecarLrc } from './sidecarLyrics';
 
 const SUPPORTED_AUDIO_FORMATS = [
   '.mp3',
@@ -405,10 +406,13 @@ async function parseMetadata(filePath: string): Promise<LocalMusicMeta> {
       album: common.album || fallback.album,
       duration: format.duration ? Math.round(format.duration * 1000) : 0,
       coverPath: await extractCoverToFile(picture, filePath),
-      lyrics: extractLyrics(common.lyrics),
+      lyrics: extractLyrics(common.lyrics) || (await readSidecarLrc(filePath)),
       fileSize,
       modifiedTime,
-      genre: Array.isArray(common.genre) && common.genre.length > 0 ? common.genre.join('; ') : undefined,
+      genre:
+        Array.isArray(common.genre) && common.genre.length > 0
+          ? common.genre.join('; ')
+          : undefined,
       bitrate: format.bitrate ? Math.round(format.bitrate / 1000) : undefined,
       codec: format.codec || format.container || undefined,
       fingerprint,
@@ -417,9 +421,11 @@ async function parseMetadata(filePath: string): Promise<LocalMusicMeta> {
   } catch (error) {
     console.warn(`Metadata parse failed, using fallback and folder cover: ${filePath}`, error);
     const folderCover = await findFolderCoverFile(filePath);
+    const sidecarLyrics = await readSidecarLrc(filePath);
     return {
       ...fallback,
-      coverPath: folderCover
+      coverPath: folderCover,
+      lyrics: sidecarLyrics
     };
   }
 }

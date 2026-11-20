@@ -63,5 +63,6 @@
   "showDiagnosticsOnBar": true,
   "enablePreservesPitch": true,
   "enableMonoAudio": false,
-  "enableGaplessPlayback": true
+  "enableGaplessPlayback": true,
+  "enableSponsorBlockAutoSkip": false
 }

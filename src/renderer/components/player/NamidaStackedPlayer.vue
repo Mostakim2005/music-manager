@@ -98,11 +98,14 @@
 
     <!-- Full-Width Waveform Visualizer (Min Height 56px) -->
     <div class="waveform-section w-full px-2 space-y-1">
-      <NamidaWaveformSeekbar
+      <namida-waveform-seekbar
         :file-path="(song as any)?.localPath || (song as any)?.path || song?.playMusicUrl || ''"
         :current-time="currentTime"
         :duration="duration"
         :accent-color="'#10b981'"
+        :ab-loop="abLoop"
+        :bookmarks="bookmarks"
+        :segments="segments"
         @seek="$emit('seek', $event)"
       />
 
@@ -175,7 +178,11 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
 
-import NamidaWaveformSeekbar from '@/components/namida/NamidaWaveformSeekbar.vue';
+import NamidaWaveformSeekbar, {
+  type SeekbarAbLoop,
+  type SeekbarBookmark,
+  type SeekbarSegment
+} from '@/components/namida/NamidaWaveformSeekbar.vue';
 import type { SongResult } from '@/types/music';
 import { getImgUrl } from '@/utils';
 import { formatVideoTime } from '@/utils/videoQualityHelpers';
@@ -193,6 +200,9 @@ const props = withDefaults(
     isFavorite?: boolean;
     waveformBars?: number[];
     playMode?: number;
+    abLoop?: SeekbarAbLoop | null;
+    bookmarks?: SeekbarBookmark[];
+    segments?: SeekbarSegment[];
   }>(),
   {
     isVideoMode: false,
@@ -204,7 +214,10 @@ const props = withDefaults(
     nextLyricLine: null,
     isFavorite: false,
     waveformBars: () => [],
-    playMode: 0
+    playMode: 0,
+    abLoop: null,
+    bookmarks: () => [],
+    segments: () => []
   }
 );
 

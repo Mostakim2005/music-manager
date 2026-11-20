@@ -14,7 +14,7 @@
       class="background-layer"
       :style="backgroundImageStyle"
     ></div>
-    <NamidaAmbientCanvas
+    <namida-ambient-canvas
       v-if="!config.useCustomBackground || config.backgroundMode !== 'solid'"
       :palette="ambientPalette"
       :is-playing="playerStore.isPlay"
@@ -197,6 +197,9 @@
           :next-lyric-line="nextLyricItem"
           :is-favorite="isFavorite"
           :play-mode="playMode"
+          :ab-loop="seekbarAbLoop"
+          :bookmarks="seekbarBookmarks"
+          :segments="seekbarSegments"
           @toggle-play="handleTogglePlay"
           @prev="handlePrev"
           @next="handleNext"
@@ -327,14 +330,27 @@
           </div>
 
           <!-- Namida Waveform Seekbar & Transport Controls -->
-          <div v-if="!config.hideMiniPlayBar" class="namida-left-transport w-full max-w-[440px] mt-3">
-            <NamidaWaveformSeekbar
-              :file-path="(playMusic as any)?.localPath || (playMusic as any)?.path || playMusic?.playMusicUrl || ''"
+          <div
+            v-if="!config.hideMiniPlayBar"
+            class="namida-left-transport w-full max-w-[440px] mt-3"
+          >
+            <namida-waveform-seekbar
+              :file-path="
+                (playMusic as any)?.localPath ||
+                (playMusic as any)?.path ||
+                playMusic?.playMusicUrl ||
+                ''
+              "
               :current-time="nowTime"
               :duration="allTime"
+              :ab-loop="seekbarAbLoop"
+              :bookmarks="seekbarBookmarks"
+              :segments="seekbarSegments"
               @seek="handleSeekTime"
             />
-            <div class="flex items-center justify-between text-xs font-mono tabular-nums text-white/60 mt-1 px-0.5">
+            <div
+              class="flex items-center justify-between text-xs font-mono tabular-nums text-white/60 mt-1 px-0.5"
+            >
               <span>{{ secondToMinute(nowTime) }}</span>
               <span>{{ secondToMinute(allTime) }}</span>
             </div>
@@ -361,7 +377,10 @@
                 :title="playerStore.isPlay ? 'Pause' : 'Play'"
                 @click="playMusicEvent"
               >
-                <i class="text-2xl" :class="playerStore.isPlay ? 'ri-pause-fill' : 'ri-play-fill pl-0.5'"></i>
+                <i
+                  class="text-2xl"
+                  :class="playerStore.isPlay ? 'ri-pause-fill' : 'ri-play-fill pl-0.5'"
+                ></i>
               </button>
               <button
                 type="button"
@@ -519,9 +538,7 @@
             class="namida-queue-pane flex-1 min-h-0 flex flex-col overflow-hidden px-2"
           >
             <div class="flex items-center justify-between mb-2 px-2">
-              <span class="text-xs font-medium text-white/60">
-                Drag rows to reorder queue
-              </span>
+              <span class="text-xs font-medium text-white/60"> Drag rows to reorder queue </span>
               <button
                 type="button"
                 class="text-xs px-2.5 py-1 rounded-full bg-white/10 hover:bg-white/20 text-white/90 transition cursor-pointer"
@@ -575,7 +592,9 @@
                   </div>
                   <div class="text-xs text-white/55 truncate">
                     {{
-                      (qSong.ar || (qSong as any).artists || []).map((a: any) => a.name).join(' / ') ||
+                      (qSong.ar || (qSong as any).artists || [])
+                        .map((a: any) => a.name)
+                        .join(' / ') ||
                       (qSong as any).artist ||
                       'Unknown Artist'
                     }}
@@ -726,7 +745,11 @@ import Cover3D from '@/components/cover/Cover3D.vue';
 import LyricCorrectionControl from '@/components/lyric/LyricCorrectionControl.vue';
 import LyricSettings from '@/components/lyric/LyricSettings.vue';
 import NamidaAmbientCanvas from '@/components/namida/NamidaAmbientCanvas.vue';
-import NamidaWaveformSeekbar from '@/components/namida/NamidaWaveformSeekbar.vue';
+import NamidaWaveformSeekbar, {
+  type SeekbarAbLoop,
+  type SeekbarBookmark,
+  type SeekbarSegment
+} from '@/components/namida/NamidaWaveformSeekbar.vue';
 import NamidaStackedPlayer from '@/components/player/NamidaStackedPlayer.vue';
 import SaveToDiskModal from '@/components/player/SaveToDiskModal.vue';
 import VideoSourcePopover from '@/components/player/VideoSourcePopover.vue';
@@ -767,6 +790,13 @@ import {
   type Song,
   type Variant
 } from '@/services/songLibrary';
+import {
+  fetchSponsorBlockSegments,
+  findActiveSkipSegment,
+  isAutoSkipSponsorBlockEnabled,
+  parseChaptersFromDescription,
+  type SponsorBlockSegment
+} from '@/services/sponsorBlockService';
 import { youtubeService } from '@/services/youtubeService';
 import { usePlayerStore } from '@/store/modules/player';
 import { useSettingsStore } from '@/store/modules/settings';
@@ -1985,6 +2015,71 @@ const resetVideoStateForNewSong = () => {
   playerStore.resetMediaStateForNewSong();
 };
 
+const seekbarAbLoop = ref<SeekbarAbLoop>(audioService.getAbLoop());
+const seekbarBookmarks = ref<SeekbarBookmark[]>([]);
+const sponsorBlockSegments = ref<SponsorBlockSegment[]>([]);
+const chapterSegments = ref<SeekbarSegment[]>([]);
+let lastSkippedSegmentKey = '';
+
+const seekbarSegments = computed<SeekbarSegment[]>(() => [
+  ...chapterSegments.value,
+  ...sponsorBlockSegments.value
+]);
+
+const refreshSeekbarMarkers = () => {
+  seekbarAbLoop.value = audioService.getAbLoop();
+  const trackId = playMusic.value?.id;
+  seekbarBookmarks.value = trackId ? audioService.getBookmarks(trackId) : [];
+};
+
+const refreshTrackChaptersAndSponsorBlock = async () => {
+  const song = playMusic.value as any;
+  const description = typeof song?.description === 'string' ? song.description : '';
+  const chapters = parseChaptersFromDescription(description, allTime.value || undefined);
+  chapterSegments.value = chapters.map((ch) => ({
+    startTime: ch.startTime,
+    endTime: ch.endTime,
+    category: 'chapter',
+    label: ch.title
+  }));
+
+  const ytId = currentYoutubeId.value || song?.youtubeId || '';
+  if (!ytId) {
+    sponsorBlockSegments.value = [];
+    return;
+  }
+  const fetched = await fetchSponsorBlockSegments(ytId);
+  if ((currentYoutubeId.value || (playMusic.value as any)?.youtubeId || '') === ytId) {
+    sponsorBlockSegments.value = fetched;
+  }
+};
+
+watch(
+  () => [currentYoutubeId.value, playMusic.value?.id],
+  () => {
+    lastSkippedSegmentKey = '';
+    refreshSeekbarMarkers();
+    void refreshTrackChaptersAndSponsorBlock();
+  },
+  { immediate: true }
+);
+
+watch(
+  () => nowTime.value,
+  (t) => {
+    if (!playerStore.isPlay || sponsorBlockSegments.value.length === 0) return;
+    const autoSkipEnabled =
+      Boolean(settingsStore.setData?.enableSponsorBlockAutoSkip) || isAutoSkipSponsorBlockEnabled();
+    if (!autoSkipEnabled) return;
+    const active = findActiveSkipSegment(t, sponsorBlockSegments.value);
+    if (!active) return;
+    const segKey = `${playMusic.value?.id || ''}::${active.startTime}-${active.endTime}`;
+    if (lastSkippedSegmentKey === segKey) return;
+    lastSkippedSegmentKey = segKey;
+    handleSeekTime(active.endTime);
+  }
+);
+
 let lastSeenSongId: string | number | undefined = playMusic.value?.id;
 
 watch(
@@ -1997,6 +2092,7 @@ watch(
       resetVideoStateForNewSong();
       underArtScrollOffset.value = 0;
     }
+    refreshSeekbarMarkers();
     void refreshSongVariants().then(() => {
       if (songChanged) prefetchVideoStream();
     });
@@ -2051,6 +2147,8 @@ onMounted(() => {
   }
   document.addEventListener('fullscreenchange', handleFullScreenChange);
   window.addEventListener(LYRIC_CONFIG_CHANGE_EVENT, handleLyricConfigChange);
+  audioService.on('markers_changed', refreshSeekbarMarkers);
+  refreshSeekbarMarkers();
   measureLayoutWidth();
   window.addEventListener('resize', measureLayoutWidth);
 
@@ -2065,6 +2163,7 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
+  audioService.off('markers_changed', refreshSeekbarMarkers);
   removeFullScreenListener?.();
   if (lrcSider.value?.$el) {
     lrcSider.value.$el.removeEventListener('scroll', handleScroll);
@@ -2786,7 +2885,11 @@ defineExpose({
   cursor: pointer;
 
   &.is-active {
-    background: color-mix(in srgb, rgb(var(--namida-seed, 139, 92, 246)) 35%, rgba(255, 255, 255, 0.14));
+    background: color-mix(
+      in srgb,
+      rgb(var(--namida-seed, 139, 92, 246)) 35%,
+      rgba(255, 255, 255, 0.14)
+    );
     color: #ffffff;
   }
 }
@@ -2800,7 +2903,11 @@ defineExpose({
   }
 
   &.is-current {
-    background: color-mix(in srgb, rgb(var(--namida-seed, 139, 92, 246)) 26%, rgba(255, 255, 255, 0.08));
+    background: color-mix(
+      in srgb,
+      rgb(var(--namida-seed, 139, 92, 246)) 26%,
+      rgba(255, 255, 255, 0.08)
+    );
     border-color: color-mix(in srgb, rgb(var(--namida-seed, 139, 92, 246)) 55%, transparent);
   }
 

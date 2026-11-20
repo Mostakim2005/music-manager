@@ -1,5 +1,13 @@
-import { audioDspGraph, type AudioDspState, type AudioSignalPathInfo } from '@/services/audioDspGraph';
-import { addListeningSeconds, recordTrackPlay } from '@/services/listeningStatsService';
+import {
+  audioDspGraph,
+  type AudioDspState,
+  type AudioSignalPathInfo
+} from '@/services/audioDspGraph';
+import {
+  addListeningSeconds,
+  recordTrackPlay,
+  shouldRecordPlayThreshold
+} from '@/services/listeningStatsService';
 import { mediaCoordinator, setAudioServiceInstance } from '@/services/mediaCoordinator';
 import { getSongKey, registerCurrentTrackProvider, savePosition } from '@/services/songLibrary';
 import type { AudioOutputDevice } from '@/types/audio';
@@ -43,6 +51,8 @@ class AudioService {
     pointB: null
   };
   private lastStatsTickTime = 0;
+  private currentTrackListenedSec = 0;
+  private currentTrackScrobbled = false;
 
   private operationLock = false;
   private operationLockTimer: ReturnType<typeof setTimeout> | null = null;
@@ -630,13 +640,6 @@ class AudioService {
           this.updateMediaSessionPositionState();
           this.emit('load');
           this.releaseOperationLock();
-          if (isPlay && track) {
-            try {
-              recordTrackPlay(track);
-            } catch {
-              // safe ignore
-            }
-          }
           resolve(this.audio);
         } catch (error) {
           if (settled) return;
@@ -649,6 +652,9 @@ class AudioService {
         if (settled) return;
         this._isLoading = true;
         this.currentTrack = track;
+        this.currentTrackListenedSec = 0;
+        this.currentTrackScrobbled = false;
+        this.lastStatsTickTime = 0;
         this.setupEQ();
         loadTimer = setTimeout(() => failLoad(new Error('Audio loading timed out')), 20000);
         const onError = () => {
@@ -851,6 +857,9 @@ class AudioService {
       console.error('Failed to stop audio:', error);
     }
     this.currentTrack = null;
+    this.currentTrackListenedSec = 0;
+    this.currentTrackScrobbled = false;
+    this.lastStatsTickTime = 0;
     if ('mediaSession' in navigator) {
       navigator.mediaSession.playbackState = 'none';
     }
@@ -1017,6 +1026,18 @@ class AudioService {
       this.lastStatsTickTime = now;
       if (deltaSec > 0 && deltaSec < 10) {
         addListeningSeconds(this.currentTrack, deltaSec);
+        this.currentTrackListenedSec += deltaSec;
+        if (!this.currentTrackScrobbled) {
+          const durationSec = Number.isFinite(this.audio.duration) ? this.audio.duration : 0;
+          if (shouldRecordPlayThreshold(this.currentTrackListenedSec, durationSec)) {
+            this.currentTrackScrobbled = true;
+            try {
+              recordTrackPlay(this.currentTrack);
+            } catch {
+              // ignore scrobble storage errors
+            }
+          }
+        }
       }
     }
   }
@@ -1146,6 +1167,7 @@ class AudioService {
       this.abLoop.pointB = null;
       this.abLoop.enabled = false;
     }
+    this.emit('markers_changed');
     return this.getAbLoop();
   }
 
@@ -1158,11 +1180,13 @@ class AudioService {
       this.abLoop.pointB = t;
       this.abLoop.enabled = true;
     }
+    this.emit('markers_changed');
     return this.getAbLoop();
   }
 
   public clearAbLoop() {
     this.abLoop = { enabled: false, pointA: null, pointB: null };
+    this.emit('markers_changed');
     return this.getAbLoop();
   }
 
@@ -1205,6 +1229,7 @@ class AudioService {
       list.sort((a, b) => a.time - b.time);
       raw[key] = list;
       localStorage.setItem('music_manager_bookmarks_v1', JSON.stringify(raw));
+      this.emit('markers_changed');
       return list;
     } catch {
       return [];
@@ -1224,6 +1249,7 @@ class AudioService {
         : [];
       raw[key] = list;
       localStorage.setItem('music_manager_bookmarks_v1', JSON.stringify(raw));
+      this.emit('markers_changed');
       return list;
     } catch {
       return [];

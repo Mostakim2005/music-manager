@@ -3,9 +3,24 @@
     <div
       class="flex-shrink-0 border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-black z-10 page-padding pt-6 pb-2"
     >
-      <h1 class="text-2xl md:text-3xl font-bold text-neutral-900 dark:text-white mb-6">
-        {{ t('common.settings') }}
-      </h1>
+      <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
+        <h1 class="text-2xl md:text-3xl font-bold text-neutral-900 dark:text-white">
+          {{ t('common.settings') }}
+        </h1>
+        <div class="w-full sm:w-72">
+          <n-input
+            v-model:value="settingsSearchQuery"
+            clearable
+            round
+            size="medium"
+            placeholder="Search all settings..."
+          >
+            <template #prefix>
+              <i class="ri-search-line text-neutral-400" />
+            </template>
+          </n-input>
+        </div>
+      </div>
 
       <n-scrollbar x-scrollable class="w-full">
         <div class="flex items-center pl-2 pb-2 whitespace-nowrap">
@@ -28,27 +43,36 @@
 
     <n-scrollbar class="flex-1">
       <div class="w-full mx-auto pb-32 pt-6 page-padding">
-        <div v-show="currentSection === 'basic'" class="animate-fade-in">
+        <div v-show="isSearchingSettings || currentSection === 'basic'" class="animate-fade-in">
           <basic-tab />
         </div>
 
-        <div v-show="currentSection === 'playback'" class="animate-fade-in">
+        <div v-show="isSearchingSettings || currentSection === 'playback'" class="animate-fade-in">
           <playback-tab />
         </div>
 
-        <div v-show="currentSection === 'application'" class="animate-fade-in">
+        <div
+          v-show="(isSearchingSettings && isElectron) || currentSection === 'application'"
+          class="animate-fade-in"
+        >
           <application-tab />
         </div>
 
-        <div v-show="currentSection === 'network'" class="animate-fade-in">
+        <div
+          v-show="(isSearchingSettings && isElectron) || currentSection === 'network'"
+          class="animate-fade-in"
+        >
           <network-tab />
         </div>
 
-        <div v-show="currentSection === 'system'" class="animate-fade-in">
+        <div
+          v-show="(isSearchingSettings && isElectron) || currentSection === 'system'"
+          class="animate-fade-in"
+        >
           <system-tab />
         </div>
 
-        <div v-show="currentSection === 'about'" class="animate-fade-in">
+        <div v-show="isSearchingSettings || currentSection === 'about'" class="animate-fade-in">
           <about-tab />
         </div>
 
@@ -71,7 +95,12 @@ import { isElectron } from '@/utils';
 
 import config from '../../../../package.json';
 import { createDefaultAppUpdateState } from '../../../shared/appUpdate';
-import { SETTINGS_DATA_KEY, SETTINGS_DIALOG_KEY, SETTINGS_MESSAGE_KEY } from './keys';
+import {
+  SETTINGS_DATA_KEY,
+  SETTINGS_DIALOG_KEY,
+  SETTINGS_MESSAGE_KEY,
+  SETTINGS_SEARCH_KEY
+} from './keys';
 import AboutTab from './tabs/AboutTab.vue';
 import ApplicationTab from './tabs/ApplicationTab.vue';
 import BasicTab from './tabs/BasicTab.vue';
@@ -117,10 +146,14 @@ onUnmounted(() => {
   settingsStore.setSetData(localSetData.value);
 });
 
+const settingsSearchQuery = ref('');
+const isSearchingSettings = computed(() => settingsSearchQuery.value.trim().length > 0);
+
 // ==================== Provide ====================
 provide(SETTINGS_DATA_KEY, setData);
 provide(SETTINGS_MESSAGE_KEY, message);
 provide(SETTINGS_DIALOG_KEY, dialog);
+provide(SETTINGS_SEARCH_KEY, settingsSearchQuery);
 
 type SettingSectionConfig = {
   id: string;

@@ -1,16 +1,20 @@
 # Architectural Decisions, Pivots & Landmines (`DECISIONS_AND_TRAPS.md`)
+
 > **1-Line Summary:** Records why we chose specific approaches, what failed when we tried other ways, who made the decision, and critical code traps never to touch.
 
 ## 1. Architectural Decisions & Pivot History
 
 ### [DECISION: Linked-Muted-Video-With-Master-Audio] | Aliases: video mode, double audio, video stops audio keeps playing, A/V sync
+
 > **1-Line Summary:** Video mode plays the audio file as the only sound source while a muted video follows its clock, replacing the old pause-audio-play-video design that caused double audio and desync.
-* **Decision Maker:** `[DECIDED BY: HUMAN]` (user: "I want audio and video linked... download the video without its audio")
-* **Original User Intention:** One linked A/V experience where the play button, video and audio always agree, and switching modes has no delay.
-* **Options Considered:**
-  * **Option A (Rejected):** Pause the audio element and let the video play its own merged audio track. This caused double audio whenever both surfaces ran, a ~1s gap from the crossfade and stream resolution, stale late pause events flipping the button, and shared-clock drift.
-  * **Option B (Chosen):** Audio stays the master clock and only sound source; the video element is muted and slave-synced (drift corrected above 0.75s). Video-only media makes this the natural model.
-* **Visual Pivot Map (What Failed vs. What Works):**
+
+- **Decision Maker:** `[DECIDED BY: HUMAN]` (user: "I want audio and video linked... download the video without its audio")
+- **Original User Intention:** One linked A/V experience where the play button, video and audio always agree, and switching modes has no delay.
+- **Options Considered:**
+  - **Option A (Rejected):** Pause the audio element and let the video play its own merged audio track. This caused double audio whenever both surfaces ran, a ~1s gap from the crossfade and stream resolution, stale late pause events flipping the button, and shared-clock drift.
+  - **Option B (Chosen):** Audio stays the master clock and only sound source; the video element is muted and slave-synced (drift corrected above 0.75s). Video-only media makes this the natural model.
+- **Visual Pivot Map (What Failed vs. What Works):**
+
 ```mermaid
 flowchart LR
     subgraph Failed["Old Approach (Failed)"]
@@ -22,213 +26,270 @@ flowchart LR
         B2 --> B3[One sound, one state, no gap]
     end
 ```
-* **Code Anchors (Grep Targets):**
-  * `src/renderer/components/lyric/MusicFull.vue` -> `enterVideoMode`, `syncVideoSlaveState`
-  * `src/renderer/store/modules/playerCore.ts` -> `setPlaybackMode`
+
+- **Code Anchors (Grep Targets):**
+  - `src/renderer/components/lyric/MusicFull.vue` -> `enterVideoMode`, `syncVideoSlaveState`
+  - `src/renderer/store/modules/playerCore.ts` -> `setPlaybackMode`
 
 ### [DECISION: Video-Only-Media-By-Default] | Aliases: bestvideo, no audio merge, video -audio, smaller files
+
 > **1-Line Summary:** Videos are streamed and downloaded without an audio track at all, since linked playback supplies the sound from the song file.
-* **Decision Maker:** `[DECIDED BY: HUMAN]` (user suggestion: "download the video without its audio (video-only)")
-* **Original User Intention:** No duplicated audio in files, smaller downloads, and a video file that matches how playback actually works.
-* **Options Considered:**
-  * **Option A (Rejected):** `bestvideo+bestaudio` merged by yt-dlp/ffmpeg, plus the ffmpeg DASH mux proxy for streaming. Duplicated audio in every file, and the proxy stream was unseekable.
-  * **Option B (Chosen):** `-f bestvideo` / exact `formatId` with no merge; streams return the video-only URL directly (range-seekable). The mux proxy survives only as a legacy seek fallback.
-* **Code Anchors (Grep Targets):**
-  * `src/main/modules/youtube.ts` -> `downloadMedia`, `getStreamUrl`
-  * `src/renderer/components/player/VideoSourcePopover.vue` -> `downloadVideoQuality`
+
+- **Decision Maker:** `[DECIDED BY: HUMAN]` (user suggestion: "download the video without its audio (video-only)")
+- **Original User Intention:** No duplicated audio in files, smaller downloads, and a video file that matches how playback actually works.
+- **Options Considered:**
+  - **Option A (Rejected):** `bestvideo+bestaudio` merged by yt-dlp/ffmpeg, plus the ffmpeg DASH mux proxy for streaming. Duplicated audio in every file, and the proxy stream was unseekable.
+  - **Option B (Chosen):** `-f bestvideo` / exact `formatId` with no merge; streams return the video-only URL directly (range-seekable). The mux proxy survives only as a legacy seek fallback.
+- **Code Anchors (Grep Targets):**
+  - `src/main/modules/youtube.ts` -> `downloadMedia`, `getStreamUrl`
+  - `src/renderer/components/player/VideoSourcePopover.vue` -> `downloadVideoQuality`
 
 ### [DECISION: Per-Song-Media-Reset] | Aliases: next song stale video, artwork carries over, mode pill bug
+
 > **1-Line Summary:** All media state is dropped on track change because video/artwork/quality belong to a song ID, never to the session.
-* **Decision Maker:** `[DECIDED BY: HUMAN]` (bug report: "after pressing next... the old artwork and video stay")
-* **Original User Intention:** A new song must start visually fresh, even when it has no video.
-* **Options Considered:**
-  * **Option A (Rejected):** Lazy overwriting of video state only when the new song has its own video. Left stale frames and a wrong pill whenever the next song was audio-only.
-  * **Option B (Chosen):** Synchronous reset in `playTrack` plus a full local reset in the fullscreen player on song-ID change.
-* **Code Anchors (Grep Targets):**
-  * `src/renderer/services/playbackController.ts` -> `playTrack`
-  * `src/renderer/store/modules/playerCore.ts` -> `resetMediaStateForNewSong`
+
+- **Decision Maker:** `[DECIDED BY: HUMAN]` (bug report: "after pressing next... the old artwork and video stay")
+- **Original User Intention:** A new song must start visually fresh, even when it has no video.
+- **Options Considered:**
+  - **Option A (Rejected):** Lazy overwriting of video state only when the new song has its own video. Left stale frames and a wrong pill whenever the next song was audio-only.
+  - **Option B (Chosen):** Synchronous reset in `playTrack` plus a full local reset in the fullscreen player on song-ID change.
+- **Code Anchors (Grep Targets):**
+  - `src/renderer/services/playbackController.ts` -> `playTrack`
+  - `src/renderer/store/modules/playerCore.ts` -> `resetMediaStateForNewSong`
 
 ### [DECISION: One-Writer-For-Play-State] | Aliases: play button desync, isPlay drift, three flags
+
 > **1-Line Summary:** The play flag has one writer and pause stops every surface, instead of audio, video and MV each flipping it independently.
-* **Decision Maker:** `[DECIDED BY: AGENT - Approved by Human]`
-* **Original User Intention:** The button must never disagree with what is audible.
-* **Options Considered:**
-  * **Option A (Rejected):** Each media surface set the shared flag from its own events. Late crossfade pauses and video pauses overwrote each other and the button drifted from reality.
-  * **Option B (Chosen):** Audio events own the flag (with guards for other surfaces), all buttons route through one toggle path, and `handlePause` pauses every registered element.
-* **Code Anchors (Grep Targets):**
-  * `src/renderer/store/modules/playerCore.ts` -> `setIsPlay`, `handlePause`
-  * `src/renderer/hooks/usePlaybackControl.ts` -> `playMusicEvent`
+
+- **Decision Maker:** `[DECIDED BY: AGENT - Approved by Human]`
+- **Original User Intention:** The button must never disagree with what is audible.
+- **Options Considered:**
+  - **Option A (Rejected):** Each media surface set the shared flag from its own events. Late crossfade pauses and video pauses overwrote each other and the button drifted from reality.
+  - **Option B (Chosen):** Audio events own the flag (with guards for other surfaces), all buttons route through one toggle path, and `handlePause` pauses every registered element.
+- **Code Anchors (Grep Targets):**
+  - `src/renderer/store/modules/playerCore.ts` -> `setIsPlay`, `handlePause`
+  - `src/renderer/hooks/usePlaybackControl.ts` -> `playMusicEvent`
 
 ### [DECISION: Lazy-IndexedDB-Proxy] | Aliases: white screen, top level await, startup crash
+
 > **1-Line Summary:** The Dexie library handle is a lazy proxy so bundled module evaluation order can never crash startup again.
-* **Decision Maker:** `[DECIDED BY: AGENT - Approved by Human]`
-* **Original User Intention:** The packaged app must never open to a white screen.
-* **Options Considered:**
-  * **Option A (Rejected):** Top-level `await useIndexedDB(...)` at module root. Bundle chunk hoisting called `musicDB` before initialization (`ReferenceError`), crashing the renderer on packaged startup.
-  * **Option B (Chosen):** Export a lazy proxy whose methods await an internal singleton, with guards for headless tests.
-* **Code Anchors (Grep Targets):**
-  * `src/renderer/hooks/IndexDBHook.ts` -> `musicDB`, `getMusicDBInstance`
+
+- **Decision Maker:** `[DECIDED BY: AGENT - Approved by Human]`
+- **Original User Intention:** The packaged app must never open to a white screen.
+- **Options Considered:**
+  - **Option A (Rejected):** Top-level `await useIndexedDB(...)` at module root. Bundle chunk hoisting called `musicDB` before initialization (`ReferenceError`), crashing the renderer on packaged startup.
+  - **Option B (Chosen):** Export a lazy proxy whose methods await an internal singleton, with guards for headless tests.
+- **Code Anchors (Grep Targets):**
+  - `src/renderer/hooks/IndexDBHook.ts` -> `musicDB`, `getMusicDBInstance`
 
 ### [DECISION: Single-FFmpeg-Binary] | Aliases: duplicate ffmpeg, 79 MB, packaging size
+
 > **1-Line Summary:** Exactly one ffmpeg copy ships and one resolver points to it, cutting 79 MB from the portable.
-* **Decision Maker:** `[DECIDED BY: AGENT - Approved by Human]`
-* **Original User Intention:** A smaller portable without losing tag writing or video muxing.
-* **Options Considered:**
-  * **Option A (Rejected):** Let `tagAndMetadataManager` use the `ffmpeg-static` npm copy while `youtube.ts` used `resources/bin/ffmpeg.exe`. Two identical 79 MB binaries shipped.
-  * **Option B (Chosen):** Both callers resolve through `getFfmpegPath()` in `youtube.ts`; `ffmpeg-static` removed entirely.
-* **Code Anchors (Grep Targets):**
-  * `src/main/modules/youtube.ts` -> `getFfmpegPath`
+
+- **Decision Maker:** `[DECIDED BY: AGENT - Approved by Human]`
+- **Original User Intention:** A smaller portable without losing tag writing or video muxing.
+- **Options Considered:**
+  - **Option A (Rejected):** Let `tagAndMetadataManager` use the `ffmpeg-static` npm copy while `youtube.ts` used `resources/bin/ffmpeg.exe`. Two identical 79 MB binaries shipped.
+  - **Option B (Chosen):** Both callers resolve through `getFfmpegPath()` in `youtube.ts`; `ffmpeg-static` removed entirely.
+- **Code Anchors (Grep Targets):**
+  - `src/main/modules/youtube.ts` -> `getFfmpegPath`
 
 ### [DECISION: English-Only-Source-With-Documented-Exemptions] | Aliases: de-china, chinese comments, sweep gate, kugou removal, netease stubs
+
 > **1-Line Summary:** All source text, comments, and network endpoints are English/local-first, removing legacy Chinese Kugou HTTP proxies and dead Netease API stubs, with four deliberate CJK data exemptions and a regression gate.
-* **Decision Maker:** `[DECIDED BY: HUMAN]` (requirement from the rebrand and audit)
-* **Original User Intention:** A clean English-first codebase, UI, and network surface with no hidden Chinese HTTP calls or no-op Netease stubs.
-* **Options Considered:**
-  * **Option A (Rejected):** Blanket-delete every CJK character or leave legacy Kugou/Netease stubs returning empty `code: 200` responses. Blanket deletion destroyed romanisation lookup tables, while legacy stubs silently dropped user actions and sent plaintext HTTP traffic to Kugou.
-  * **Option B (Chosen):** Translate real source text, remove dead Netease stubs in `src/renderer/api/music.ts`, replace the Kugou suggestion proxy with local Dexie matches + HTTPS YouTube suggestions (`fetchYouTubeSuggestions`), and keep transliteration tables, locale bundles, the playlist-header matcher and the font-preview sample, proven by `.sweep-gate.mjs`.
-* **Code Anchors (Grep Targets):**
-  * `.sweep-gate.mjs` -> gate script
-  * `src/shared/transliteration.ts` -> `detectScriptAndRomanize`, `generateRomanizedLyricLrc`
-  * `src/main/modules/otherApi.ts` -> `fetchYouTubeSuggestions`
-  * `src/renderer/api/search.ts` -> `getSearchSuggestions`
+
+- **Decision Maker:** `[DECIDED BY: HUMAN]` (requirement from the rebrand and audit)
+- **Original User Intention:** A clean English-first codebase, UI, and network surface with no hidden Chinese HTTP calls or no-op Netease stubs.
+- **Options Considered:**
+  - **Option A (Rejected):** Blanket-delete every CJK character or leave legacy Kugou/Netease stubs returning empty `code: 200` responses. Blanket deletion destroyed romanisation lookup tables, while legacy stubs silently dropped user actions and sent plaintext HTTP traffic to Kugou.
+  - **Option B (Chosen):** Translate real source text, remove dead Netease stubs in `src/renderer/api/music.ts`, replace the Kugou suggestion proxy with local Dexie matches + HTTPS YouTube suggestions (`fetchYouTubeSuggestions`), and keep transliteration tables, locale bundles, the playlist-header matcher and the font-preview sample, proven by `.sweep-gate.mjs`.
+- **Code Anchors (Grep Targets):**
+  - `.sweep-gate.mjs` -> gate script
+  - `src/shared/transliteration.ts` -> `detectScriptAndRomanize`, `generateRomanizedLyricLrc`
+  - `src/main/modules/otherApi.ts` -> `fetchYouTubeSuggestions`
+  - `src/renderer/api/search.ts` -> `getSearchSuggestions`
 
 ### [DECISION: PolyForm-Noncommercial-Licensing] | Aliases: license, third party notices, mit upstream
+
 > **1-Line Summary:** The project ships under PolyForm Noncommercial 1.0.0 with all upstream MIT/Apache credits kept in `THIRD_PARTY_NOTICES.md`.
-* **Decision Maker:** `[DECIDED BY: HUMAN]` (user preference)
-* **Original User Intention:** Noncommercial protection for this project while honoring upstream open-source licenses.
-* **Options Considered:**
-  * **Option A (Rejected):** Plain MIT for everything. The user wants noncommercial terms for their own work.
-  * **Option B (Chosen):** `LICENSE` is strictly PolyForm Noncommercial 1.0.0; upstream MIT portions (AlgerMusicPlayer base, YesPlayMusic ports, all bundled libraries) are credited with license links in `THIRD_PARTY_NOTICES.md`.
-* **Code Anchors (Grep Targets):**
-  * `LICENSE` -> PolyForm Noncommercial 1.0.0
-  * `THIRD_PARTY_NOTICES.md` -> credit tables
+
+- **Decision Maker:** `[DECIDED BY: HUMAN]` (user preference)
+- **Original User Intention:** Noncommercial protection for this project while honoring upstream open-source licenses.
+- **Options Considered:**
+  - **Option A (Rejected):** Plain MIT for everything. The user wants noncommercial terms for their own work.
+  - **Option B (Chosen):** `LICENSE` is strictly PolyForm Noncommercial 1.0.0; upstream MIT portions (AlgerMusicPlayer base, YesPlayMusic ports, all bundled libraries) are credited with license links in `THIRD_PARTY_NOTICES.md`.
+- **Code Anchors (Grep Targets):**
+  - `LICENSE` -> PolyForm Noncommercial 1.0.0
+  - `THIRD_PARTY_NOTICES.md` -> credit tables
 
 ---
 
 ## 2. Do-Not-Touch Engineering Landmines (Traps)
 
 ### [TRAP: Never-Reintroduce-A-Second-FFmpeg] | Aliases: ffmpeg-static, duplicate binary, size regression
+
 > **1-Line Summary:** NEVER add `ffmpeg-static` or an `asarUnpack` entry for ffmpeg — it silently doubles the download by 79 MB.
-* **Strict Rule:** **NEVER** reintroduce `ffmpeg-static` as a dependency or unpack a second ffmpeg copy.
-* **Why This Trap Exists (Plain English):** Both the tag writer and the video pipeline reach ffmpeg through the single `getFfmpegPath()` resolver. A second copy is invisible at runtime — everything still works — but the artifact balloons.
-* **Protected Code Anchors (Grep Targets):**
-  * `src/main/modules/youtube.ts` -> `getFfmpegPath`
+
+- **Strict Rule:** **NEVER** reintroduce `ffmpeg-static` as a dependency or unpack a second ffmpeg copy.
+- **Why This Trap Exists (Plain English):** Both the tag writer and the video pipeline reach ffmpeg through the single `getFfmpegPath()` resolver. A second copy is invisible at runtime — everything still works — but the artifact balloons.
+- **Protected Code Anchors (Grep Targets):**
+  - `src/main/modules/youtube.ts` -> `getFfmpegPath`
 
 ### [TRAP: Muted-Linked-Video-Must-Never-Claim-Playback] | Aliases: coordinator, exclusivity, video pauses audio
+
 > **1-Line Summary:** NEVER let the muted linked video register as an audible surface, or it will pause the very audio it follows.
-* **Strict Rule:** **NEVER** remove the muted-element skip in the media coordinator's global play listener or claim exclusivity from `enterVideoMode`.
-* **Why This Trap Exists (Plain English):** The coordinator pauses every other element when one plays. The linked video plays on purpose alongside its audio; if it ever claims ownership, the audio gets paused and playback dies.
-* **Protected Code Anchors (Grep Targets):**
-  * `src/renderer/services/mediaCoordinator.ts` -> `initGlobalDOMListener`, `toggleActiveNonAudioPlayback`
-  * `src/renderer/components/lyric/MusicFull.vue` -> `syncVideoSlaveState`
+
+- **Strict Rule:** **NEVER** remove the muted-element skip in the media coordinator's global play listener or claim exclusivity from `enterVideoMode`.
+- **Why This Trap Exists (Plain English):** The coordinator pauses every other element when one plays. The linked video plays on purpose alongside its audio; if it ever claims ownership, the audio gets paused and playback dies.
+- **Protected Code Anchors (Grep Targets):**
+  - `src/renderer/services/mediaCoordinator.ts` -> `initGlobalDOMListener`, `toggleActiveNonAudioPlayback`
+  - `src/renderer/components/lyric/MusicFull.vue` -> `syncVideoSlaveState`
 
 ### [TRAP: Single-Clock-Audio-Master-Invariance] | Aliases: video muted, audio master, playbackRate sync
+
 > **1-Line Summary:** NEVER allow the linked video element to unmute, claim playback exclusivity, or act as the master clock.
-* **Strict Rule:** `<video>` in `MusicFull.vue` must remain permanently muted with `volume = 0` and slaved to `<audio>`.
-* **Why This Trap Exists (Plain English):** Unmuting video or allowing it to pause/resume audio causes double audio, acoustic echo, and broken crossfade volume transitions. Micro-adjustments to `video.playbackRate` (`0.97x`–`1.03x`) smoothly eliminate drift without frame stutter.
-* **Protected Code Anchors (Grep Targets):**
-  * `src/renderer/composables/useLinkedMediaSync.ts` -> `enforceSyncTick`
-  * `src/renderer/components/lyric/MusicFull.vue` -> `syncVideoSlaveState`
+
+- **Strict Rule:** `<video>` in `MusicFull.vue` must remain permanently muted with `volume = 0` and slaved to `<audio>`.
+- **Why This Trap Exists (Plain English):** Unmuting video or allowing it to pause/resume audio causes double audio, acoustic echo, and broken crossfade volume transitions. Micro-adjustments to `video.playbackRate` (`0.97x`–`1.03x`) smoothly eliminate drift without frame stutter.
+- **Protected Code Anchors (Grep Targets):**
+  - `src/renderer/composables/useLinkedMediaSync.ts` -> `enforceSyncTick`
+  - `src/renderer/components/lyric/MusicFull.vue` -> `syncVideoSlaveState`
 
 ### [TRAP: Cancel-Fade-Pauses-On-Resume] | Aliases: play then instant pause, button desync, 200ms ghost pause
+
 > **1-Line Summary:** NEVER resume audio without cancelling the pending fade-out pause, or it fires 200ms later and silently stops the sound.
-* **Strict Rule:** **NEVER** remove the `cancelFadeTimer()` call from the resume path of `play()`.
-* **Why This Trap Exists (Plain English):** `pause(true)` schedules the real pause after a 200ms volume fade. A quick pause→play leaves that timer alive; without cancellation it pauses the freshly resumed audio and the button shows "playing" while nothing is audible.
-* **Protected Code Anchors (Grep Targets):**
-  * `src/renderer/services/audioService.ts` -> `play`, `cancelFadeTimer`
+
+- **Strict Rule:** **NEVER** remove the `cancelFadeTimer()` call from the resume path of `play()`.
+- **Why This Trap Exists (Plain English):** `pause(true)` schedules the real pause after a 200ms volume fade. A quick pause→play leaves that timer alive; without cancellation it pauses the freshly resumed audio and the button shows "playing" while nothing is audible.
+- **Protected Code Anchors (Grep Targets):**
+  - `src/renderer/services/audioService.ts` -> `play`, `cancelFadeTimer`
 
 ### [TRAP: Lyric-Start-Times-Are-Milliseconds] | Aliases: lrc times wrong, 1000x offset, saved lrc corrupted
+
 > **1-Line Summary:** NEVER treat `ILyricText.startTime` as seconds — it is milliseconds and only `lrcTimeArray` is in seconds.
-* **Strict Rule:** **NEVER** serialize or compare `startTime` without dividing/multiplying by 1000 explicitly.
-* **Why This Trap Exists (Plain English):** Mixing the two units once already corrupted every exported `.lrc` file (mm:ss written from millisecond values). The parser, the editor and the exporter must all agree on the conversion.
-* **Protected Code Anchors (Grep Targets):**
-  * `src/renderer/components/lyric/MusicFull.vue` -> `rawLrcString`, `handleApplyEditedLrc`
-  * `src/renderer/hooks/usePlayerHooks.ts` -> `loadLrc`
+
+- **Strict Rule:** **NEVER** serialize or compare `startTime` without dividing/multiplying by 1000 explicitly.
+- **Why This Trap Exists (Plain English):** Mixing the two units once already corrupted every exported `.lrc` file (mm:ss written from millisecond values). The parser, the editor and the exporter must all agree on the conversion.
+- **Protected Code Anchors (Grep Targets):**
+  - `src/renderer/components/lyric/MusicFull.vue` -> `rawLrcString`, `handleApplyEditedLrc`
+  - `src/renderer/hooks/usePlayerHooks.ts` -> `loadLrc`
 
 ### [TRAP: Keep-Stored-Media-URLs-As-Local-Scheme] | Aliases: local://, seek broken, url conversion
+
 > **1-Line Summary:** NEVER store playable http URLs in the library — keep `local://` and convert only at playback time.
-* **Strict Rule:** **NEVER** persist `toPlayableMediaUrl()` output; always store the `local://` form.
-* **Why This Trap Exists (Plain English):** Local-track identity checks, variant matching and rename tracking key off the `local://` form. Loopback URLs change and break matching; Chromium also cannot seek custom schemes, so conversion must happen at load time only.
-* **Protected Code Anchors (Grep Targets):**
-  * `src/renderer/utils/localMediaUrl.ts` -> `toPlayableMediaUrl`
-  * `src/renderer/utils/persistedSong.ts` -> `minifySong`
+
+- **Strict Rule:** **NEVER** persist `toPlayableMediaUrl()` output; always store the `local://` form.
+- **Why This Trap Exists (Plain English):** Local-track identity checks, variant matching and rename tracking key off the `local://` form. Loopback URLs change and break matching; Chromium also cannot seek custom schemes, so conversion must happen at load time only.
+- **Protected Code Anchors (Grep Targets):**
+  - `src/renderer/utils/localMediaUrl.ts` -> `toPlayableMediaUrl`
+  - `src/renderer/utils/persistedSong.ts` -> `minifySong`
 
 ### [TRAP: Dexie-Schema-Index-Versioning] | Aliases: schema version, indexeddb upgrade, variants table
+
 > **1-Line Summary:** NEVER add or change a Dexie index without bumping the schema version, or upgrades corrupt existing libraries.
-* **Strict Rule:** **NEVER** alter index declarations in `getLibraryDB()` without a new version block. (Plain field additions like `codec` are safe.)
-* **Why This Trap Exists (Plain English):** IndexedDB only rebuilds indexes during an explicit version upgrade; a silent index change makes old libraries fail to open.
-* **Protected Code Anchors (Grep Targets):**
-  * `src/renderer/services/songLibrary.ts` -> `getLibraryDB`
+
+- **Strict Rule:** **NEVER** alter index declarations in `getLibraryDB()` without a new version block. (Plain field additions like `codec` are safe.)
+- **Why This Trap Exists (Plain English):** IndexedDB only rebuilds indexes during an explicit version upgrade; a silent index change makes old libraries fail to open.
+- **Protected Code Anchors (Grep Targets):**
+  - `src/renderer/services/songLibrary.ts` -> `getLibraryDB`
 
 ### [TRAP: Comment-Sweeps-Must-Rewrite-Catch-Comments] | Aliases: empty catch, no-empty, silent errors
+
 > **1-Line Summary:** NEVER mechanically delete comments from `catch { // reason }` blocks — rewrite them in English instead.
-* **Strict Rule:** **NEVER** run a comment-removal pass without the `npx eslint ./src` `no-empty` check afterwards (count must stay 0).
-* **Why This Trap Exists (Plain English):** Deleting the comment leaves an empty catch, which trips `no-empty`, fails CI, and silently discards the reason an error is ignored. One sweep already produced 13 such blocks.
-* **Protected Code Anchors (Grep Targets):**
-  * `.sweep-gate.mjs` -> regression gate
-  * `eslint.config.mjs` -> `no-empty` rule
+
+- **Strict Rule:** **NEVER** run a comment-removal pass without the `npx eslint ./src` `no-empty` check afterwards (count must stay 0).
+- **Why This Trap Exists (Plain English):** Deleting the comment leaves an empty catch, which trips `no-empty`, fails CI, and silently discards the reason an error is ignored. One sweep already produced 13 such blocks.
+- **Protected Code Anchors (Grep Targets):**
+  - `.sweep-gate.mjs` -> regression gate
+  - `eslint.config.mjs` -> `no-empty` rule
 
 ### [TRAP: Keep-Only-The-En-US-Locale-Pak] | Aliases: electronLanguages, locale paks, 44 MB bloat
+
 > **1-Line Summary:** NEVER add a locale to `build.electronLanguages` without also shipping its language bundle — and never ship bundles without matching paks.
-* **Strict Rule:** **NEVER** widen `electronLanguages` past `['en-US']` unless `src/i18n/lang/` actually ships that locale.
-* **Why This Trap Exists (Plain English):** Chromium copies one ~800KB pak per listed language; 54 unused paks once added 44 MB to the artifact, and a listed-but-missing pak breaks startup strings.
-* **Protected Code Anchors (Grep Targets):**
-  * `package.json` -> `build.electronLanguages`
+
+- **Strict Rule:** **NEVER** widen `electronLanguages` past `['en-US']` unless `src/i18n/lang/` actually ships that locale.
+- **Why This Trap Exists (Plain English):** Chromium copies one ~800KB pak per listed language; 54 unused paks once added 44 MB to the artifact, and a listed-but-missing pak breaks startup strings.
+- **Protected Code Anchors (Grep Targets):**
+  - `package.json` -> `build.electronLanguages`
 
 ### [TRAP: Sandbox-Cannot-Launch-The-GUI] | Aliases: app exits immediately, bad option, headless
+
 > **1-Line Summary:** NEVER treat "the packaged app exits instantly" as a regression in the agent sandbox — the GUI cannot open here.
-* **Strict Rule:** **NEVER** chase startup-exit behavior from the agent shell; verify packaging changes by static artifact inspection instead.
-* **Why This Trap Exists (Plain English):** The sandbox's Electron stub resolves `require('electron')` to the npm stub, so `app.whenReady()` never fires and the process exits 0 looking broken. Real verification needs a desktop session.
-* **Protected Code Anchors (Grep Targets):**
-  * `docs/ARCHITECTURE.md` -> `Automated-Check-Suite` (verification commands)
+
+- **Strict Rule:** **NEVER** chase startup-exit behavior from the agent shell; verify packaging changes by static artifact inspection instead.
+- **Why This Trap Exists (Plain English):** The sandbox's Electron stub resolves `require('electron')` to the npm stub, so `app.whenReady()` never fires and the process exits 0 looking broken. Real verification needs a desktop session.
+- **Protected Code Anchors (Grep Targets):**
+  - `docs/ARCHITECTURE.md` -> `Automated-Check-Suite` (verification commands)
 
 ### [TRAP: Release-Binary-Timing-Gap] | Aliases: release timing, v5.4.0 defect, tag before commit, stale binaries
+
 > **1-Line Summary:** NEVER cut or push a release tag (v*) until all intended code commits (identity, URLs, attribution) are committed to main.
-* **Strict Rule:** **NEVER** tag a release until the commit tree on `main` is completely clean, verified, and pushed.
-* **Why This Trap Exists (Plain English):** CI cloud builds are triggered by tags. In v5.4.0, a tag was placed at commit `28008e1` two hours before rebrand commit `ad01e26` was pushed, causing the shipped executables to carry upstream URLs and identity despite GitHub looking correct.
-* **Protected Code Anchors (Grep Targets):**
-  * `.github/workflows/build.yml` -> `on.push.tags`
-  * `package.json` -> `version`
+
+- **Strict Rule:** **NEVER** tag a release until the commit tree on `main` is completely clean, verified, and pushed.
+- **Why This Trap Exists (Plain English):** CI cloud builds are triggered by tags. In v5.4.0, a tag was placed at commit `28008e1` two hours before rebrand commit `ad01e26` was pushed, causing the shipped executables to carry upstream URLs and identity despite GitHub looking correct.
+- **Protected Code Anchors (Grep Targets):**
+  - `.github/workflows/build.yml` -> `on.push.tags`
+  - `package.json` -> `version`
 
 ### [TRAP: Nested-Repository-Scaffolding] | Aliases: double git, outer repo, master vs main, wrong remote
+
 > **1-Line Summary:** NEVER maintain an outer .git wrapper around an active project clone.
-* **Strict Rule:** **NEVER** initialize or leave an outer `.git` folder in parent directories of the real application repository.
-* **Why This Trap Exists (Plain English):** An outer repository scaffold without a remote traps git commands and coding agents into committing changes locally to the wrong repository branch (`master` vs `main`), obscuring the real git status.
-* **Protected Code Anchors (Grep Targets):**
-  * Project root `.git` boundary
+
+- **Strict Rule:** **NEVER** initialize or leave an outer `.git` folder in parent directories of the real application repository.
+- **Why This Trap Exists (Plain English):** An outer repository scaffold without a remote traps git commands and coding agents into committing changes locally to the wrong repository branch (`master` vs `main`), obscuring the real git status.
+- **Protected Code Anchors (Grep Targets):**
+  - Project root `.git` boundary
 
 ### [TRAP: Self-Identifying-Release-Binaries] | Aliases: release naming, branch identification, engine disambiguation
+
 > **1-Line Summary:** ALL release executables MUST follow `MusicManager-Electron-Chromium-v<Version>-branch-<BranchSlug>-<ShortSHA>-<Type>.<ext>` to avoid multi-repo/multi-branch ambiguity.
-* **Strict Rule:** **NEVER** publish release binaries with generic names like `MusicManager-Portable.exe` or `MusicManager-v5.4.1-Setup.exe`. Every artifact MUST explicitly state engine (`Electron-Chromium`), version, branch, short commit SHA, and artifact type.
-* **Why This Trap Exists (Plain English):** When parallel ports (Electron vs Tauri) and multiple branches exist, users cannot tell which engine or branch an executable was compiled from. Self-identifying filenames eliminate ambiguity.
-* **Protected Code Anchors (Grep Targets):**
-  * `.github/workflows/build.yml` -> `discover-branches` and `Standardize Self-Identifying Binary Names`
+
+- **Strict Rule:** **NEVER** publish release binaries with generic names like `MusicManager-Portable.exe` or `MusicManager-v5.4.1-Setup.exe`. Every artifact MUST explicitly state engine (`Electron-Chromium`), version, branch, short commit SHA, and artifact type.
+- **Why This Trap Exists (Plain English):** When parallel ports (Electron vs Tauri) and multiple branches exist, users cannot tell which engine or branch an executable was compiled from. Self-identifying filenames eliminate ambiguity.
+- **Protected Code Anchors (Grep Targets):**
+  - `.github/workflows/build.yml` -> `discover-branches` and `Standardize Self-Identifying Binary Names`
 
 ### [TRAP: Centralized-Playback-State-Hub-And-Security-Boundaries] | Aliases: playbackStateHub, webSecurity, sandbox, remoteControl auth, validChannels
+
 > **1-Line Summary:** NEVER register duplicate `update-play-state` / `update-current-song` IPC listeners across modules, disable `webSecurity` or `sandbox`, or bind LAN remote control without token authentication.
-* **Strict Rule:** Route all main-process playback state updates through `playbackStateHub.ts`, keep `webSecurity: true` and `sandbox: true` in `window.ts` and `lyric.ts`, expose only typed `window.api` methods and allowlisted IPC channels in `preload/index.ts`, and default `remoteControl.ts` to `127.0.0.1` with pairing token verification (mirrored in `resources/html/remote-control.html`).
-* **Why This Trap Exists (Plain English):** Scattered `ipcMain.on('update-play-state')` listeners across `index.ts`, `window.ts`, and `remoteControl.ts` caused out-of-order state drift; `webSecurity: false` and `sandbox: false` weakened Chromium isolation; unrestricted `window.ipcRenderer` bypassed `validChannels`; and unauthenticated `0.0.0.0` binding exposed playback controls to any LAN device.
-* **Protected Code Anchors (Grep Targets):**
-  * `src/main/modules/playbackStateHub.ts` -> `initializePlaybackStateHub`, `dispatchPlayStateUpdate`, `dispatchCurrentSongUpdate`
-  * `src/main/modules/remoteControl.ts` -> `isRemoteRequestAuthorized`, `resolveRemoteBindHost`
-  * `resources/html/remote-control.html` -> `sendCommand`, `getAuthToken`
-  * `src/main/modules/window.ts` -> `createMainWindow`
-  * `src/main/lyric.ts` -> `createLyricWindow`
-  * `src/preload/index.ts` -> `VALID_INVOKE_CHANNELS`, `VALID_SEND_CHANNELS`, `VALID_SYNC_CHANNELS`
+
+- **Strict Rule:** Route all main-process playback state updates through `playbackStateHub.ts`, keep `webSecurity: true` and `sandbox: true` in `window.ts` and `lyric.ts`, expose only typed `window.api` methods and allowlisted IPC channels in `preload/index.ts`, and default `remoteControl.ts` to `127.0.0.1` with pairing token verification (mirrored in `resources/html/remote-control.html`).
+- **Why This Trap Exists (Plain English):** Scattered `ipcMain.on('update-play-state')` listeners across `index.ts`, `window.ts`, and `remoteControl.ts` caused out-of-order state drift; `webSecurity: false` and `sandbox: false` weakened Chromium isolation; unrestricted `window.ipcRenderer` bypassed `validChannels`; and unauthenticated `0.0.0.0` binding exposed playback controls to any LAN device.
+- **Protected Code Anchors (Grep Targets):**
+  - `src/main/modules/playbackStateHub.ts` -> `initializePlaybackStateHub`, `dispatchPlayStateUpdate`, `dispatchCurrentSongUpdate`
+  - `src/main/modules/remoteControl.ts` -> `isRemoteRequestAuthorized`, `resolveRemoteBindHost`
+  - `resources/html/remote-control.html` -> `sendCommand`, `getAuthToken`
+  - `src/main/modules/window.ts` -> `createMainWindow`
+  - `src/main/lyric.ts` -> `createLyricWindow`
+  - `src/preload/index.ts` -> `VALID_INVOKE_CHANNELS`, `VALID_SEND_CHANNELS`, `VALID_SYNC_CHANNELS`
 
 ### [TRAP: Single-MediaElementSource-DSP-Graph] | Aliases: createMediaElementSource, weakmap, gapless standby, muted audio
+
 > **1-Line Summary:** NEVER call `AudioContext.createMediaElementSource()` twice on the same `HTMLAudioElement` or attach the gapless standby `Audio` element to `mediaCoordinator` or Web Audio.
-* **Strict Rule:** Always route DSP attachment through `audioDspGraph.attach()` (`WeakMap`-backed cache) and keep `audioService.standbyAudio` muted and detached from `mediaCoordinator` and `AudioContext`.
-* **Why This Trap Exists (Plain English):** Chromium throws `InvalidStateError` if `createMediaElementSource()` runs a second time on an already-captured `HTMLAudioElement`, and registering `standbyAudio` with `mediaCoordinator` would falsely steal playback exclusivity from the active song.
-* **Protected Code Anchors (Grep Targets):**
-  * `src/renderer/services/audioDspGraph.ts` -> `elementSourceCache`, `elementContextCache`, `AudioDspGraph.attach`
-  * `src/renderer/services/audioService.ts` -> `prepareGaplessNext`, `setupEQ`
+
+- **Strict Rule:** Always route DSP attachment through `audioDspGraph.attach()` (`WeakMap`-backed cache) and keep `audioService.standbyAudio` muted and detached from `mediaCoordinator` and `AudioContext`.
+- **Why This Trap Exists (Plain English):** Chromium throws `InvalidStateError` if `createMediaElementSource()` runs a second time on an already-captured `HTMLAudioElement`, and registering `standbyAudio` with `mediaCoordinator` would falsely steal playback exclusivity from the active song.
+- **Protected Code Anchors (Grep Targets):**
+  - `src/renderer/services/audioDspGraph.ts` -> `elementSourceCache`, `elementContextCache`, `AudioDspGraph.attach`
+  - `src/renderer/services/audioService.ts` -> `prepareGaplessNext`, `setupEQ`
 
 ### [TRAP: Artist-Split-Allowlist-And-Memoized-Row-Counts] | Aliases: parseMultiArtists, localTrackRow, listeningStats, smart playlist
+
 > **1-Line Summary:** Mask allowlisted artist names before splitting featured artists, keep `&` splitting inside `parseMultiGenres` if expected by callers, and never read/parse full `listeningStats` inside per-row child computeds.
-* **Strict Rule:** Run `DEFAULT_ARTIST_EXCEPTIONS` + `getArtistSplitExceptions()` token masking in `parseMultiArtists()` prior to regex splitting, and compute track play counts once in the parent view (`trackPlayCounts`) passing `:play-count` as a prop to `LocalTrackRow`.
-* **Why This Trap Exists (Plain English):** Naive delimiter splitting turns artists like `Tyler, The Creator` or `Earth, Wind & Fire` into broken fragments, while calling `getListeningStatsSummary()` inside every `LocalTrackRow` repeats full `localStorage` JSON parsing across hundreds of rows on every render.
-* **Protected Code Anchors (Grep Targets):**
-  * `src/renderer/utils/localMusicUtils.ts` -> `DEFAULT_ARTIST_EXCEPTIONS`, `parseMultiArtists`
-  * `src/renderer/views/local-music/index.vue` -> `refreshPlayCounts`, `getTrackPlayCount`
-  * `src/renderer/views/local-music/LocalTrackRow.vue` -> `playCountValue`
+
+- **Strict Rule:** Run `DEFAULT_ARTIST_EXCEPTIONS` + `getArtistSplitExceptions()` token masking in `parseMultiArtists()` prior to regex splitting, and compute track play counts once in the parent view (`trackPlayCounts`) passing `:play-count` as a prop to `LocalTrackRow`.
+- **Why This Trap Exists (Plain English):** Naive delimiter splitting turns artists like `Tyler, The Creator` or `Earth, Wind & Fire` into broken fragments, while calling `getListeningStatsSummary()` inside every `LocalTrackRow` repeats full `localStorage` JSON parsing across hundreds of rows on every render.
+- **Protected Code Anchors (Grep Targets):**
+  - `src/renderer/utils/localMusicUtils.ts` -> `DEFAULT_ARTIST_EXCEPTIONS`, `parseMultiArtists`
+  - `src/renderer/views/local-music/index.vue` -> `refreshPlayCounts`, `getTrackPlayCount`
+  - `src/renderer/views/local-music/LocalTrackRow.vue` -> `playCountValue`
+
+### [TRAP: Native-Dialog-Command-Palette-And-Listen-Threshold] | Aliases: command palette, dialog, closedby, focus trap, scrobble threshold
+
+> **1-Line Summary:** Keep `CommandPalette.vue` on native `<dialog closedby="any">` without manual ARIA/Esc/focus-trap overrides, and always reset `currentTrackListenedSec` / `currentTrackScrobbled` on track load and stop.
+
+- **Strict Rule:** **NEVER** add `role="dialog"`, `aria-modal`, custom `Esc` handlers, `inert` toggling, or manual focus traps to `CommandPalette.vue`; scope `display: flex` strictly to `.namida-command-dialog[open]` and keep `overscroll-behavior: contain` on `:modal` and `::backdrop`. In `audioService.ts`, always reset `currentTrackListenedSec` and `currentTrackScrobbled` on track load/stop so threshold scrobbling never double-counts or carries over across tracks.
+- **Why This Trap Exists (Plain English):** Setting `display: flex` directly on `<dialog>` breaks native closed hiding, manual focus traps/Esc listeners conflict with Chromium top-layer modal semantics, and failing to reset scrobble accumulators causes skipped tracks to inherit listen time from the prior song.
+- **Protected Code Anchors (Grep Targets):**
+  - `src/renderer/components/namida/CommandPalette.vue` -> `.namida-command-dialog[open]`, `onDialogClick`
+  - `src/renderer/services/audioService.ts` -> `handleListeningStatsTick`, `currentTrackListenedSec`, `currentTrackScrobbled`

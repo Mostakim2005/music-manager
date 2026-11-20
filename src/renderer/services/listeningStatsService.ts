@@ -35,7 +35,18 @@ export interface ListeningStatsData {
   recentScrobbles: ScrobbleLogEntry[];
 }
 
+export interface ListenThresholdConfig {
+  minSeconds: number;
+  minPercent: number;
+}
+
+export const DEFAULT_LISTEN_THRESHOLD: ListenThresholdConfig = {
+  minSeconds: 30,
+  minPercent: 50
+};
+
 const STORAGE_KEY = 'music_manager_listening_stats_v1';
+const THRESHOLD_STORAGE_KEY = 'music_manager_listen_threshold_v1';
 
 let memoryStorage: Record<string, string> = {};
 
@@ -331,6 +342,141 @@ export function importListeningStatsRaw(data: Partial<ListeningStatsData>): void
       : current.recentScrobbles
   };
   saveStats(next);
+}
+
+/**
+ * Read listen-threshold configuration for scrobbling.
+ */
+export function getListenThresholdConfig(): ListenThresholdConfig {
+  try {
+    const raw = getStorageItem(THRESHOLD_STORAGE_KEY);
+    if (!raw) return { ...DEFAULT_LISTEN_THRESHOLD };
+    const parsed = JSON.parse(raw);
+    const minSeconds = Number(parsed?.minSeconds);
+    const minPercent = Number(parsed?.minPercent);
+    return {
+      minSeconds:
+        Number.isFinite(minSeconds) && minSeconds >= 0
+          ? Math.min(600, Math.round(minSeconds))
+          : DEFAULT_LISTEN_THRESHOLD.minSeconds,
+      minPercent:
+        Number.isFinite(minPercent) && minPercent >= 0
+          ? Math.min(100, Math.round(minPercent))
+          : DEFAULT_LISTEN_THRESHOLD.minPercent
+    };
+  } catch {
+    return { ...DEFAULT_LISTEN_THRESHOLD };
+  }
+}
+
+/**
+ * Persist listen-threshold configuration for scrobbling.
+ */
+export function setListenThresholdConfig(
+  cfg: Partial<ListenThresholdConfig>
+): ListenThresholdConfig {
+  const current = getListenThresholdConfig();
+  const next: ListenThresholdConfig = {
+    minSeconds:
+      typeof cfg.minSeconds === 'number' && Number.isFinite(cfg.minSeconds)
+        ? Math.min(600, Math.max(0, Math.round(cfg.minSeconds)))
+        : current.minSeconds,
+    minPercent:
+      typeof cfg.minPercent === 'number' && Number.isFinite(cfg.minPercent)
+        ? Math.min(100, Math.max(0, Math.round(cfg.minPercent)))
+        : current.minPercent
+  };
+  setStorageItem(THRESHOLD_STORAGE_KEY, JSON.stringify(next));
+  return next;
+}
+
+/**
+ * Pure threshold check: determines whether accumulated listen time qualifies as a play/scrobble.
+ */
+export function shouldRecordPlayThreshold(
+  listenedSec: number,
+  trackDurationSec: number,
+  cfg?: ListenThresholdConfig
+): boolean {
+  if (!Number.isFinite(listenedSec) || listenedSec <= 0) return false;
+  const active = cfg || getListenThresholdConfig();
+  if (active.minSeconds <= 0 && active.minPercent <= 0) return true;
+  if (active.minSeconds > 0 && listenedSec >= active.minSeconds) {
+    return true;
+  }
+  if (
+    active.minPercent > 0 &&
+    Number.isFinite(trackDurationSec) &&
+    trackDurationSec > 0 &&
+    (listenedSec / trackDurationSec) * 100 >= active.minPercent
+  ) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Remove a single scrobble entry from Recent History by array index or playedAt ISO timestamp.
+ */
+export function removeScrobbleEntry(indexOrPlayedAt: number | string): boolean {
+  const data = loadStats();
+  let targetIndex = -1;
+  if (typeof indexOrPlayedAt === 'number') {
+    if (indexOrPlayedAt >= 0 && indexOrPlayedAt < data.recentScrobbles.length) {
+      targetIndex = indexOrPlayedAt;
+    }
+  } else if (typeof indexOrPlayedAt === 'string' && indexOrPlayedAt) {
+    targetIndex = data.recentScrobbles.findIndex((item) => item.playedAt === indexOrPlayedAt);
+  }
+  if (targetIndex < 0) return false;
+
+  data.recentScrobbles.splice(targetIndex, 1);
+  data.totalPlays = Math.max(0, data.totalPlays - 1);
+  saveStats(data);
+  return true;
+}
+
+/**
+ * Remove a track stat record (and its matching recent scrobbles) by track ID or track key.
+ */
+export function removeTrackStat(trackId: string | number): boolean {
+  const target = String(trackId ?? '');
+  if (!target) return false;
+
+  const data = loadStats();
+  let matchedKey: string | null = null;
+  if (Object.prototype.hasOwnProperty.call(data.tracks, target)) {
+    matchedKey = target;
+  } else {
+    for (const [key, entry] of Object.entries(data.tracks)) {
+      if (String(entry.id) === target) {
+        matchedKey = key;
+        break;
+      }
+    }
+  }
+  if (!matchedKey) return false;
+
+  const removed = data.tracks[matchedKey];
+  delete data.tracks[matchedKey];
+  data.totalPlays = Math.max(0, data.totalPlays - (removed.plays || 0));
+  data.totalListenSeconds = Math.max(0, data.totalListenSeconds - (removed.seconds || 0));
+
+  if (removed.artist && data.artists[removed.artist]) {
+    const artistEntry = data.artists[removed.artist];
+    artistEntry.plays = Math.max(0, artistEntry.plays - (removed.plays || 0));
+    artistEntry.seconds = Math.max(0, artistEntry.seconds - (removed.seconds || 0));
+    if (artistEntry.plays <= 0 && artistEntry.seconds <= 0) {
+      delete data.artists[removed.artist];
+    }
+  }
+
+  data.recentScrobbles = data.recentScrobbles.filter(
+    (entry) => String(entry.id) !== String(removed.id) || entry.name !== removed.name
+  );
+
+  saveStats(data);
+  return true;
 }
 
 /**

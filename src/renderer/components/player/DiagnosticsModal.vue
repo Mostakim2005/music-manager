@@ -57,6 +57,67 @@
         </div>
       </div>
 
+      <!-- Live Audio Signal Path Diagnostics Card -->
+      <div
+        class="mt-3 p-3.5 rounded-2xl bg-neutral-50 dark:bg-neutral-800/70 border border-neutral-200 dark:border-neutral-700 space-y-2"
+      >
+        <div class="flex items-center justify-between gap-2">
+          <div
+            class="text-xs font-semibold text-neutral-800 dark:text-neutral-200 flex items-center gap-1.5"
+          >
+            <i class="ri-sound-module-line text-emerald-500" />
+            Live Audio Signal Path
+          </div>
+          <n-button size="tiny" secondary @click="refreshSignalPath">
+            <i class="ri-refresh-line mr-1" /> Refresh
+          </n-button>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-1.5 text-[11px] font-mono">
+          <span class="px-2 py-0.5 rounded-lg bg-blue-500/15 text-blue-600 dark:text-blue-400">
+            Source: {{ signalPath.sourceKind || 'Idle' }}
+          </span>
+          <span class="text-neutral-400">&rarr;</span>
+          <span
+            class="px-2 py-0.5 rounded-lg bg-indigo-500/15 text-indigo-600 dark:text-indigo-400"
+          >
+            Codec: {{ signalPath.codecLabel || 'N/A' }}
+          </span>
+          <span class="text-neutral-400">&rarr;</span>
+          <span class="px-2 py-0.5 rounded-lg bg-amber-500/15 text-amber-700 dark:text-amber-400">
+            {{ signalPath.playbackRate.toFixed(2) }}x ({{
+              signalPath.preservesPitch ? 'Pitch Lock' : 'Varispeed'
+            }})
+          </span>
+          <span class="text-neutral-400">&rarr;</span>
+          <span
+            class="px-2 py-0.5 rounded-lg bg-purple-500/15 text-purple-600 dark:text-purple-400"
+          >
+            DSP:
+            {{
+              signalPath.eqEnabled ? (signalPath.isParametric ? 'AutoEQ' : '10-Band EQ') : 'Bypass'
+            }}
+            ({{ signalPath.activeBandsCount }}b) · Preamp {{ signalPath.preampDb >= 0 ? '+' : ''
+            }}{{ signalPath.preampDb.toFixed(1) }} dB ·
+            {{ signalPath.mono ? 'Mono' : 'Stereo' }}
+          </span>
+          <span class="text-neutral-400">&rarr;</span>
+          <span
+            class="px-2 py-0.5 rounded-lg bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+          >
+            {{ signalPath.sampleRate ? `${signalPath.sampleRate} Hz` : 'Context Idle' }} ({{
+              signalPath.contextState
+            }})
+          </span>
+          <span class="text-neutral-400">&rarr;</span>
+          <span
+            class="px-2 py-0.5 rounded-lg bg-neutral-200/80 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-200"
+          >
+            Output: {{ signalPath.outputDeviceId || 'default' }}
+          </span>
+        </div>
+      </div>
+
       <!-- Error List -->
       <div class="mt-4 flex-1 overflow-y-auto space-y-2 pr-1">
         <div v-if="reports.length === 0" class="py-12 text-center text-sm text-neutral-400">
@@ -99,6 +160,8 @@
 import { createDiscreteApi } from 'naive-ui';
 import { ref, watch } from 'vue';
 
+import type { AudioSignalPathInfo } from '@/services/audioDspGraph';
+import { audioService } from '@/services/audioService';
 import {
   clearDiagnosticsData,
   exportDiagnosticsReport,
@@ -117,6 +180,11 @@ const emit = defineEmits<{
 const { message } = createDiscreteApi(['message']);
 const diagnosticsUrl = ref('http://127.0.0.1:41820/api/diagnostics');
 const reports = ref<any[]>([]);
+const signalPath = ref<AudioSignalPathInfo>(audioService.getSignalPathInfo());
+
+function refreshSignalPath() {
+  signalPath.value = audioService.getSignalPathInfo();
+}
 
 async function loadReports() {
   const data = await getDiagnosticsData();
@@ -130,6 +198,7 @@ watch(
   () => props.show,
   (val) => {
     if (val) {
+      refreshSignalPath();
       void loadReports();
     }
   },
